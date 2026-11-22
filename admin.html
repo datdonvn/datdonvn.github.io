@@ -1,0 +1,2196 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản trị</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #F6F7F5;
+      --surface: #FFFFFF;
+      --surface-subtle: #EFF2EF;
+      --text: #1B2420;
+      --text-muted: #5B6660;
+      --border: #E3E7E4;
+      --accent: #1F7A5A;
+      --accent-hover: #186248;
+      --accent-soft: #E6F3EE;
+      --accent-text: #14533D;
+      --error: #B3261E;
+      --error-soft: #FCECEB;
+      --warn-bg: #FEF4E2;
+      --warn-text: #8A5300;
+      --warn-border: #F2D7A5;
+      --off-bg: #EFEFED;
+      --off-text: #525B56;
+      --off-border: #D5DBD7;
+      --plan-std-bg: #F0F2F1;
+      --plan-std-text: #3A4640;
+      --plan-pro-bg: #E7F0FB;
+      --plan-pro-text: #1D4F8A;
+      --plan-plus-bg: #F2EAFA;
+      --plan-plus-text: #5D2E8C;
+      --backdrop: rgba(20, 28, 24, 0.52);
+      --radius-md: 10px;
+      --radius-lg: 14px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111614;
+        --surface: #1A211E;
+        --surface-subtle: #232C28;
+        --text: #EDF2EF;
+        --text-muted: #9FAEA6;
+        --border: #2C3732;
+        --accent: #36A67D;
+        --accent-hover: #2C8E6A;
+        --accent-soft: #18362B;
+        --accent-text: #8AE0BE;
+        --error: #F28B82;
+        --error-soft: #3B1D1B;
+        --warn-bg: #362A14;
+        --warn-text: #F5C97B;
+        --warn-border: #59441E;
+        --off-bg: #262E2A;
+        --off-text: #B4C0B9;
+        --off-border: #3A4640;
+        --plan-std-bg: #252E2A;
+        --plan-std-text: #C8D2CC;
+        --plan-pro-bg: #1B2D44;
+        --plan-pro-text: #8EC0F6;
+        --plan-plus-bg: #2E2140;
+        --plan-plus-text: #CFA8F6;
+        --backdrop: rgba(0, 0, 0, 0.7);
+      }
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    button, input, select, textarea {
+      font: inherit;
+      color: inherit;
+    }
+
+    a {
+      color: var(--accent);
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Nút bấm và ô nhập */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 0 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: var(--surface-subtle);
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #FFFFFF;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .btn-danger {
+      background: var(--error);
+      border-color: var(--error);
+      color: #FFFFFF;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      opacity: 0.9;
+      background: var(--error);
+    }
+
+    .btn-ghost {
+      border-color: transparent;
+      background: transparent;
+      color: var(--text-muted);
+    }
+
+    .btn-ghost:hover:not(:disabled) {
+      background: var(--surface-subtle);
+      color: var(--text);
+    }
+
+    .btn-icon {
+      min-width: 44px;
+      padding: 0;
+    }
+
+    .btn-sm {
+      font-size: 13.5px;
+      padding: 0 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .field label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .field .req {
+      color: var(--error);
+      margin-left: 2px;
+    }
+
+    .input, .select, .textarea {
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 15px;
+      transition: border-color 0.15s ease;
+    }
+
+    .textarea {
+      min-height: 120px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .input:focus, .select:focus, .textarea:focus {
+      border-color: var(--accent);
+      outline: none;
+      box-shadow: 0 0 0 2px var(--accent-soft);
+    }
+
+    .input[aria-invalid="true"] {
+      border-color: var(--error);
+    }
+
+    .field-hint {
+      font-size: 13px;
+      color: var(--text-muted);
+      overflow-wrap: anywhere;
+    }
+
+    .field-error {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--error);
+    }
+
+    .alert-box {
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      margin-bottom: 16px;
+      border: 1px solid transparent;
+    }
+
+    .alert-error {
+      background: var(--error-soft);
+      color: var(--error);
+      border-color: var(--error);
+    }
+
+    .alert-success {
+      background: var(--accent-soft);
+      color: var(--accent-text);
+      border-color: var(--accent);
+    }
+
+    /* Màn hình đăng nhập & chặn quyền */
+    .center-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 16px;
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+    }
+
+    .auth-title {
+      margin: 0 0 6px;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .auth-desc {
+      margin: 0 0 22px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .auth-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .link-btn {
+      background: none;
+      border: none;
+      padding: 6px 0;
+      min-height: 44px;
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .link-btn:hover {
+      text-decoration: underline;
+    }
+
+    /* Bố cục chính */
+    .app-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 0;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .brand-title {
+      margin: 0;
+      font-size: 19px;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    .brand-email {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      overflow-wrap: anywhere;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .main-content {
+      padding: 20px 0 48px;
+    }
+
+    /* Ba ô chỉ số */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    @media (min-width: 640px) {
+      .kpi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+    }
+
+    .kpi-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--text);
+    }
+
+    /* Thanh tìm kiếm và lọc */
+    .toolbar {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .toolbar-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .search-wrap {
+      flex: 1 1 240px;
+      min-width: 0;
+    }
+
+    .filter-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-chip {
+      min-height: 44px;
+      padding: 0 14px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .filter-chip:hover {
+      background: var(--surface-subtle);
+      color: var(--text);
+    }
+
+    .filter-chip[aria-pressed="true"] {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent-text);
+    }
+
+    /* Lưới thẻ tiệm */
+    .shop-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    @media (min-width: 900px) {
+      .shop-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .shop-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .shop-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .shop-title-wrap {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .shop-name {
+      margin: 0 0 2px;
+      font-size: 17px;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .shop-slug {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      overflow-wrap: anywhere;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 600;
+      line-height: 1.3;
+      border: 1px solid transparent;
+    }
+
+    .badge-plan-standard {
+      background: var(--plan-std-bg);
+      color: var(--plan-std-text);
+      border-color: var(--border);
+    }
+
+    .badge-plan-pro {
+      background: var(--plan-pro-bg);
+      color: var(--plan-pro-text);
+    }
+
+    .badge-plan-proplus {
+      background: var(--plan-plus-bg);
+      color: var(--plan-plus-text);
+    }
+
+    .badge-status-active {
+      background: var(--accent-soft);
+      color: var(--accent-text);
+      border-color: var(--accent);
+    }
+
+    .badge-status-pending {
+      background: var(--warn-bg);
+      color: var(--warn-text);
+      border-color: var(--warn-border);
+    }
+
+    .badge-status-off {
+      background: var(--off-bg);
+      color: var(--off-text);
+      border-color: var(--off-border);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+
+    .shop-meta {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px;
+      font-size: 13.5px;
+      color: var(--text-muted);
+      padding: 12px;
+      background: var(--bg);
+      border-radius: var(--radius-md);
+    }
+
+    .meta-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .meta-val {
+      color: var(--text);
+      font-weight: 600;
+      overflow-wrap: anywhere;
+      text-align: right;
+    }
+
+    .shop-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 4px;
+      border-top: 1px solid var(--border);
+    }
+
+    .shop-btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* Công tắc bật/tắt tiệm */
+    .switch-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .switch-btn {
+      position: relative;
+      width: 48px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--off-border);
+      padding: 0;
+      cursor: pointer;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .switch-btn[aria-checked="true"] {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .switch-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .switch-knob {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #FFFFFF;
+      transition: transform 0.15s ease;
+    }
+
+    .switch-btn[aria-checked="true"] .switch-knob {
+      transform: translateX(20px);
+    }
+
+    .switch-label {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* Trạng thái trống & đang tải */
+    .empty-state {
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-lg);
+      padding: 36px 20px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .empty-state p {
+      margin: 0 0 14px;
+      font-size: 15px;
+    }
+
+    /* Hộp thoại (Modal) */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: var(--backdrop);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 50;
+      overflow-y: auto;
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 520px;
+      max-height: calc(100vh - 32px);
+      overflow-y: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 22px 20px;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 19px;
+      font-weight: 700;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .url-preview {
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      color: var(--text-muted);
+      overflow-wrap: anywhere;
+      margin-bottom: 16px;
+    }
+
+    .url-preview strong {
+      color: var(--text);
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .copy-box {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px 10px;
+      margin-bottom: 12px;
+    }
+
+    .copy-box-text {
+      flex: 1;
+      min-width: 0;
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .plan-options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .plan-option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 48px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+    }
+
+    .plan-option input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 20px 0;
+    }
+
+    /* Thông báo nổi */
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: var(--bg);
+      padding: 12px 18px;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 80;
+      max-width: calc(100vw - 32px);
+      text-align: center;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Màn đang tải ban đầu -->
+  <section id="view-loading" class="center-screen" aria-live="polite">
+    <div class="auth-card" style="text-align: center;">
+      <p id="loading-text" style="margin: 0; color: var(--text-muted);">Đang kiểm tra phiên đăng nhập…</p>
+    </div>
+  </section>
+
+  <!-- Màn đăng nhập / Quên mật khẩu / Đặt mật khẩu mới -->
+  <main id="view-auth" class="center-screen hidden">
+    <div class="auth-card">
+      <!-- Form đăng nhập -->
+      <div id="panel-login">
+        <h1 class="auth-title">Đăng nhập quản trị</h1>
+        <p class="auth-desc">Dành riêng cho chủ hệ thống quản lý danh sách tiệm.</p>
+        <div id="login-error" class="alert-box alert-error hidden" role="alert"></div>
+        <form id="form-login" novalidate>
+          <div class="field">
+            <label for="login-email">Email<span class="req" aria-hidden="true">*</span></label>
+            <input id="login-email" class="input" type="email" autocomplete="username" required placeholder="ban@domain.com">
+          </div>
+          <div class="field">
+            <label for="login-password">Mật khẩu<span class="req" aria-hidden="true">*</span></label>
+            <input id="login-password" class="input" type="password" autocomplete="current-password" required>
+          </div>
+          <div class="auth-actions">
+            <button id="btn-login-submit" class="btn btn-primary" type="submit">Đăng nhập</button>
+            <button id="btn-show-forgot" class="link-btn" type="button">Quên mật khẩu?</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Form quên mật khẩu -->
+      <div id="panel-forgot" class="hidden">
+        <h1 class="auth-title">Quên mật khẩu</h1>
+        <p class="auth-desc">Nhập email quản trị của bạn để nhận đường dẫn đặt lại mật khẩu.</p>
+        <div id="forgot-error" class="alert-box alert-error hidden" role="alert"></div>
+        <div id="forgot-success" class="alert-box alert-success hidden" role="status"></div>
+        <form id="form-forgot" novalidate>
+          <div class="field">
+            <label for="forgot-email">Email<span class="req" aria-hidden="true">*</span></label>
+            <input id="forgot-email" class="input" type="email" autocomplete="email" required placeholder="ban@domain.com">
+          </div>
+          <div class="auth-actions">
+            <button id="btn-forgot-submit" class="btn btn-primary" type="submit">Gửi link đặt lại mật khẩu</button>
+            <button id="btn-back-login" class="link-btn" type="button">Quay lại đăng nhập</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Form đặt mật khẩu mới (PASSWORD_RECOVERY) -->
+      <div id="panel-recovery" class="hidden">
+        <h1 class="auth-title">Đặt mật khẩu mới</h1>
+        <p class="auth-desc">Nhập mật khẩu mới cho tài khoản của bạn (tối thiểu 6 ký tự).</p>
+        <div id="recovery-error" class="alert-box alert-error hidden" role="alert"></div>
+        <div id="recovery-success" class="alert-box alert-success hidden" role="status"></div>
+        <form id="form-recovery" novalidate>
+          <div class="field">
+            <label for="recovery-password">Mật khẩu mới<span class="req" aria-hidden="true">*</span></label>
+            <input id="recovery-password" class="input" type="password" autocomplete="new-password" minlength="6" required>
+          </div>
+          <div class="field">
+            <label for="recovery-password-confirm">Nhập lại mật khẩu mới<span class="req" aria-hidden="true">*</span></label>
+            <input id="recovery-password-confirm" class="input" type="password" autocomplete="new-password" minlength="6" required>
+          </div>
+          <div class="auth-actions">
+            <button id="btn-recovery-submit" class="btn btn-primary" type="submit">Lưu mật khẩu mới</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <!-- Màn không có quyền quản trị -->
+  <main id="view-forbidden" class="center-screen hidden">
+    <div class="auth-card">
+      <h1 class="auth-title">Không có quyền truy cập</h1>
+      <p id="forbidden-message" class="auth-desc">Tài khoản này không có quyền quản trị</p>
+      <div class="auth-actions">
+        <button id="btn-forbidden-retry" class="btn hidden" type="button">Thử lại</button>
+        <button id="btn-forbidden-logout" class="btn btn-primary" type="button">Đăng xuất</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Màn tổng quan chính -->
+  <div id="view-app" class="hidden">
+    <header class="app-header">
+      <div class="container header-inner">
+        <div class="brand">
+          <h1 class="brand-title">Quản trị hệ thống</h1>
+          <span id="admin-email-label" class="brand-email"></span>
+        </div>
+        <div class="header-actions">
+          <button id="btn-open-create" class="btn btn-primary" type="button">Tạo tiệm mới</button>
+          <button id="btn-refresh" class="btn" type="button">Làm mới</button>
+          <button id="btn-open-settings" class="btn" type="button">Cài đặt</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container main-content">
+      <!-- Ba ô chỉ số -->
+      <section class="kpi-grid" aria-label="Thống kê nhanh">
+        <div class="kpi-card">
+          <div class="kpi-label">Số tiệm đang hoạt động</div>
+          <div id="kpi-active" class="kpi-value">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Chờ chủ tiệm đăng ký</div>
+          <div id="kpi-pending" class="kpi-value">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Tổng số đơn 30 ngày qua</div>
+          <div id="kpi-orders" class="kpi-value">0</div>
+        </div>
+      </section>
+
+      <!-- Thanh tìm kiếm và lọc nhanh -->
+      <section class="toolbar" aria-label="Tìm kiếm và lọc tiệm">
+        <div class="toolbar-row">
+          <div class="search-wrap">
+            <label for="search-input" class="sr-only">Tìm theo tên tiệm, đường dẫn hoặc email chủ tiệm</label>
+            <input id="search-input" class="input" type="search" placeholder="Tìm theo tên tiệm, đường dẫn hoặc email chủ tiệm…">
+          </div>
+        </div>
+        <div id="filter-group" class="filter-group" role="group" aria-label="Lọc theo trạng thái">
+          <button class="filter-chip" type="button" data-filter="all" aria-pressed="true">Tất cả</button>
+          <button class="filter-chip" type="button" data-filter="active" aria-pressed="false">Đang hoạt động</button>
+          <button class="filter-chip" type="button" data-filter="off" aria-pressed="false">Đang tắt</button>
+          <button class="filter-chip" type="button" data-filter="pending" aria-pressed="false">Chờ đăng ký</button>
+        </div>
+      </section>
+
+      <!-- Lỗi tải danh sách -->
+      <div id="overview-error" class="alert-box alert-error hidden" role="alert"></div>
+
+      <!-- Danh sách tiệm -->
+      <section id="shop-list" class="shop-grid" aria-label="Danh sách tiệm"></section>
+
+      <!-- Trạng thái trống -->
+      <div id="empty-state" class="empty-state hidden">
+        <p id="empty-state-text"></p>
+        <button id="btn-empty-action" class="btn btn-primary hidden" type="button"></button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Hộp thoại: Tạo tiệm mới -->
+  <div id="modal-create" class="modal-backdrop hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-create-title">
+      <div class="modal-header">
+        <h2 id="modal-create-title" class="modal-title">Tạo tiệm mới</h2>
+        <button class="btn btn-ghost btn-icon" type="button" data-close-modal="modal-create" aria-label="Đóng hộp thoại">✕</button>
+      </div>
+
+      <!-- Bước 1: Nhập thông tin tiệm -->
+      <form id="form-create-shop" novalidate>
+        <div id="create-error" class="alert-box alert-error hidden" role="alert"></div>
+
+        <div class="field">
+          <label for="create-name">Tên tiệm<span class="req" aria-hidden="true">*</span></label>
+          <input id="create-name" class="input" type="text" maxlength="80" required placeholder="Ví dụ: Tiệm Sâm Lan Đỏ">
+          <div id="err-create-name" class="field-error hidden"></div>
+        </div>
+
+        <div class="field">
+          <label for="create-slug">Đường dẫn (slug)<span class="req" aria-hidden="true">*</span></label>
+          <input id="create-slug" class="input" type="text" maxlength="40" required placeholder="tiem-sam-lan-do" autocomplete="off">
+          <div class="field-hint">2–40 ký tự: chữ thường không dấu, số và dấu gạch ngang giữa các từ.</div>
+          <div id="err-create-slug" class="field-error hidden"></div>
+        </div>
+
+        <div class="url-preview">
+          <strong>Link khách sẽ truy cập:</strong>
+          <span id="create-url-preview"></span>
+        </div>
+
+        <div class="field">
+          <label for="create-plan">Gói dịch vụ<span class="req" aria-hidden="true">*</span></label>
+          <select id="create-plan" class="select">
+            <option value="standard" selected>Standard</option>
+            <option value="pro">Pro</option>
+            <option value="proplus">Pro plus</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="create-email">Email chủ tiệm<span class="req" aria-hidden="true">*</span></label>
+          <input id="create-email" class="input" type="email" required placeholder="chutiem@gmail.com">
+          <div id="err-create-email" class="field-error hidden"></div>
+        </div>
+
+        <div class="field">
+          <label for="create-phone">Số điện thoại (không bắt buộc)</label>
+          <input id="create-phone" class="input" type="tel" placeholder="0901234567">
+        </div>
+
+        <div class="field">
+          <label for="create-address">Địa chỉ (không bắt buộc)</label>
+          <input id="create-address" class="input" type="text" maxlength="300" placeholder="Số nhà, đường, quận/huyện">
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn" type="button" data-close-modal="modal-create">Hủy</button>
+          <button id="btn-create-submit" class="btn btn-primary" type="submit">Tạo tiệm</button>
+        </div>
+      </form>
+
+      <!-- Bước 2: Kết quả sau khi tạo -->
+      <div id="create-result" class="hidden">
+        <div class="alert-box alert-success" role="status">Đã tạo tiệm thành công.</div>
+
+        <div class="field">
+          <label>Link đặt hàng cho khách</label>
+          <div class="copy-box">
+            <span id="result-customer-url" class="copy-box-text"></span>
+            <button id="btn-copy-result-customer" class="btn btn-sm" type="button">Sao chép</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Link quản lý cho chủ tiệm</label>
+          <div class="copy-box">
+            <span id="result-owner-url" class="copy-box-text"></span>
+            <button id="btn-copy-result-owner" class="btn btn-sm" type="button">Sao chép</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="result-zalo-msg">Tin nhắn mẫu gửi chủ tiệm qua Zalo</label>
+          <textarea id="result-zalo-msg" class="textarea" readonly></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button id="btn-copy-zalo" class="btn btn-primary" type="button">Sao chép tin nhắn</button>
+          <button class="btn" type="button" data-close-modal="modal-create">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hộp thoại: Đổi gói dịch vụ -->
+  <div id="modal-plan" class="modal-backdrop hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-plan-title">
+      <div class="modal-header">
+        <h2 id="modal-plan-title" class="modal-title">Đổi gói dịch vụ</h2>
+        <button class="btn btn-ghost btn-icon" type="button" data-close-modal="modal-plan" aria-label="Đóng hộp thoại">✕</button>
+      </div>
+      <p id="plan-shop-name" style="margin: 0 0 14px; color: var(--text-muted); font-size: 14px;"></p>
+      <div id="plan-error" class="alert-box alert-error hidden" role="alert"></div>
+      <form id="form-change-plan">
+        <div class="plan-options" role="radiogroup" aria-label="Chọn gói dịch vụ">
+          <label class="plan-option">
+            <input type="radio" name="shop-plan" value="standard">
+            <span><strong>Standard</strong></span>
+          </label>
+          <label class="plan-option">
+            <input type="radio" name="shop-plan" value="pro">
+            <span><strong>Pro</strong></span>
+          </label>
+          <label class="plan-option">
+            <input type="radio" name="shop-plan" value="proplus">
+            <span><strong>Pro plus</strong></span>
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button class="btn" type="button" data-close-modal="modal-plan">Hủy</button>
+          <button id="btn-plan-submit" class="btn btn-primary" type="submit">Lưu gói mới</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Hộp thoại: Xác nhận tắt tiệm -->
+  <div id="modal-confirm-off" class="modal-backdrop hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-confirm-off-title">
+      <div class="modal-header">
+        <h2 id="modal-confirm-off-title" class="modal-title">Xác nhận tắt tiệm</h2>
+        <button class="btn btn-ghost btn-icon" type="button" data-close-modal="modal-confirm-off" aria-label="Đóng hộp thoại">✕</button>
+      </div>
+      <p id="confirm-off-desc" style="margin: 0 0 12px;"></p>
+      <div id="confirm-off-error" class="alert-box alert-error hidden" role="alert"></div>
+      <div class="modal-footer">
+        <button class="btn" type="button" data-close-modal="modal-confirm-off">Hủy</button>
+        <button id="btn-confirm-off-submit" class="btn btn-danger" type="button">Tắt tiệm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hộp thoại: Cài đặt tài khoản -->
+  <div id="modal-settings" class="modal-backdrop hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title">
+      <div class="modal-header">
+        <h2 id="modal-settings-title" class="modal-title">Cài đặt tài khoản</h2>
+        <button class="btn btn-ghost btn-icon" type="button" data-close-modal="modal-settings" aria-label="Đóng hộp thoại">✕</button>
+      </div>
+
+      <p style="margin: 0 0 16px; font-size: 14px; color: var(--text-muted);">
+        Đang đăng nhập với tài khoản: <strong id="settings-email" style="color: var(--text);"></strong>
+      </p>
+
+      <h3 style="margin: 0 0 12px; font-size: 15px;">Đổi mật khẩu</h3>
+      <div id="pwd-error" class="alert-box alert-error hidden" role="alert"></div>
+      <div id="pwd-success" class="alert-box alert-success hidden" role="status"></div>
+
+      <form id="form-change-pwd" novalidate>
+        <div class="field">
+          <label for="new-pwd">Mật khẩu mới<span class="req" aria-hidden="true">*</span></label>
+          <input id="new-pwd" class="input" type="password" autocomplete="new-password" minlength="6" required>
+        </div>
+        <div class="field">
+          <label for="new-pwd-confirm">Nhập lại mật khẩu mới<span class="req" aria-hidden="true">*</span></label>
+          <input id="new-pwd-confirm" class="input" type="password" autocomplete="new-password" minlength="6" required>
+        </div>
+        <button id="btn-pwd-submit" class="btn btn-primary" type="submit">Cập nhật mật khẩu</button>
+      </form>
+
+      <div class="divider"></div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <span style="font-size: 14px; color: var(--text-muted);">Thoát khỏi phiên quản trị trên thiết bị này.</span>
+        <button id="btn-settings-logout" class="btn btn-danger" type="button">Đăng xuất</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Thông báo nhanh -->
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      // Khởi tạo Supabase theo hợp đồng mục 3.1
+      if (!window.DATDON || !window.DATDON.SUPABASE_URL || !window.DATDON.SUPABASE_KEY || !window.supabase) {
+        const loadingText = document.getElementById('loading-text');
+        if (loadingText) {
+          loadingText.textContent = 'Không thể tải cấu hình hệ thống (config.js). Hãy kiểm tra lại tệp cấu hình và tải lại trang.';
+        }
+        return;
+      }
+
+      const sb = supabase.createClient(window.DATDON.SUPABASE_URL, window.DATDON.SUPABASE_KEY);
+
+      const EMPTY_UPDATE_MSG = 'Không có quyền hoặc dữ liệu đã thay đổi, hãy làm mới trang';
+
+      // Trạng thái ứng dụng
+      const state = {
+        user: null,
+        isRecovery: false,
+        shops: [],
+        filter: 'all',
+        search: '',
+        loadingOverview: false,
+        slugEdited: false,
+        planTarget: null,
+        toggleTarget: null,
+        activeModal: null,
+        lastFocus: null,
+        toastTimer: null
+      };
+
+      const PLAN_LABELS = {
+        standard: 'Standard',
+        pro: 'Pro',
+        proplus: 'Pro plus'
+      };
+
+      // Tiện ích DOM
+      const $ = (id) => document.getElementById(id);
+
+      function showView(viewId) {
+        ['view-loading', 'view-auth', 'view-forbidden', 'view-app'].forEach((id) => {
+          $(id).classList.toggle('hidden', id !== viewId);
+        });
+      }
+
+      function showAuthPanel(panelId) {
+        ['panel-login', 'panel-forgot', 'panel-recovery'].forEach((id) => {
+          $(id).classList.toggle('hidden', id !== panelId);
+        });
+      }
+
+      function setBoxMessage(el, msg) {
+        if (!msg) {
+          el.textContent = '';
+          el.classList.add('hidden');
+        } else {
+          el.textContent = msg;
+          el.classList.remove('hidden');
+        }
+      }
+
+      function showToast(msg) {
+        const toast = $('toast');
+        toast.textContent = msg;
+        toast.classList.remove('hidden');
+        clearTimeout(state.toastTimer);
+        state.toastTimer = setTimeout(() => {
+          toast.classList.add('hidden');
+        }, 2600);
+      }
+
+      // Định dạng tiền (19.000đ) và ngày (22/11/2026)
+      function formatMoney(amount) {
+        const n = Math.round(Number(amount) || 0);
+        return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') + 'đ';
+      }
+
+      function formatDate(isoStr) {
+        if (!isoStr) return '—';
+        const d = new Date(isoStr);
+        if (Number.isNaN(d.getTime())) return '—';
+        try {
+          const parts = new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          }).formatToParts(d);
+          const day = (parts.find((p) => p.type === 'day') || {}).value || '';
+          const month = (parts.find((p) => p.type === 'month') || {}).value || '';
+          const year = (parts.find((p) => p.type === 'year') || {}).value || '';
+          if (day && month && year) return day + '/' + month + '/' + year;
+        } catch (e) {
+          // Dự phòng khi trình duyệt không hỗ trợ formatToParts
+        }
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        return dd + '/' + mm + '/' + d.getFullYear();
+      }
+
+      // Tạo đường dẫn cùng thư mục (index.html?shop=... hoặc quan-ly.html)
+      function buildSiblingUrl(relativeTarget) {
+        try {
+          return new URL(relativeTarget, window.location.href).href;
+        } catch (e) {
+          const base = window.location.href.split(/[?#]/)[0].replace(/[^/]*$/, '');
+          return base + relativeTarget;
+        }
+      }
+
+      function getCustomerUrl(slug) {
+        return buildSiblingUrl('index.html?shop=' + encodeURIComponent(slug || ''));
+      }
+
+      function getOwnerUrl() {
+        return buildSiblingUrl('quan-ly.html');
+      }
+
+      // Chuyển tên tiệm tiếng Việt thành slug
+      function slugify(text) {
+        return String(text || '')
+          .replace(/[đĐ]/g, 'd')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 40)
+          .replace(/-+$/g, '');
+      }
+
+      function isValidSlug(slug) {
+        return slug.length >= 2 && slug.length <= 40 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
+      }
+
+      function isValidEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      }
+
+      // Dịch lỗi đăng nhập sang tiếng Việt theo hợp đồng mục 3.2
+      function mapAuthError(err) {
+        const msg = (err && err.message) ? String(err.message) : '';
+        const lower = msg.toLowerCase();
+        if (lower.includes('invalid login credentials')) return 'Email hoặc mật khẩu không đúng';
+        if (lower.includes('email not confirmed')) return 'Bạn chưa xác nhận email. Hãy mở email và bấm vào link xác nhận';
+        if (lower.includes('user already registered')) return 'Email này đã đăng ký';
+        if (lower.includes('rate limit')) return 'Hệ thống gửi email đang quá tải, hãy thử lại sau ít phút';
+        if (lower.includes('at least 6')) return 'Mật khẩu tối thiểu 6 ký tự';
+        if (lower.includes('different from the old password')) return 'Mật khẩu mới phải khác mật khẩu hiện tại';
+        return 'Có lỗi xảy ra, vui lòng thử lại';
+      }
+
+      function isDuplicateSlugError(err) {
+        const msg = ((err && err.message) || '').toLowerCase();
+        const details = ((err && err.details) || '').toLowerCase();
+        return (err && err.code === '23505') || msg.includes('duplicate key') || details.includes('duplicate key');
+      }
+
+      async function copyText(text, successMsg) {
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+          }
+          showToast(successMsg || 'Đã sao chép');
+          return true;
+        } catch (e) {
+          showToast('Không thể tự động sao chép, bạn hãy chọn và sao chép thủ công');
+          return false;
+        }
+      }
+
+      // Quản lý hộp thoại (Esc, trả focus, khóa nền)
+      function openModal(modalId, triggerEl) {
+        state.lastFocus = triggerEl || document.activeElement;
+        state.activeModal = modalId;
+        const backdrop = $(modalId);
+        backdrop.classList.remove('hidden');
+        const firstFocusable = backdrop.querySelector('input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled)');
+        if (firstFocusable) firstFocusable.focus();
+      }
+
+      function closeModal(modalId) {
+        const id = modalId || state.activeModal;
+        if (!id) return;
+        $(id).classList.add('hidden');
+        if (state.activeModal === id) state.activeModal = null;
+        if (state.lastFocus && typeof state.lastFocus.focus === 'function') {
+          state.lastFocus.focus();
+        }
+        state.lastFocus = null;
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && state.activeModal) {
+          closeModal(state.activeModal);
+        }
+      });
+
+      document.querySelectorAll('[data-close-modal]').forEach((btn) => {
+        btn.addEventListener('click', () => closeModal(btn.getAttribute('data-close-modal')));
+      });
+
+      document.querySelectorAll('.modal-backdrop').forEach((backdrop) => {
+        backdrop.addEventListener('click', (e) => {
+          if (e.target === backdrop) closeModal(backdrop.id);
+        });
+      });
+
+      // Xử lý phiên đăng nhập và kiểm tra quyền admin
+      async function verifyAdminAndLoad(session) {
+        if (state.isRecovery) {
+          showView('view-auth');
+          showAuthPanel('panel-recovery');
+          return;
+        }
+
+        if (!session || !session.user) {
+          state.user = null;
+          state.shops = [];
+          showView('view-auth');
+          showAuthPanel('panel-login');
+          return;
+        }
+
+        state.user = session.user;
+        $('loading-text').textContent = 'Đang kiểm tra quyền quản trị…';
+        showView('view-loading');
+
+        try {
+          const { data, error } = await sb.rpc('is_admin');
+          if (error) throw error;
+
+          if (data !== true) {
+            $('forbidden-message').textContent = 'Tài khoản này không có quyền quản trị';
+            $('btn-forbidden-retry').classList.add('hidden');
+            showView('view-forbidden');
+            return;
+          }
+
+          $('admin-email-label').textContent = state.user.email || '';
+          $('settings-email').textContent = state.user.email || '';
+          showView('view-app');
+          await loadOverview();
+        } catch (err) {
+          $('forbidden-message').textContent = 'Không kiểm tra được quyền quản trị do lỗi kết nối. Bạn hãy thử lại.';
+          $('btn-forbidden-retry').classList.remove('hidden');
+          showView('view-forbidden');
+        }
+      }
+
+      // Tải danh sách tiệm từ admin_overview
+      async function loadOverview() {
+        if (state.loadingOverview) return;
+        state.loadingOverview = true;
+        const refreshBtn = $('btn-refresh');
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = 'Đang tải…';
+        setBoxMessage($('overview-error'), '');
+
+        try {
+          const { data, error } = await sb.rpc('admin_overview');
+          if (error) throw error;
+
+          const list = Array.isArray(data) ? data.slice() : [];
+          list.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+          state.shops = list;
+          renderDashboard();
+        } catch (err) {
+          setBoxMessage($('overview-error'), 'Không tải được danh sách tiệm. Bạn hãy bấm "Làm mới" để thử lại.');
+        } finally {
+          state.loadingOverview = false;
+          refreshBtn.disabled = false;
+          refreshBtn.textContent = 'Làm mới';
+        }
+      }
+
+      function getShopStatus(shop) {
+        if (!shop.active) {
+          return { key: 'off', label: 'Đang tắt', cls: 'badge-status-off' };
+        }
+        if (!shop.has_owner) {
+          return { key: 'pending', label: 'Chờ chủ tiệm đăng ký', cls: 'badge-status-pending' };
+        }
+        return { key: 'active', label: 'Đang hoạt động', cls: 'badge-status-active' };
+      }
+
+      function renderDashboard() {
+        const shops = state.shops;
+
+        // Tính 3 ô số
+        const activeCount = shops.filter((s) => s.active === true).length;
+        const pendingCount = shops.filter((s) => s.has_owner === false).length;
+        const orders30dTotal = shops.reduce((sum, s) => sum + (Number(s.orders_30d) || 0), 0);
+
+        $('kpi-active').textContent = String(activeCount);
+        $('kpi-pending').textContent = String(pendingCount);
+        $('kpi-orders').textContent = String(orders30dTotal);
+
+        // Lọc theo từ khóa và bộ lọc nhanh
+        const q = state.search.trim().toLowerCase();
+        const filtered = shops.filter((shop) => {
+          if (state.filter === 'active' && !shop.active) return false;
+          if (state.filter === 'off' && shop.active) return false;
+          if (state.filter === 'pending' && shop.has_owner) return false;
+
+          if (!q) return true;
+          const name = String(shop.name || '').toLowerCase();
+          const slug = String(shop.slug || '').toLowerCase();
+          const email = String(shop.owner_email || '').toLowerCase();
+          return name.includes(q) || slug.includes(q) || email.includes(q);
+        });
+
+        const grid = $('shop-list');
+        const emptyBox = $('empty-state');
+        const emptyText = $('empty-state-text');
+        const emptyBtn = $('btn-empty-action');
+
+        grid.replaceChildren();
+
+        if (shops.length === 0) {
+          emptyText.textContent = "Chưa có tiệm nào. Bấm 'Tạo tiệm mới' để bắt đầu.";
+          emptyBtn.textContent = 'Tạo tiệm mới';
+          emptyBtn.classList.remove('hidden');
+          emptyBtn.onclick = () => openCreateDialog(emptyBtn);
+          emptyBox.classList.remove('hidden');
+          return;
+        }
+
+        if (filtered.length === 0) {
+          emptyText.textContent = 'Không tìm thấy tiệm nào phù hợp với từ khóa hoặc bộ lọc hiện tại.';
+          emptyBtn.textContent = 'Xóa bộ lọc';
+          emptyBtn.classList.remove('hidden');
+          emptyBtn.onclick = () => {
+            state.search = '';
+            state.filter = 'all';
+            $('search-input').value = '';
+            updateFilterButtons();
+            renderDashboard();
+          };
+          emptyBox.classList.remove('hidden');
+          return;
+        }
+
+        emptyBox.classList.add('hidden');
+        const frag = document.createDocumentFragment();
+        filtered.forEach((shop) => {
+          frag.appendChild(createShopCard(shop));
+        });
+        grid.appendChild(frag);
+      }
+
+      function createMetaLine(label, value) {
+        const row = document.createElement('div');
+        row.className = 'meta-line';
+
+        const k = document.createElement('span');
+        k.textContent = label;
+
+        const v = document.createElement('span');
+        v.className = 'meta-val';
+        v.textContent = value;
+
+        row.appendChild(k);
+        row.appendChild(v);
+        return row;
+      }
+
+      function createShopCard(shop) {
+        const card = document.createElement('article');
+        card.className = 'shop-card';
+
+        // Phần đầu: tên, slug và nhãn gói
+        const head = document.createElement('div');
+        head.className = 'shop-head';
+
+        const titleWrap = document.createElement('div');
+        titleWrap.className = 'shop-title-wrap';
+
+        const nameEl = document.createElement('h2');
+        nameEl.className = 'shop-name';
+        nameEl.textContent = shop.name || '(Chưa đặt tên)';
+
+        const slugEl = document.createElement('div');
+        slugEl.className = 'shop-slug';
+        slugEl.textContent = '/' + (shop.slug || '');
+
+        titleWrap.appendChild(nameEl);
+        titleWrap.appendChild(slugEl);
+
+        const planKey = PLAN_LABELS[shop.plan] ? shop.plan : 'standard';
+        const planBadge = document.createElement('span');
+        planBadge.className = 'badge badge-plan-' + planKey;
+        planBadge.textContent = PLAN_LABELS[planKey];
+
+        head.appendChild(titleWrap);
+        head.appendChild(planBadge);
+
+        // Nhãn trạng thái
+        const badgeRow = document.createElement('div');
+        badgeRow.className = 'badge-row';
+
+        const statusInfo = getShopStatus(shop);
+        const statusBadge = document.createElement('span');
+        statusBadge.className = 'badge ' + statusInfo.cls;
+
+        const dot = document.createElement('span');
+        dot.className = 'status-dot';
+        dot.setAttribute('aria-hidden', 'true');
+
+        const statusTxt = document.createElement('span');
+        statusTxt.textContent = statusInfo.label;
+
+        statusBadge.appendChild(dot);
+        statusBadge.appendChild(statusTxt);
+        badgeRow.appendChild(statusBadge);
+
+        if (!shop.active && !shop.has_owner) {
+          const pendingExtra = document.createElement('span');
+          pendingExtra.className = 'badge badge-status-pending';
+          pendingExtra.textContent = 'Chờ chủ tiệm đăng ký';
+          badgeRow.appendChild(pendingExtra);
+        }
+
+        // Thông tin chi tiết
+        const meta = document.createElement('div');
+        meta.className = 'shop-meta';
+        meta.appendChild(createMetaLine('Email chủ tiệm', shop.owner_email || '—'));
+        meta.appendChild(createMetaLine(
+          '30 ngày qua',
+          (Number(shop.orders_30d) || 0) + ' đơn · ' + formatMoney(shop.revenue_30d)
+        ));
+        meta.appendChild(createMetaLine('Ngày tạo', formatDate(shop.created_at)));
+
+        // Khu vực nút hành động
+        const actions = document.createElement('div');
+        actions.className = 'shop-actions';
+
+        const btnGroup = document.createElement('div');
+        btnGroup.className = 'shop-btn-group';
+
+        const customerUrl = getCustomerUrl(shop.slug);
+
+        const copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.className = 'btn btn-sm';
+        copyBtn.textContent = 'Sao chép link khách';
+        copyBtn.addEventListener('click', () => {
+          copyText(customerUrl, 'Đã sao chép link khách của ' + (shop.name || 'tiệm'));
+        });
+
+        const openLink = document.createElement('a');
+        openLink.className = 'btn btn-sm';
+        openLink.setAttribute('href', customerUrl);
+        openLink.setAttribute('target', '_blank');
+        openLink.setAttribute('rel', 'noopener noreferrer');
+        openLink.textContent = 'Mở link khách';
+
+        const planBtn = document.createElement('button');
+        planBtn.type = 'button';
+        planBtn.className = 'btn btn-sm';
+        planBtn.textContent = 'Đổi gói';
+        planBtn.addEventListener('click', () => openPlanDialog(shop, planBtn));
+
+        btnGroup.appendChild(copyBtn);
+        btnGroup.appendChild(openLink);
+        btnGroup.appendChild(planBtn);
+
+        // Công tắc bật/tắt tiệm
+        const switchWrap = document.createElement('div');
+        switchWrap.className = 'switch-wrap';
+
+        const switchBtn = document.createElement('button');
+        switchBtn.type = 'button';
+        switchBtn.className = 'switch-btn';
+        switchBtn.setAttribute('role', 'switch');
+        switchBtn.setAttribute('aria-checked', shop.active ? 'true' : 'false');
+        switchBtn.setAttribute('aria-label', (shop.active ? 'Tắt tiệm ' : 'Bật tiệm ') + (shop.name || ''));
+
+        const knob = document.createElement('span');
+        knob.className = 'switch-knob';
+        knob.setAttribute('aria-hidden', 'true');
+        switchBtn.appendChild(knob);
+
+        const switchLabel = document.createElement('span');
+        switchLabel.className = 'switch-label';
+        switchLabel.textContent = shop.active ? 'Đang bật' : 'Đang tắt';
+
+        switchBtn.addEventListener('click', () => {
+          if (shop.active) {
+            openConfirmOffDialog(shop, switchBtn);
+          } else {
+            toggleShopActive(shop, true, switchBtn);
+          }
+        });
+
+        switchWrap.appendChild(switchBtn);
+        switchWrap.appendChild(switchLabel);
+
+        actions.appendChild(btnGroup);
+        actions.appendChild(switchWrap);
+
+        card.appendChild(head);
+        card.appendChild(badgeRow);
+        card.appendChild(meta);
+        card.appendChild(actions);
+
+        return card;
+      }
+
+      // Đổi trạng thái bật/tắt tiệm
+      async function toggleShopActive(shop, nextActive, controlEl) {
+        if (controlEl) controlEl.disabled = true;
+        try {
+          const { data, error } = await sb
+            .from('shops')
+            .update({ active: nextActive })
+            .eq('id', shop.id)
+            .select('id');
+          if (error) throw error;
+          if (!Array.isArray(data) || data.length === 0) {
+            if (controlEl) controlEl.disabled = false;
+            showToast(EMPTY_UPDATE_MSG);
+            return false;
+          }
+
+          shop.active = nextActive;
+          renderDashboard();
+          showToast(nextActive ? 'Đã bật lại tiệm ' + shop.name : 'Đã tắt tiệm ' + shop.name);
+          return true;
+        } catch (err) {
+          if (controlEl) controlEl.disabled = false;
+          showToast('Không thể cập nhật trạng thái tiệm, bạn hãy thử lại');
+          return false;
+        }
+      }
+
+      // Hộp thoại xác nhận tắt tiệm
+      function openConfirmOffDialog(shop, triggerEl) {
+        state.toggleTarget = shop;
+        $('confirm-off-desc').textContent =
+          'Bạn có chắc muốn tắt tiệm "' + (shop.name || '') + '"? Khách sẽ không đặt được hàng nữa.';
+        setBoxMessage($('confirm-off-error'), '');
+        openModal('modal-confirm-off', triggerEl);
+      }
+
+      $('btn-confirm-off-submit').addEventListener('click', async () => {
+        if (!state.toggleTarget) return;
+        const btn = $('btn-confirm-off-submit');
+        btn.disabled = true;
+        btn.textContent = 'Đang tắt…';
+        setBoxMessage($('confirm-off-error'), '');
+
+        try {
+          const { data, error } = await sb
+            .from('shops')
+            .update({ active: false })
+            .eq('id', state.toggleTarget.id)
+            .select('id');
+          if (error) throw error;
+          if (!Array.isArray(data) || data.length === 0) {
+            closeModal('modal-confirm-off');
+            showToast(EMPTY_UPDATE_MSG);
+            return;
+          }
+
+          const name = state.toggleTarget.name;
+          state.toggleTarget.active = false;
+          closeModal('modal-confirm-off');
+          renderDashboard();
+          showToast('Đã tắt tiệm ' + name);
+        } catch (err) {
+          setBoxMessage($('confirm-off-error'), 'Không thể tắt tiệm lúc này. Bạn hãy thử lại.');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Tắt tiệm';
+        }
+      });
+
+      // Hộp thoại đổi gói
+      function openPlanDialog(shop, triggerEl) {
+        state.planTarget = shop;
+        $('plan-shop-name').textContent = 'Tiệm: ' + (shop.name || '') + ' (/' + (shop.slug || '') + ')';
+        setBoxMessage($('plan-error'), '');
+        const radios = document.querySelectorAll('input[name="shop-plan"]');
+        radios.forEach((r) => {
+          r.checked = r.value === (shop.plan || 'standard');
+        });
+        openModal('modal-plan', triggerEl);
+      }
+
+      $('form-change-plan').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!state.planTarget) return;
+        const selected = document.querySelector('input[name="shop-plan"]:checked');
+        if (!selected) return;
+
+        const nextPlan = selected.value;
+        const btn = $('btn-plan-submit');
+        btn.disabled = true;
+        btn.textContent = 'Đang lưu…';
+        setBoxMessage($('plan-error'), '');
+
+        try {
+          const { data, error } = await sb
+            .from('shops')
+            .update({ plan: nextPlan })
+            .eq('id', state.planTarget.id)
+            .select('id');
+          if (error) throw error;
+          if (!Array.isArray(data) || data.length === 0) {
+            setBoxMessage($('plan-error'), EMPTY_UPDATE_MSG);
+            return;
+          }
+
+          state.planTarget.plan = nextPlan;
+          closeModal('modal-plan');
+          renderDashboard();
+          showToast('Đã đổi sang gói ' + (PLAN_LABELS[nextPlan] || nextPlan));
+        } catch (err) {
+          setBoxMessage($('plan-error'), 'Không thể lưu gói mới. Bạn hãy thử lại.');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Lưu gói mới';
+        }
+      });
+
+      // Hộp thoại tạo tiệm mới
+      function updateUrlPreview() {
+        const slug = $('create-slug').value.trim();
+        $('create-url-preview').textContent = getCustomerUrl(slug || '<duong-dan>');
+      }
+
+      function clearCreateErrors() {
+        setBoxMessage($('create-error'), '');
+        ['create-name', 'create-slug', 'create-email'].forEach((id) => {
+          $(id).removeAttribute('aria-invalid');
+          setBoxMessage($('err-' + id), '');
+        });
+      }
+
+      function openCreateDialog(triggerEl) {
+        state.slugEdited = false;
+        $('form-create-shop').reset();
+        $('create-plan').value = 'standard';
+        clearCreateErrors();
+        $('form-create-shop').classList.remove('hidden');
+        $('create-result').classList.add('hidden');
+        $('modal-create-title').textContent = 'Tạo tiệm mới';
+        updateUrlPreview();
+        openModal('modal-create', triggerEl);
+      }
+
+      $('btn-open-create').addEventListener('click', () => openCreateDialog($('btn-open-create')));
+
+      $('create-name').addEventListener('input', () => {
+        if (!state.slugEdited) {
+          $('create-slug').value = slugify($('create-name').value);
+          updateUrlPreview();
+        }
+      });
+
+      $('create-slug').addEventListener('input', () => {
+        const val = $('create-slug').value;
+        state.slugEdited = val.trim().length > 0;
+        updateUrlPreview();
+      });
+
+      $('form-create-shop').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearCreateErrors();
+
+        const name = $('create-name').value.trim();
+        const slug = $('create-slug').value.trim().toLowerCase();
+        const plan = $('create-plan').value;
+        const email = $('create-email').value.trim();
+        const phone = $('create-phone').value.trim();
+        const address = $('create-address').value.trim();
+
+        let firstInvalid = null;
+
+        if (!name || name.length > 80) {
+          $('create-name').setAttribute('aria-invalid', 'true');
+          setBoxMessage($('err-create-name'), 'Bạn hãy nhập tên tiệm (tối đa 80 ký tự).');
+          firstInvalid = firstInvalid || $('create-name');
+        }
+
+        if (!isValidSlug(slug)) {
+          $('create-slug').setAttribute('aria-invalid', 'true');
+          setBoxMessage($('err-create-slug'), 'Đường dẫn phải dài 2–40 ký tự, chỉ gồm chữ thường không dấu, số và dấu gạch ngang giữa các từ.');
+          firstInvalid = firstInvalid || $('create-slug');
+        }
+
+        if (!isValidEmail(email)) {
+          $('create-email').setAttribute('aria-invalid', 'true');
+          setBoxMessage($('err-create-email'), 'Email chủ tiệm chưa đúng định dạng.');
+          firstInvalid = firstInvalid || $('create-email');
+        }
+
+        if (firstInvalid) {
+          firstInvalid.focus();
+          return;
+        }
+
+        const btn = $('btn-create-submit');
+        btn.disabled = true;
+        btn.textContent = 'Đang tạo tiệm…';
+
+        try {
+          const { data, error } = await sb.rpc('create_shop', {
+            p_name: name,
+            p_slug: slug,
+            p_plan: plan,
+            p_owner_email: email,
+            p_phone: phone || null,
+            p_address: address || null
+          });
+
+          if (error) throw error;
+
+          const createdSlug = (data && data.slug) ? data.slug : slug;
+          const customerUrl = getCustomerUrl(createdSlug);
+          const ownerUrl = getOwnerUrl();
+
+          const zaloMsg = [
+            'Chào bạn, tiệm "' + name + '" đã được tạo sẵn trên hệ thống.',
+            '',
+            '1. Link trang quản lý cho chủ tiệm:',
+            ownerUrl,
+            'Bạn hãy đăng ký bằng đúng email ' + email + ', bấm link xác nhận trong email, rồi đăng nhập để quản lý thực đơn và đơn hàng.',
+            '',
+            '2. Link đặt hàng gửi cho khách:',
+            customerUrl
+          ].join('\n');
+
+          $('modal-create-title').textContent = 'Đã tạo tiệm';
+          $('result-customer-url').textContent = customerUrl;
+          $('result-owner-url').textContent = ownerUrl;
+          $('result-zalo-msg').value = zaloMsg;
+
+          $('form-create-shop').classList.add('hidden');
+          $('create-result').classList.remove('hidden');
+
+          // Tải lại danh sách tiệm
+          loadOverview();
+        } catch (err) {
+          if (isDuplicateSlugError(err)) {
+            $('create-slug').setAttribute('aria-invalid', 'true');
+            setBoxMessage($('err-create-slug'), 'Tên đường dẫn này đã có người dùng, hãy chọn tên khác');
+            $('create-slug').focus();
+          } else {
+            const msg = (err && err.message && !/[a-z]{6,}/i.test(err.message))
+              ? err.message
+              : 'Không thể tạo tiệm lúc này. Bạn hãy kiểm tra lại thông tin và thử lại.';
+            setBoxMessage($('create-error'), msg);
+          }
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Tạo tiệm';
+        }
+      });
+
+      $('btn-copy-result-customer').addEventListener('click', () => {
+        copyText($('result-customer-url').textContent, 'Đã sao chép link khách');
+      });
+
+      $('btn-copy-result-owner').addEventListener('click', () => {
+        copyText($('result-owner-url').textContent, 'Đã sao chép link quản lý');
+      });
+
+      $('btn-copy-zalo').addEventListener('click', () => {
+        copyText($('result-zalo-msg').value, 'Đã sao chép tin nhắn gửi chủ tiệm');
+      });
+
+      // Tìm kiếm và lọc nhanh
+      $('search-input').addEventListener('input', (e) => {
+        state.search = e.target.value || '';
+        renderDashboard();
+      });
+
+      function updateFilterButtons() {
+        document.querySelectorAll('#filter-group .filter-chip').forEach((chip) => {
+          chip.setAttribute('aria-pressed', chip.getAttribute('data-filter') === state.filter ? 'true' : 'false');
+        });
+      }
+
+      $('filter-group').addEventListener('click', (e) => {
+        const chip = e.target.closest('.filter-chip');
+        if (!chip) return;
+        state.filter = chip.getAttribute('data-filter') || 'all';
+        updateFilterButtons();
+        renderDashboard();
+      });
+
+      $('btn-refresh').addEventListener('click', () => loadOverview());
+
+      // Đăng nhập
+      $('form-login').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setBoxMessage($('login-error'), '');
+
+        const email = $('login-email').value.trim();
+        const password = $('login-password').value;
+
+        if (!isValidEmail(email)) {
+          setBoxMessage($('login-error'), 'Bạn hãy nhập đúng địa chỉ email.');
+          $('login-email').focus();
+          return;
+        }
+        if (!password) {
+          setBoxMessage($('login-error'), 'Bạn hãy nhập mật khẩu.');
+          $('login-password').focus();
+          return;
+        }
+
+        const btn = $('btn-login-submit');
+        btn.disabled = true;
+        btn.textContent = 'Đang đăng nhập…';
+
+        try {
+          const { error } = await sb.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+        } catch (err) {
+          setBoxMessage($('login-error'), mapAuthError(err));
+        } finally {
+          $('login-password').value = '';
+          btn.disabled = false;
+          btn.textContent = 'Đăng nhập';
+        }
+      });
+
+      // Quên mật khẩu
+      $('btn-show-forgot').addEventListener('click', () => {
+        setBoxMessage($('forgot-error'), '');
+        setBoxMessage($('forgot-success'), '');
+        $('forgot-email').value = $('login-email').value.trim();
+        showAuthPanel('panel-forgot');
+        $('forgot-email').focus();
+      });
+
+      $('btn-back-login').addEventListener('click', () => {
+        setBoxMessage($('login-error'), '');
+        showAuthPanel('panel-login');
+        $('login-email').focus();
+      });
+
+      $('form-forgot').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setBoxMessage($('forgot-error'), '');
+        setBoxMessage($('forgot-success'), '');
+
+        const email = $('forgot-email').value.trim();
+        if (!isValidEmail(email)) {
+          setBoxMessage($('forgot-error'), 'Bạn hãy nhập đúng địa chỉ email để nhận link đặt lại mật khẩu.');
+          $('forgot-email').focus();
+          return;
+        }
+
+        const btn = $('btn-forgot-submit');
+        btn.disabled = true;
+        btn.textContent = 'Đang gửi…';
+
+        try {
+          const { error } = await sb.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.href.split('#')[0]
+          });
+          if (error) throw error;
+          setBoxMessage($('forgot-success'), 'Đã gửi đường dẫn đặt lại mật khẩu tới email của bạn. Hãy mở hộp thư (kể cả thư rác) và bấm vào link.');
+        } catch (err) {
+          setBoxMessage($('forgot-error'), mapAuthError(err));
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Gửi link đặt lại mật khẩu';
+        }
+      });
+
+      // Đặt mật khẩu mới khi nhận sự kiện PASSWORD_RECOVERY
+      $('form-recovery').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setBoxMessage($('recovery-error'), '');
+        setBoxMessage($('recovery-success'), '');
+
+        const pwd = $('recovery-password').value;
+        const confirm = $('recovery-password-confirm').value;
+
+        if (pwd.length < 6) {
+          setBoxMessage($('recovery-error'), 'Mật khẩu tối thiểu 6 ký tự');
+          $('recovery-password').focus();
+          return;
+        }
+        if (pwd !== confirm) {
+          setBoxMessage($('recovery-error'), 'Mật khẩu nhập lại không khớp.');
+          $('recovery-password-confirm').focus();
+          return;
+        }
+
+        const btn = $('btn-recovery-submit');
+        btn.disabled = true;
+        btn.textContent = 'Đang lưu…';
+
+        try {
+          const { error } = await sb.auth.updateUser({ password: pwd });
+          if (error) throw error;
+
+          state.isRecovery = false;
+          $('recovery-password').value = '';
+          $('recovery-password-confirm').value = '';
+          if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.href.split('#')[0]);
+          }
+          showToast('Đã đặt mật khẩu mới thành công');
+          const { data } = await sb.auth.getSession();
+          await verifyAdminAndLoad(data && data.session);
+        } catch (err) {
+          setBoxMessage($('recovery-error'), mapAuthError(err));
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Lưu mật khẩu mới';
+        }
+      });
+
+      // Cài đặt tài khoản: đổi mật khẩu & đăng xuất
+      $('btn-open-settings').addEventListener('click', () => {
+        setBoxMessage($('pwd-error'), '');
+        setBoxMessage($('pwd-success'), '');
+        $('form-change-pwd').reset();
+        openModal('modal-settings', $('btn-open-settings'));
+      });
+
+      $('form-change-pwd').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setBoxMessage($('pwd-error'), '');
+        setBoxMessage($('pwd-success'), '');
+
+        const pwd = $('new-pwd').value;
+        const confirm = $('new-pwd-confirm').value;
+
+        if (pwd.length < 6) {
+          setBoxMessage($('pwd-error'), 'Mật khẩu tối thiểu 6 ký tự');
+          $('new-pwd').focus();
+          return;
+        }
+        if (pwd !== confirm) {
+          setBoxMessage($('pwd-error'), 'Mật khẩu nhập lại không khớp.');
+          $('new-pwd-confirm').focus();
+          return;
+        }
+
+        const btn = $('btn-pwd-submit');
+        btn.disabled = true;
+        btn.textContent = 'Đang cập nhật…';
+
+        try {
+          const { error } = await sb.auth.updateUser({ password: pwd });
+          if (error) throw error;
+          $('form-change-pwd').reset();
+          setBoxMessage($('pwd-success'), 'Đã đổi mật khẩu thành công.');
+        } catch (err) {
+          setBoxMessage($('pwd-error'), mapAuthError(err));
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Cập nhật mật khẩu';
+        }
+      });
+
+      async function handleSignOut(btn) {
+        if (btn) btn.disabled = true;
+        try {
+          await sb.auth.signOut();
+          closeModal();
+          state.isRecovery = false;
+          state.user = null;
+          state.shops = [];
+          $('login-password').value = '';
+          showView('view-auth');
+          showAuthPanel('panel-login');
+        } catch (err) {
+          showToast('Không thể đăng xuất lúc này, bạn hãy thử lại');
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      }
+
+      $('btn-settings-logout').addEventListener('click', () => handleSignOut($('btn-settings-logout')));
+      $('btn-forbidden-logout').addEventListener('click', () => handleSignOut($('btn-forbidden-logout')));
+      $('btn-forbidden-retry').addEventListener('click', async () => {
+        const { data } = await sb.auth.getSession();
+        verifyAdminAndLoad(data && data.session);
+      });
+
+      // Theo dõi trạng thái đăng nhập
+      sb.auth.onAuthStateChange((event, session) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          state.isRecovery = true;
+          setBoxMessage($('recovery-error'), '');
+          setBoxMessage($('recovery-success'), '');
+          showView('view-auth');
+          showAuthPanel('panel-recovery');
+          return;
+        }
+        if (event === 'SIGNED_IN') {
+          const nextUserId = session && session.user ? session.user.id : null;
+          if (state.user && nextUserId && state.user.id === nextUserId) {
+            return;
+          }
+          verifyAdminAndLoad(session);
+        } else if (event === 'SIGNED_OUT') {
+          state.isRecovery = false;
+          state.user = null;
+          state.shops = [];
+          $('login-password').value = '';
+          closeModal();
+          showView('view-auth');
+          showAuthPanel('panel-login');
+        }
+      });
+
+      // Khởi động trang
+      (async function init() {
+        try {
+          if (window.location.hash && window.location.hash.includes('type=recovery')) {
+            state.isRecovery = true;
+          }
+          const { data, error } = await sb.auth.getSession();
+          if (error) throw error;
+          await verifyAdminAndLoad(data && data.session);
+        } catch (err) {
+          showView('view-auth');
+          showAuthPanel('panel-login');
+          setBoxMessage($('login-error'), 'Không kiểm tra được phiên đăng nhập. Bạn hãy đăng nhập lại.');
+        }
+      })();
+    })();
+  </script>
+</body>
+</html>

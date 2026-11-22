@@ -1249,7 +1249,7 @@
         return dd + '/' + mm + '/' + d.getFullYear();
       }
 
-      // Tạo đường dẫn cùng thư mục (index.html?shop=... hoặc quan-ly.html)
+      // Tạo đường dẫn cùng thư mục (index.html?shop=... hoặc ban-hang.html)
       function buildSiblingUrl(relativeTarget) {
         try {
           return new URL(relativeTarget, window.location.href).href;
@@ -1264,7 +1264,7 @@
       }
 
       function getOwnerUrl() {
-        return buildSiblingUrl('quan-ly.html');
+        return buildSiblingUrl('ban-hang.html');
       }
 
       // Chuyển tên tiệm tiếng Việt thành slug

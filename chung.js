@@ -5,6 +5,14 @@
    Lưu ý: kiểm tra gói ở đây chỉ để ẩn/hiện giao diện. Chặn thật nằm ở cơ sở dữ liệu (RLS). */
 (function () {
   'use strict';
+  // Bỏ qua null/false và trải mảng khi vẽ giao diện (tránh hiện chữ "null" hoặc "[object ...]")
+  ['replaceChildren', 'append', 'prepend'].forEach(function (fn) {
+    const orig = Element.prototype[fn];
+    if (!orig || orig.__dd) return;
+    const wrapped = function (...a) { return orig.apply(this, a.flat(Infinity).filter((x) => x !== null && x !== undefined && x !== false)); };
+    wrapped.__dd = true;
+    Element.prototype[fn] = wrapped;
+  });
 
   const STORAGE_SHOP_KEY = 'datdon_selected_shop_id'; // dùng chung với quan-ly.html
   const PLAN_RANK = { standard: 1, pro: 2, proplus: 3 };
@@ -36,11 +44,19 @@
     return node;
   }
 
+  // Lưu dạng JSON để giữ đúng kiểu (số, true/false, mảng, đối tượng); đọc được cả giá trị chữ cũ
   function storageGet(key, fallback) {
-    try { const v = window.localStorage.getItem(key); return v === null ? fallback : v; } catch (_) { return fallback; }
+    try {
+      const v = window.localStorage.getItem(key);
+      if (v === null) return fallback;
+      try { return JSON.parse(v); } catch (_) { return v; }
+    } catch (_) { return fallback; }
   }
   function storageSet(key, val) {
-    try { window.localStorage.setItem(key, String(val)); } catch (_) {}
+    try {
+      if (val === undefined || val === null) window.localStorage.removeItem(key);
+      else window.localStorage.setItem(key, JSON.stringify(val));
+    } catch (_) {}
   }
 
   function formatMoney(amount) {

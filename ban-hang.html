@@ -1,0 +1,3246 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bán hàng</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
+body { overflow-x: hidden; font-family: "Be Vietnam Pro", var(--font, system-ui, sans-serif); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Bố cục chung của trang Bán hàng */
+.bh-wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 12px 14px calc(150px + env(safe-area-inset-bottom));
+}
+@media (min-width: 900px) {
+  .bh-wrap { padding-bottom: 110px; }
+}
+
+/* Thanh thẻ chức năng: điện thoại ở đáy, màn rộng ≥ 900px ở đầu trang */
+.bh-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 12;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bh-nav-in {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+}
+.bh-nav button {
+  flex: 1;
+  min-height: 56px;
+  padding: 6px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-sub);
+  font: 600 12.5px/1.2 inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  position: relative;
+  cursor: pointer;
+}
+.bh-nav button[aria-current="page"] { color: var(--accent); font-weight: 700; }
+.bh-nav .bh-badge {
+  position: absolute;
+  top: 4px;
+  right: calc(50% - 22px);
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--error);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+@media (min-width: 900px) {
+  .bh-nav {
+    position: sticky;
+    top: 0;
+    bottom: auto;
+    border-top: 0;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+  .bh-nav-in {
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 14px;
+  }
+  .bh-nav button {
+    flex: 0 0 auto;
+    min-height: 44px;
+    flex-direction: row;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 14px;
+  }
+  .bh-nav button[aria-current="page"] {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .bh-nav .bh-badge { position: static; margin-left: 2px; }
+}
+
+/* Thanh phụ làm mới & thời điểm tải */
+.bh-meta-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--text-sub);
+  flex-wrap: wrap;
+}
+.bh-seg {
+  display: inline-flex;
+  background: var(--accent-soft);
+  padding: 3px;
+  border-radius: 12px;
+  gap: 3px;
+  margin-bottom: 12px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.bh-seg button {
+  min-height: 40px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-sub);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bh-seg button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--accent);
+}
+
+/* Lưới nút chọn nhanh (chips) */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+.chip[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+/* Lưới sản phẩm bán hàng */
+.pos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.pos-tile {
+  min-height: 74px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+  position: relative;
+}
+.pos-tile.in-cart { border-color: var(--accent); background: var(--accent-soft); }
+.pos-tile b { font-size: 14.5px; line-height: 1.25; word-break: break-word; }
+.pos-tile span { font-size: 13.5px; color: var(--accent); font-weight: 700; }
+.pos-tile .qty-pill {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+/* Dòng đơn hàng / phiếu mua */
+.line-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.line-row:first-child { border-top: 0; }
+.line-main { flex: 1 1 140px; min-width: 0; }
+.line-main b { display: block; font-size: 15px; }
+.line-main small { color: var(--text-sub); font-size: 13px; }
+.stepper { display: inline-flex; align-items: center; gap: 4px; }
+.stepper button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.stepper output { min-width: 28px; text-align: center; font-weight: 700; }
+
+/* Thanh tổng cố định đáy */
+.sticky-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(58px + env(safe-area-inset-bottom));
+  z-index: 10;
+  padding: 0 12px 8px;
+  pointer-events: none;
+}
+@media (min-width: 900px) {
+  .sticky-bar { bottom: 12px; }
+}
+.sticky-bar-in {
+  max-width: 932px;
+  margin: 0 auto;
+  background: var(--accent);
+  color: var(--accent-text);
+  border-radius: 16px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  pointer-events: auto;
+}
+.sticky-bar-in .sum { flex: 1; min-width: 0; line-height: 1.25; }
+.sticky-bar-in .sum small { display: block; font-size: 13px; opacity: 0.88; }
+.sticky-bar-in .sum b { font-size: 20px; color: var(--yellow); }
+.sticky-bar-in .btn-save {
+  min-height: 46px;
+  padding: 0 22px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--yellow);
+  color: #14231B;
+  font-weight: 700;
+  font-size: 15.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sticky-bar-in .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Thẻ & Bảng */
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.row-between { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.badge-warn { background: var(--warn-bg); color: var(--warn-text); }
+.badge-err { background: var(--error-bg); color: var(--error); }
+.badge-muted { background: var(--surface-alt); color: var(--text-sub); }
+
+.ocard { border-left: 4px solid var(--border); }
+.ocard.st-new { border-left-color: var(--error); }
+.ocard.st-preparing { border-left-color: var(--yellow); }
+.ocard.st-delivering { border-left-color: var(--accent); }
+.ocard.st-done { border-left-color: var(--accent); }
+
+.kpi-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+.kpi-box small { display: block; color: var(--text-sub); font-size: 13px; }
+.kpi-box b { display: block; font-size: 19px; margin-top: 2px; }
+
+.table-scroll { overflow-x: auto; }
+table.bh-tbl { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+table.bh-tbl th, table.bh-tbl td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+table.bh-tbl th { font-size: 13px; color: var(--text-sub); font-weight: 600; }
+table.bh-tbl .r { text-align: right; white-space: nowrap; }
+
+.input, .select, .textarea { min-height: 44px; font-size: 16px; }
+.btn { min-height: 44px; }
+.btn-sm { min-height: 44px; padding: 8px 12px; }
+
+/* Hộp thoại */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(0, 0, 0, 0.52);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.modal-sheet {
+  width: 100%;
+  max-width: 620px;
+  max-height: 90dvh;
+  background: var(--bg);
+  border-radius: 18px 18px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+@media (min-width: 640px) {
+  .modal-backdrop { align-items: center; padding: 16px; }
+  .modal-sheet { border-radius: 18px; }
+}
+.modal-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.modal-hd h2 { margin: 0; font-size: 17px; }
+.modal-close {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--surface-alt);
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.modal-body { padding: 14px 16px calc(18px + env(safe-area-inset-bottom)); overflow-y: auto; flex: 1; }
+.modal-ft { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+.empty-state { text-align: center; padding: 28px 14px; color: var(--text-sub); }
+.empty-state b { display: block; color: var(--text); margin-bottom: 4px; }
+.low-row { background: var(--warn-bg); }
+.img-preview { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="dd-root"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="chung.js"></script>
+<script>
+'use strict';
+
+(async function () {
+  const app = await DatdonApp.start({ page: 'ban-hang' });
+  const sb = app.sb;
+  const shopId = app.shop.id;
+  const el = app.el;
+
+  /* ===== HỖ TRỢ CHUNG, HỘP THOẠI & ÂM THANH ===== */
+  const fold = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+  const toLocalDtValue = iso => {
+    const d = iso ? new Date(iso) : new Date();
+    const vn = new Date(d.getTime() + 7 * 3600000);
+    return vn.getUTCFullYear() + '-' + app.pad2(vn.getUTCMonth() + 1) + '-' + app.pad2(vn.getUTCDate()) +
+      'T' + app.pad2(vn.getUTCHours()) + ':' + app.pad2(vn.getUTCMinutes());
+  };
+  const localDtToIso = val => val ? (val.length === 16 ? val + ':00+07:00' : val + '+07:00') : null;
+  const checkMutated = ({ data, error }) => {
+    if (error) throw error;
+    if (!data || !data.length) throw new Error('Không có quyền hoặc dữ liệu đã thay đổi, hãy làm mới trang');
+    return data;
+  };
+  const showErr = err => app.showToast(app.translateServerError(err), 'error');
+
+  // Âm thanh báo đơn mới bằng Web Audio (chỉ phát sau lần chạm đầu tiên)
+  let audioUnlocked = false;
+  let audioCtx = null;
+  document.addEventListener('pointerdown', () => {
+    audioUnlocked = true;
+    if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+    }
+  }, { once: true });
+  function playTing() {
+    if (!ST.soundOn || !audioUnlocked || !audioCtx) return;
+    try {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.14);
+      gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.36);
+    } catch (e) {}
+  }
+
+  // Hộp thoại chuẩn aria-modal, đóng bằng Esc, trả focus
+  const modalRoot = el('div');
+  document.body.append(modalRoot);
+  let lastOpener = null;
+  function closeModal() {
+    modalRoot.replaceChildren();
+    if (lastOpener && typeof lastOpener.focus === 'function') lastOpener.focus();
+    lastOpener = null;
+  }
+  function openModal(title, body, footer, opener) {
+    lastOpener = opener || document.activeElement;
+    const sheet = el('div', { className: 'modal-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+      el('div', { className: 'modal-hd' },
+        el('h2', { text: title }),
+        el('button', { type: 'button', className: 'modal-close', 'aria-label': 'Đóng', onClick: closeModal, text: '×' })
+      ),
+      el('div', { className: 'modal-body' }, body),
+      footer ? el('div', { className: 'modal-ft' }, footer) : null
+    );
+    const backdrop = el('div', { className: 'modal-backdrop', onClick: e => { if (e.target === backdrop) closeModal(); } }, sheet);
+    modalRoot.replaceChildren(backdrop);
+    const first = sheet.querySelector('button, input, select, textarea');
+    if (first) first.focus();
+  }
+  function confirmModal(title, msg, okLabel, onOk, opener) {
+    const okBtn = el('button', {
+      type: 'button', className: 'btn btn-danger',
+      onClick: async () => {
+        okBtn.disabled = true; okBtn.textContent = 'Đang xử lý…';
+        try { await onOk(); closeModal(); } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = okLabel; }
+      },
+      text: okLabel
+    });
+    openModal(title, el('p', { style: 'margin:0', text: msg }), [
+      el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy bỏ' }),
+      okBtn
+    ], opener);
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && modalRoot.children.length) closeModal(); });
+
+  /* ===== DANH SÁCH TAB THEO GÓI ===== */
+  const ALL_TABS = [
+    { id: 'sale', label: 'Bán', minPlan: 'standard' },
+    { id: 'online', label: 'Đơn online', minPlan: 'standard' },
+    { id: 'menu', label: 'Menu', minPlan: 'standard' },
+    { id: 'settings', label: 'Cài đặt', minPlan: 'standard' },
+    { id: 'buy', label: 'Mua', minPlan: 'pro' },
+    { id: 'inv', label: 'Kho', minPlan: 'pro' },
+    { id: 'recipe', label: 'Định mức', minPlan: 'pro' },
+    { id: 'cash', label: 'Thu chi', minPlan: 'pro' },
+    { id: 'batch', label: 'Làm', minPlan: 'pro' },
+    { id: 'cust', label: 'Khách', minPlan: 'proplus' },
+    { id: 'promo', label: 'Khuyến mãi', minPlan: 'proplus' },
+    { id: 'feedback', label: 'Đánh giá', minPlan: 'proplus' }
+  ];
+  const TABS = ALL_TABS.filter(t => app.hasPlan(t.minPlan));
+
+  /* ===== TRẠNG THÁI CHUNG ===== */
+  const DRAFT_KEY = 'dd_pos_draft_' + shopId;
+  const savedDraft = app.storageGet(DRAFT_KEY, null);
+  const ST = {
+    tab: 'sale',
+    loadedAt: {},
+    shop: Object.assign({}, app.shop),
+    payMethods: [],
+    menuItems: [],
+    invItems: [],
+    customers: [],
+    promos: [],
+    soundOn: app.storageGet('dd_sound_on', true),
+    // Bán (Standard)
+    saleSub: 'pos', // 'pos' | 'eod'
+    saleSearch: '',
+    salePlaces: app.storageGet('dd_sale_places_' + shopId, ['Tại quầy', 'Zalo', 'Giao hàng']),
+    sale: savedDraft || {
+      editId: null, editCode: '', items: [],
+      place: app.storageGet('dd_last_place_' + shopId, 'Tại quầy'),
+      customer_name: '', customer_phone: '', customer_id: null, note: '',
+      at: '', discount: 0,
+      pay_method_id: app.storageGet('dd_last_pay_' + shopId, null),
+      unpaid: false, paidCustom: null
+    },
+    manualOrders: [],
+    eodDate: app.toVnYmd(new Date()),
+    eodData: null,
+    eodUnpaid: [],
+    // Đơn online (Standard)
+    onlineFilter: 'new',
+    onlineOrders: [],
+    onlineOffset: 0,
+    onlineHasMore: false,
+    // Mua (Pro)
+    buySub: 'form', // 'form' | 'debt'
+    buyEditId: null,
+    buyForm: {
+      at: '', place: '', pay_method_id: null, on_credit: false, due_date: '', note: '',
+      lines: [{ grp: 'nl', name: '', unit: 'kg', qty: '', cost: '', inv_item_id: null }]
+    },
+    purchases: [],
+    debts: [],
+    // Kho (Pro)
+    invSummary: null,
+    invSearch: '',
+    invKind: 'all',
+    invLowOnly: false,
+    // Định mức (Pro)
+    recipeMenuId: '',
+    recipes: [],
+    allRecipeMenuIds: new Set(),
+    // Sản xuất (Pro)
+    batchEditId: null,
+    batchForm: { at: '', out_item_id: '', out_qty: '', note: '', inputs: [{ inv_item_id: '', qty: '' }] },
+    batches: [],
+    // Thu chi (Pro)
+    cashFrom: app.toVnYmd(new Date()).slice(0, 8) + '01',
+    cashTo: app.toVnYmd(new Date()),
+    cashEntries: [],
+    // Khách (Pro plus)
+    custSearch: '',
+    custGrp: '',
+    custMemberOnly: false,
+    custStats: new Map(),
+    // Khuyến mãi (Pro plus)
+    promoKind: 'promo',
+    // Đánh giá (Pro plus)
+    fbFilter: 'open',
+    feedbacks: []
+  };
+
+  /* ===== NẠP DỮ LIỆU NỀN & KHỞI TẠO KHUNG ===== */
+  async function loadPayMethods() {
+    const { data, error } = await sb.from('payment_methods').select('*').eq('shop_id', shopId).order('sort', { ascending: true });
+    if (error) throw error;
+    ST.payMethods = data || [];
+    const actives = ST.payMethods.filter(p => p.active);
+    if (!ST.sale.pay_method_id && actives.length) ST.sale.pay_method_id = actives[0].id;
+    if (!ST.buyForm.pay_method_id && actives.length) ST.buyForm.pay_method_id = actives[0].id;
+  }
+  async function loadShopFull() {
+    const { data, error } = await sb.from('shops').select('*').eq('id', shopId).single();
+    if (!error && data) ST.shop = data;
+  }
+  async function loadMenu() {
+    const { data, error } = await sb.from('menu_items').select('*').eq('shop_id', shopId).order('sort', { ascending: true }).order('name', { ascending: true });
+    if (error) throw error;
+    ST.menuItems = data || [];
+    ST.loadedAt.menu = new Date();
+  }
+  async function loadInvItems() {
+    if (!app.hasPlan('pro')) return;
+    const { data, error } = await sb.from('inv_items').select('*').eq('shop_id', shopId).order('name', { ascending: true });
+    if (error) throw error;
+    ST.invItems = data || [];
+  }
+  async function loadCustomersBase() {
+    if (!app.hasPlan('proplus')) return;
+    const { data, error } = await sb.from('customers').select('*').eq('shop_id', shopId).order('created_at', { ascending: false });
+    if (error) throw error;
+    ST.customers = data || [];
+  }
+
+  const root = document.getElementById('dd-root');
+  const navHost = el('div');
+  const contentHost = el('div', { className: 'bh-wrap' });
+  const stickyHost = el('div');
+  const wrapOuter = el('div', { className: 'dd-wrap' }, navHost, contentHost, stickyHost);
+  root.replaceChildren(wrapOuter);
+
+  function markLoaded(tab) { ST.loadedAt[tab] = new Date(); }
+  function renderMetaBar(tab, onRefresh, extraRight) {
+    const t = ST.loadedAt[tab];
+    const txt = t ? 'Cập nhật lúc ' + app.pad2(t.getHours()) + ':' + app.pad2(t.getMinutes()) : 'Chưa tải';
+    return el('div', { className: 'bh-meta-bar' },
+      el('span', { text: txt }),
+      el('div', { style: 'display:flex;gap:8px;align-items:center' },
+        extraRight || null,
+        el('button', { type: 'button', className: 'btn btn-sm', onClick: onRefresh, text: 'Làm mới' })
+      )
+    );
+  }
+
+  function renderNav() {
+    const newOnlineCount = ST.onlineOrders.filter(o => o.status === 'new').length;
+    document.title = newOnlineCount > 0 ? '(' + newOnlineCount + ') Đơn mới – ' + ST.shop.name : 'Bán hàng – ' + ST.shop.name;
+
+    const isWide = window.innerWidth >= 900;
+    const visible = (!isWide && TABS.length > 5) ? TABS.slice(0, 4) : TABS;
+    const overflow = (!isWide && TABS.length > 5) ? TABS.slice(4) : [];
+
+    const makeBtn = t => el('button', {
+      type: 'button',
+      'aria-current': ST.tab === t.id ? 'page' : null,
+      onClick: () => switchTab(t.id)
+    },
+      el('span', { text: t.label }),
+      t.id === 'online' && newOnlineCount > 0 ? el('span', { className: 'bh-badge num', text: String(newOnlineCount) }) : null
+    );
+
+    const navBtns = visible.map(makeBtn);
+    if (overflow.length) {
+      const inOverflow = overflow.some(t => t.id === ST.tab);
+      navBtns.push(el('button', {
+        type: 'button',
+        'aria-current': inOverflow ? 'page' : null,
+        onClick: e => openModal('Chức năng khác',
+          el('div', { style: 'display:grid;gap:8px' },
+            overflow.map(t => el('button', {
+              type: 'button',
+              className: 'btn' + (ST.tab === t.id ? ' btn-primary' : ''),
+              style: 'width:100%;justify-content:flex-start',
+              onClick: () => { closeModal(); switchTab(t.id); },
+              text: t.label
+            }))
+          ), null, e.currentTarget),
+        text: 'Thêm'
+      }));
+    }
+    navHost.replaceChildren(el('nav', { className: 'bh-nav', 'aria-label': 'Chức năng bán hàng' },
+      el('div', { className: 'bh-nav-in' }, navBtns)
+    ));
+  }
+  window.addEventListener('resize', () => renderNav());
+
+  async function switchTab(id) {
+    ST.tab = id;
+    stickyHost.replaceChildren();
+    renderNav();
+    await loadTabData(id);
+    renderCurrentTab();
+    window.scrollTo({ top: 0 });
+  }
+
+  async function loadTabData(id) {
+    try {
+      if (id === 'sale') {
+        await Promise.all([loadMenu(), loadManualOrders(), app.hasPlan('proplus') ? loadCustomersBase() : Promise.resolve()]);
+        if (ST.saleSub === 'eod') await loadEod();
+        markLoaded('sale');
+      } else if (id === 'online') {
+        await loadOnlineOrders(false);
+        markLoaded('online');
+      } else if (id === 'menu') {
+        await loadMenu();
+        markLoaded('menu');
+      } else if (id === 'settings') {
+        await Promise.all([loadShopFull(), loadPayMethods()]);
+        markLoaded('settings');
+      } else if (id === 'buy' && app.hasPlan('pro')) {
+        await Promise.all([loadInvItems(), loadPurchases(), loadDebts()]);
+        markLoaded('buy');
+      } else if (id === 'inv' && app.hasPlan('pro')) {
+        await loadInventoryReport();
+        markLoaded('inv');
+      } else if (id === 'recipe' && app.hasPlan('pro')) {
+        await Promise.all([loadMenu(), loadInvItems(), loadAllRecipeFlags()]);
+        if (!ST.recipeMenuId && ST.menuItems.length) ST.recipeMenuId = ST.menuItems[0].id;
+        if (ST.recipeMenuId) await loadRecipesForMenu(ST.recipeMenuId);
+        markLoaded('recipe');
+      } else if (id === 'batch' && app.hasPlan('pro')) {
+        await Promise.all([loadInvItems(), loadBatches()]);
+        markLoaded('batch');
+      } else if (id === 'cash' && app.hasPlan('pro')) {
+        await loadCashEntries();
+        markLoaded('cash');
+      } else if (id === 'cust' && app.hasPlan('proplus')) {
+        await Promise.all([loadCustomersWithStats(), loadPromos()]);
+        markLoaded('cust');
+      } else if (id === 'promo' && app.hasPlan('proplus')) {
+        await Promise.all([loadPromos(), loadMenu()]);
+        markLoaded('promo');
+      } else if (id === 'feedback' && app.hasPlan('proplus')) {
+        await loadFeedbacks();
+        markLoaded('feedback');
+      }
+    } catch (err) { showErr(err); }
+  }
+
+  function renderCurrentTab() {
+    stickyHost.replaceChildren();
+    const map = {
+      sale: renderSaleTab,
+      online: renderOnlineTab,
+      menu: renderMenuTab,
+      settings: renderSettingsTab,
+      buy: renderBuyTab,
+      inv: renderInvTab,
+      recipe: renderRecipeTab,
+      batch: renderBatchTab,
+      cash: renderCashTab,
+      cust: renderCustTab,
+      promo: renderPromoTab,
+      feedback: renderFeedbackTab
+    };
+    const fn = map[ST.tab];
+    if (fn) fn();
+    renderNav();
+  }
+
+  function activePayMethods() { return ST.payMethods.filter(p => p.active); }
+  function payMethodName(id) {
+    const m = ST.payMethods.find(p => p.id === id);
+    return m ? m.name : 'Chưa chọn';
+  }
+
+  /* ===== TAB: Bán (gói tối thiểu: standard) ===== */
+  function saveDraft() {
+    if (!ST.sale.editId) app.storageSet(DRAFT_KEY, ST.sale);
+  }
+  async function loadManualOrders() {
+    const { data, error } = await sb.from('orders')
+      .select('*, order_items(id,item_id,name,unit,price,qty)')
+      .eq('shop_id', shopId)
+      .eq('source', 'manual')
+      .order('ordered_at', { ascending: false })
+      .range(0, 39);
+    if (error) throw error;
+    ST.manualOrders = data || [];
+  }
+  async function loadEod() {
+    const { data, error } = await sb.rpc('report_sales_by_method', { p_shop: shopId, p_from: ST.eodDate, p_to: ST.eodDate });
+    if (error) throw error;
+    ST.eodData = data;
+    const { data: unpaidList } = await sb.from('orders')
+      .select('id,code,customer_name,customer_phone,total,paid,pay_status,pay_method_id,ordered_at,source')
+      .eq('shop_id', shopId)
+      .neq('status', 'cancelled')
+      .neq('pay_status', 'paid')
+      .gte('ordered_at', ST.eodDate + 'T00:00:00+07:00')
+      .lte('ordered_at', ST.eodDate + 'T23:59:59+07:00')
+      .order('ordered_at', { ascending: false });
+    ST.eodUnpaid = unpaidList || [];
+  }
+
+  function saleTotals() {
+    const subtotal = ST.sale.items.reduce((s, it) => s + it.price * it.qty, 0);
+    const disc = Math.max(0, Math.min(subtotal, Number(ST.sale.discount) || 0));
+    const total = Math.max(0, subtotal - disc);
+    const count = ST.sale.items.reduce((s, it) => s + it.qty, 0);
+    return { subtotal, disc, total, count };
+  }
+
+  function addSaleItem(mi) {
+    const ex = ST.sale.items.find(x => x.item_id === mi.id);
+    if (ex) ex.qty = Math.min(999, ex.qty + 1);
+    else ST.sale.items.push({ item_id: mi.id, name: mi.name, unit: mi.unit || 'phần', price: mi.price, qty: 1 });
+    ST.sale.paidCustom = null;
+    saveDraft();
+    renderSaleTab();
+  }
+
+  function renderSaleTab() {
+    const subSeg = el('div', { className: 'bh-seg', role: 'group', 'aria-label': 'Chế độ bán hàng' },
+      el('button', { type: 'button', 'aria-pressed': String(ST.saleSub === 'pos'), onClick: () => { ST.saleSub = 'pos'; renderSaleTab(); }, text: 'Bán tại quầy' }),
+      el('button', { type: 'button', 'aria-pressed': String(ST.saleSub === 'eod'), onClick: async () => { ST.saleSub = 'eod'; await loadEod(); renderSaleTab(); }, text: 'Cuối ngày' })
+    );
+    if (ST.saleSub === 'eod') {
+      renderEodView(subSeg);
+      return;
+    }
+
+    const s = ST.sale;
+    const tot = saleTotals();
+    const q = fold(ST.saleSearch.trim());
+    const activeMenu = ST.menuItems.filter(m => m.active && (!q || fold(m.name).includes(q) || fold(m.category).includes(q)));
+    const cats = new Map();
+    for (const m of activeMenu) {
+      const c = (m.category || '').trim() || 'Khác';
+      if (!cats.has(c)) cats.set(c, []);
+      cats.get(c).push(m);
+    }
+
+    const menuBox = el('div', { className: 'card' },
+      el('input', {
+        className: 'input', type: 'search', placeholder: 'Tìm món nhanh…', value: ST.saleSearch,
+        onInput: e => { ST.saleSearch = e.target.value; renderSaleTab(); }
+      }),
+      activeMenu.length ? [...cats.entries()].map(([cat, list]) => el('div', { style: 'margin-top:12px' },
+        el('div', { style: 'font-size:13px;font-weight:700;color:var(--text-sub);text-transform:uppercase', text: cat }),
+        el('div', { className: 'pos-grid' }, list.map(mi => {
+          const inCart = s.items.find(x => x.item_id === mi.id);
+          return el('button', {
+            type: 'button',
+            className: 'pos-tile' + (inCart ? ' in-cart' : ''),
+            onClick: () => addSaleItem(mi)
+          },
+            el('b', { text: mi.name }),
+            el('span', { className: 'num', text: app.formatMoney(mi.price) }),
+            inCart ? el('span', { className: 'qty-pill num', text: String(inCart.qty) }) : null
+          );
+        }))
+      )) : el('div', { className: 'empty-state', text: ST.menuItems.length ? 'Không tìm thấy món phù hợp.' : 'Chưa có món nào. Hãy thêm món ở tab Menu trước.' })
+    );
+
+    // Các dòng trong đơn
+    const linesCard = el('div', { className: 'card' },
+      el('div', { className: 'row-between', style: 'margin-bottom:6px' },
+        el('b', { text: s.editId ? 'Đang sửa đơn ' + s.editCode : 'Chi tiết đơn' }),
+        s.editId ? el('button', {
+          type: 'button', className: 'btn btn-sm',
+          onClick: () => { resetSaleForm(); renderSaleTab(); },
+          text: 'Hủy sửa'
+        }) : (s.items.length ? el('button', {
+          type: 'button', className: 'btn btn-sm',
+          onClick: () => { s.items = []; s.paidCustom = null; saveDraft(); renderSaleTab(); },
+          text: 'Xóa giỏ'
+        }) : null)
+      ),
+      s.items.length ? s.items.map((it, idx) => el('div', { className: 'line-row' },
+        el('div', { className: 'line-main' },
+          el('b', { text: it.name }),
+          el('small', { className: 'num', text: app.formatMoney(it.price) + ' × ' + it.qty + ' = ' + app.formatMoney(it.price * it.qty) })
+        ),
+        el('div', { className: 'stepper' },
+          el('button', { type: 'button', 'aria-label': 'Giảm', onClick: () => {
+            if (it.qty <= 1) s.items.splice(idx, 1); else it.qty--;
+            s.paidCustom = null; saveDraft(); renderSaleTab();
+          }, text: '−' }),
+          el('output', { className: 'num', text: String(it.qty) }),
+          el('button', { type: 'button', 'aria-label': 'Tăng', onClick: () => {
+            it.qty = Math.min(999, it.qty + 1); s.paidCustom = null; saveDraft(); renderSaleTab();
+          }, text: '+' })
+        ),
+        el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: () => { s.items.splice(idx, 1); s.paidCustom = null; saveDraft(); renderSaleTab(); }, text: 'Xóa' })
+      )) : el('div', { className: 'empty-state', text: 'Chạm vào món phía trên để thêm vào đơn.' })
+    );
+
+    // Thông tin đơn & thanh toán
+    const placeListId = 'dl-sale-places';
+    const custPickerProPlus = app.hasPlan('proplus') ? renderSaleCustomerPicker() : null;
+    const paidVal = s.unpaid ? 0 : (s.paidCustom != null ? s.paidCustom : tot.total);
+
+    const infoCard = el('div', { className: 'card' },
+      el('div', { style: 'font-weight:700;margin-bottom:8px', text: 'Thông tin đơn & thanh toán' }),
+      custPickerProPlus,
+      el('div', { className: 'grid-2' },
+        el('div', { className: 'field' },
+          el('label', { for: 'sl-place', text: 'Nơi bán' }),
+          el('input', {
+            id: 'sl-place', className: 'input', list: placeListId, value: s.place || '',
+            placeholder: 'Tại quầy',
+            onInput: e => { s.place = e.target.value; saveDraft(); }
+          }),
+          el('datalist', { id: placeListId }, ST.salePlaces.map(p => el('option', { value: p })))
+        ),
+        el('div', { className: 'field' },
+          el('label', { for: 'sl-at', text: 'Giờ bán (để trống = bây giờ)' }),
+          el('input', {
+            id: 'sl-at', className: 'input', type: 'datetime-local', value: s.at || '',
+            onChange: e => { s.at = e.target.value; saveDraft(); }
+          })
+        )
+      ),
+      el('div', { className: 'grid-2' },
+        el('div', { className: 'field' },
+          el('label', { for: 'sl-cname', text: 'Tên khách (không bắt buộc)' }),
+          el('input', {
+            id: 'sl-cname', className: 'input', value: s.customer_name || '', placeholder: 'Khách lẻ',
+            onInput: e => { s.customer_name = e.target.value; saveDraft(); }
+          })
+        ),
+        el('div', { className: 'field' },
+          el('label', { for: 'sl-cphone', text: 'Số điện thoại (không bắt buộc)' }),
+          el('input', {
+            id: 'sl-cphone', className: 'input', type: 'tel', inputmode: 'tel', value: s.customer_phone || '',
+            onInput: e => { s.customer_phone = e.target.value; saveDraft(); }
+          })
+        )
+      ),
+      el('div', { className: 'grid-2' },
+        el('div', { className: 'field' },
+          el('label', { for: 'sl-disc', text: 'Giảm giá tay (đ)' }),
+          el('input', {
+            id: 'sl-disc', className: 'input num', type: 'number', min: 0, value: s.discount || 0,
+            onInput: e => { s.discount = Math.max(0, Math.round(Number(e.target.value) || 0)); s.paidCustom = null; saveDraft(); updateSaleSticky(); }
+          })
+        ),
+        el('div', { className: 'field' },
+          el('label', { for: 'sl-paid', text: 'Số tiền thu (đ)' }),
+          el('input', {
+            id: 'sl-paid', className: 'input num', type: 'number', min: 0, disabled: s.unpaid, value: paidVal,
+            onInput: e => { s.paidCustom = Math.max(0, Math.round(Number(e.target.value) || 0)); saveDraft(); }
+          })
+        )
+      ),
+      el('div', { className: 'field' },
+        el('label', { text: 'Cách thanh toán' }),
+        el('div', { className: 'chips' },
+          activePayMethods().map(m => el('button', {
+            type: 'button', className: 'chip', 'aria-pressed': String(!s.unpaid && s.pay_method_id === m.id),
+            onClick: () => { s.unpaid = false; s.pay_method_id = m.id; app.storageSet('dd_last_pay_' + shopId, m.id); saveDraft(); renderSaleTab(); },
+            text: m.name
+          })),
+          el('button', {
+            type: 'button', className: 'chip', 'aria-pressed': String(s.unpaid),
+            onClick: () => { s.unpaid = !s.unpaid; saveDraft(); renderSaleTab(); },
+            text: 'Chưa thu'
+          })
+        )
+      ),
+      el('div', { className: 'field' },
+        el('label', { for: 'sl-note', text: 'Ghi chú' }),
+        el('input', { id: 'sl-note', className: 'input', value: s.note || '', placeholder: 'Ghi chú đơn hàng…', onInput: e => { s.note = e.target.value; saveDraft(); } })
+      )
+    );
+
+    // Danh sách 40 đơn tay gần đây nhóm theo ngày
+    const grouped = new Map();
+    for (const o of ST.manualOrders) {
+      const day = app.toVnYmd(new Date(o.ordered_at));
+      if (!grouped.has(day)) grouped.set(day, []);
+      grouped.get(day).push(o);
+    }
+    const recentCard = el('div', { className: 'card' },
+      el('div', { style: 'font-weight:700;margin-bottom:8px', text: 'Đơn gần đây (' + ST.manualOrders.length + ')' }),
+      ST.manualOrders.length ? [...grouped.entries()].map(([day, list]) => el('div', { style: 'margin-bottom:10px' },
+        el('div', { style: 'font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:4px', text: day.split('-').reverse().join('/') }),
+        list.map(o => el('div', { className: 'line-row' },
+          el('div', { className: 'line-main' },
+            el('b', { className: 'num', text: o.code + ' · ' + app.formatMoney(o.total) }),
+            el('small', { text: app.formatVnDateTime(o.ordered_at).slice(11) + ' · ' + (o.customer_name || 'Khách lẻ') + (o.place ? ' · ' + o.place : '') })
+          ),
+          el('span', { className: 'badge ' + (o.pay_status === 'paid' ? '' : 'badge-warn'), text: o.pay_status === 'paid' ? 'Đã thu' : 'Chưa thu' }),
+          el('button', { type: 'button', className: 'btn btn-sm', onClick: () => startEditManualOrder(o), text: 'Sửa' }),
+          el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: e => confirmModal('Xóa đơn ' + o.code + '?', 'Đơn tay này sẽ bị xóa hẳn khỏi hệ thống.', 'Xóa đơn', async () => {
+            const { error } = await sb.rpc('delete_order', { p_order: o.id });
+            if (error) throw error;
+            app.showToast('Đã xóa đơn ' + o.code, 'accent');
+            await loadManualOrders();
+            renderSaleTab();
+          }, e.currentTarget), text: 'Xóa' })
+        ))
+      )) : el('div', { className: 'empty-state', text: 'Chưa có đơn bán tại quầy nào.' })
+    );
+
+    contentHost.replaceChildren(
+      renderMetaBar('sale', async () => { await loadTabData('sale'); renderSaleTab(); }),
+      subSeg,
+      menuBox,
+      linesCard,
+      infoCard,
+      recentCard
+    );
+    updateSaleSticky();
+  }
+
+  function renderSaleCustomerPicker() {
+    const s = ST.sale;
+    const picked = s.customer_id ? ST.customers.find(c => c.id === s.customer_id) : null;
+    if (picked) {
+      return el('div', { className: 'alert alert-success row-between', style: 'margin-bottom:10px' },
+        el('span', { text: 'Khách: ' + picked.name + (picked.apt ? ' (' + picked.apt + ')' : '') + (picked.phone ? ' · ' + picked.phone : '') }),
+        el('button', { type: 'button', className: 'btn btn-sm', onClick: () => { s.customer_id = null; saveDraft(); renderSaleTab(); }, text: 'Bỏ chọn' })
+      );
+    }
+    const resBox = el('div');
+    const inp = el('input', {
+      className: 'input', type: 'search', placeholder: 'Tìm khách theo tên, SĐT, căn hộ…',
+      onInput: e => {
+        const q = fold(e.target.value.trim());
+        if (!q) { resBox.replaceChildren(); return; }
+        const hits = ST.customers.filter(c => fold(c.name).includes(q) || fold(c.phone).includes(q) || fold(c.apt).includes(q)).slice(0, 6);
+        resBox.replaceChildren(el('div', { style: 'margin-top:6px;display:grid;gap:4px' },
+          hits.length ? hits.map(c => el('button', {
+            type: 'button', className: 'btn btn-sm', style: 'justify-content:space-between;width:100%',
+            onClick: () => {
+              s.customer_id = c.id; s.customer_name = c.name; s.customer_phone = c.phone || '';
+              saveDraft(); renderSaleTab();
+            }
+          }, el('span', { text: c.name + (c.apt ? ' · ' + c.apt : '') }), el('small', { text: c.phone || '' })))
+          : el('small', { style: 'color:var(--text-sub)', text: 'Không thấy khách khớp.' })
+        ));
+      }
+    });
+    return el('div', { className: 'field', style: 'margin-bottom:10px' },
+      el('div', { className: 'row-between', style: 'margin-bottom:4px' },
+        el('label', { style: 'margin:0', text: 'Chọn khách hàng' }),
+        el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openCustomerModal(null, c => {
+          s.customer_id = c.id; s.customer_name = c.name; s.customer_phone = c.phone || '';
+          saveDraft(); renderSaleTab();
+        }, e.currentTarget), text: '+ Khách mới' })
+      ),
+      inp, resBox
+    );
+  }
+
+  function updateSaleSticky() {
+    if (ST.tab !== 'sale' || ST.saleSub !== 'pos') { stickyHost.replaceChildren(); return; }
+    const tot = saleTotals();
+    const saveBtn = el('button', {
+      type: 'button', className: 'btn-save', disabled: !tot.count,
+      onClick: () => submitSaleOrder(saveBtn),
+      text: ST.sale.editId ? 'Cập nhật đơn' : 'Lưu đơn'
+    });
+    stickyHost.replaceChildren(el('div', { className: 'sticky-bar' },
+      el('div', { className: 'sticky-bar-in' },
+        el('div', { className: 'sum' },
+          el('small', { text: tot.count + ' món' + (tot.disc ? ' · giảm ' + app.formatMoney(tot.disc) : '') }),
+          el('b', { className: 'num', text: app.formatMoney(tot.total) })
+        ),
+        saveBtn
+      )
+    ));
+  }
+
+  function resetSaleForm() {
+    const keepPlace = ST.sale.place || 'Tại quầy';
+    const keepPay = ST.sale.pay_method_id;
+    ST.sale = {
+      editId: null, editCode: '', items: [],
+      place: keepPlace, customer_name: '', customer_phone: '', customer_id: null, note: '',
+      at: '', discount: 0, pay_method_id: keepPay, unpaid: false, paidCustom: null
+    };
+    app.storageSet(DRAFT_KEY, null);
+  }
+
+  function startEditManualOrder(o) {
+    ST.sale = {
+      editId: o.id,
+      editCode: o.code,
+      items: (o.order_items || []).map(it => ({ item_id: it.item_id, name: it.name, unit: it.unit || 'phần', price: it.price, qty: it.qty })),
+      place: o.place || 'Tại quầy',
+      customer_name: o.customer_name || '',
+      customer_phone: o.customer_phone || '',
+      customer_id: o.customer_id || null,
+      note: o.note || '',
+      at: toLocalDtValue(o.ordered_at),
+      discount: o.discount || 0,
+      pay_method_id: o.pay_method_id,
+      unpaid: o.pay_status === 'unpaid',
+      paidCustom: o.paid
+    };
+    renderSaleTab();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function submitSaleOrder(btn) {
+    const s = ST.sale;
+    const tot = saleTotals();
+    if (!s.items.length) return;
+    btn.disabled = true; btn.textContent = 'Đang lưu…';
+    try {
+      const place = (s.place || '').trim() || 'Tại quầy';
+      if (!ST.salePlaces.includes(place)) {
+        ST.salePlaces = [place].concat(ST.salePlaces).slice(0, 10);
+        app.storageSet('dd_sale_places_' + shopId, ST.salePlaces);
+      }
+      app.storageSet('dd_last_place_' + shopId, place);
+      const paidAmt = s.unpaid ? 0 : (s.paidCustom != null ? s.paidCustom : tot.total);
+      const { data, error } = await sb.rpc('save_order', {
+        p_shop: shopId,
+        p_order: s.editId || null,
+        p_at: localDtToIso(s.at),
+        p_customer_name: (s.customer_name || '').trim(),
+        p_customer_phone: (s.customer_phone || '').trim(),
+        p_address: '',
+        p_note: (s.note || '').trim(),
+        p_customer_id: app.hasPlan('proplus') ? (s.customer_id || null) : null,
+        p_place: place,
+        p_items: s.items.map(it => ({ item_id: it.item_id, qty: it.qty })),
+        p_discount: tot.disc,
+        p_pay_method: s.unpaid ? null : (s.pay_method_id || null),
+        p_pay_status: s.unpaid ? 'unpaid' : 'paid',
+        p_paid: paidAmt,
+        p_status: 'done'
+      });
+      if (error) throw error;
+      app.showToast((s.editId ? 'Đã cập nhật đơn ' : 'Đã lưu đơn ') + data.code + ' · ' + app.formatMoney(data.total), 'accent');
+      resetSaleForm();
+      await loadManualOrders();
+      renderSaleTab();
+    } catch (err) {
+      showErr(err);
+      btn.disabled = false; btn.textContent = ST.sale.editId ? 'Cập nhật đơn' : 'Lưu đơn';
+    }
+  }
+
+  function renderEodView(subSeg) {
+    stickyHost.replaceChildren();
+    const d = ST.eodData;
+    const dateInput = el('input', {
+      className: 'input', type: 'date', value: ST.eodDate,
+      onChange: async e => { ST.eodDate = e.target.value || app.toVnYmd(new Date()); await loadEod(); renderSaleTab(); }
+    });
+    const rows = (d && d.by_method) || [];
+    const unpaid = (d && d.unpaid) || { orders: 0, amount: 0 };
+    const totals = (d && d.totals) || { orders: 0, revenue: 0, paid: 0, discount: 0 };
+
+    contentHost.replaceChildren(
+      renderMetaBar('sale', async () => { await loadEod(); renderSaleTab(); }),
+      subSeg,
+      el('div', { className: 'card' },
+        el('div', { className: 'field', style: 'max-width:220px;margin-top:0' },
+          el('label', { text: 'Ngày đối chiếu' }), dateInput
+        ),
+        el('div', { className: 'table-scroll', style: 'margin-top:12px' },
+          el('table', { className: 'bh-tbl' },
+            el('thead', null, el('tr', null,
+              el('th', { text: 'Phương thức' }),
+              el('th', { className: 'r', text: 'Số đơn' }),
+              el('th', { className: 'r', text: 'Doanh thu' }),
+              el('th', { className: 'r', text: 'Đã thu' })
+            )),
+            el('tbody', null,
+              rows.map(r => el('tr', null,
+                el('td', { text: r.name }),
+                el('td', { className: 'r num', text: String(r.orders) }),
+                el('td', { className: 'r num', text: app.formatMoney(r.revenue) }),
+                el('td', { className: 'r num', text: app.formatMoney(r.paid) })
+              )),
+              el('tr', { className: unpaid.orders > 0 ? 'low-row' : '' },
+                el('td', { style: 'font-weight:700', text: 'Chưa thu' }),
+                el('td', { className: 'r num', text: String(unpaid.orders) }),
+                el('td', { className: 'r num', text: app.formatMoney(unpaid.amount) }),
+                el('td', { className: 'r num', text: '0đ' })
+              ),
+              el('tr', { style: 'font-weight:700' },
+                el('td', { text: 'Tổng cộng' }),
+                el('td', { className: 'r num', text: String(totals.orders) }),
+                el('td', { className: 'r num', text: app.formatMoney(totals.revenue) }),
+                el('td', { className: 'r num', text: app.formatMoney(totals.paid) })
+              )
+            )
+          )
+        )
+      ),
+      el('div', { className: 'card' },
+        el('div', { style: 'font-weight:700;margin-bottom:8px', text: 'Đơn chưa thu trong ngày (' + ST.eodUnpaid.length + ')' }),
+        ST.eodUnpaid.length ? ST.eodUnpaid.map(o => el('div', { className: 'line-row' },
+          el('div', { className: 'line-main' },
+            el('b', { className: 'num', text: o.code + ' · ' + app.formatMoney(o.total) }),
+            el('small', { text: (o.customer_name || 'Khách lẻ') + ' · ' + app.formatVnDateTime(o.ordered_at) })
+          ),
+          el('button', {
+            type: 'button', className: 'btn btn-primary btn-sm',
+            onClick: e => openConfirmPaymentModal(o, async () => { await loadEod(); renderSaleTab(); }, e.currentTarget),
+            text: 'Xác nhận thu tiền'
+          })
+        )) : el('div', { className: 'empty-state', text: 'Tất cả đơn trong ngày đã được thu đủ.' })
+      )
+    );
+  }
+
+  function openConfirmPaymentModal(order, onDone, opener) {
+    let selMethod = order.pay_method_id || (activePayMethods()[0] && activePayMethods()[0].id) || null;
+    const body = el('div');
+    const draw = () => {
+      body.replaceChildren(
+        el('p', { style: 'margin:0 0 10px', text: 'Xác nhận đã thu đủ ' + app.formatMoney(order.total) + ' cho đơn ' + order.code + ':' }),
+        el('div', { className: 'chips' },
+          activePayMethods().map(m => el('button', {
+            type: 'button', className: 'chip', 'aria-pressed': String(selMethod === m.id),
+            onClick: () => { selMethod = m.id; draw(); }, text: m.name
+          }))
+        )
+      );
+    };
+    draw();
+    const okBtn = el('button', {
+      type: 'button', className: 'btn btn-primary',
+      onClick: async () => {
+        okBtn.disabled = true; okBtn.textContent = 'Đang lưu…';
+        try {
+          const { error } = await sb.rpc('set_order_payment', {
+            p_order: order.id, p_pay_method: selMethod, p_pay_status: 'paid', p_paid: order.total
+          });
+          if (error) throw error;
+          closeModal();
+          app.showToast('Đã xác nhận thu tiền đơn ' + order.code, 'accent');
+          if (onDone) await onDone();
+        } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = 'Đã nhận tiền'; }
+      },
+      text: 'Đã nhận tiền'
+    });
+    openModal('Xác nhận thanh toán', body, [
+      el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }),
+      okBtn
+    ], opener);
+  }
+
+  /* ===== TAB: Đơn online (gói tối thiểu: standard) ===== */
+  const ONLINE_STATES = [
+    { id: 'new', label: 'Mới' },
+    { id: 'preparing', label: 'Đang làm' },
+    { id: 'delivering', label: 'Đang giao' },
+    { id: 'done', label: 'Xong' },
+    { id: 'cancelled', label: 'Đã hủy' },
+    { id: 'all', label: 'Tất cả' }
+  ];
+  const NEXT_ACTION = {
+    new: { next: 'preparing', label: 'Nhận đơn' },
+    preparing: { next: 'delivering', label: 'Giao hàng' },
+    delivering: { next: 'done', label: 'Hoàn tất' }
+  };
+
+  async function loadOnlineOrders(append) {
+    const from = append ? ST.onlineOffset : 0;
+    const to = from + 49;
+    const { data, error } = await sb.from('orders')
+      .select('*, order_items(id,item_id,name,unit,price,qty)')
+      .eq('shop_id', shopId)
+      .eq('source', 'online')
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    if (error) throw error;
+    const list = data || [];
+    if (append) {
+      const seen = new Set(ST.onlineOrders.map(o => o.id));
+      ST.onlineOrders = ST.onlineOrders.concat(list.filter(o => !seen.has(o.id)));
+    } else {
+      ST.onlineOrders = list;
+    }
+    ST.onlineOffset = ST.onlineOrders.length;
+    ST.onlineHasMore = list.length === 50;
+  }
+
+  function renderOnlineTab() {
+    const counts = { all: ST.onlineOrders.length };
+    for (const o of ST.onlineOrders) counts[o.status] = (counts[o.status] || 0) + 1;
+    const shown = ST.onlineFilter === 'all' ? ST.onlineOrders : ST.onlineOrders.filter(o => o.status === ST.onlineFilter);
+
+    const soundToggle = el('button', {
+      type: 'button', className: 'btn btn-sm',
+      onClick: () => { ST.soundOn = !ST.soundOn; app.storageSet('dd_sound_on', ST.soundOn); renderOnlineTab(); },
+      text: ST.soundOn ? 'Âm báo: Bật' : 'Âm báo: Tắt'
+    });
+
+    const filterRow = el('div', { className: 'chips', style: 'margin-bottom:12px' },
+      ONLINE_STATES.map(st => el('button', {
+        type: 'button', className: 'chip', 'aria-pressed': String(ST.onlineFilter === st.id),
+        onClick: () => { ST.onlineFilter = st.id; renderOnlineTab(); },
+        text: st.label + (counts[st.id] ? ' (' + counts[st.id] + ')' : '')
+      }))
+    );
+
+    const cards = shown.length ? shown.map(o => {
+      const next = NEXT_ACTION[o.status];
+      const payLabel = o.pay_status === 'paid' ? 'Đã thanh toán' : (o.pay_status === 'checking' ? 'Chờ xác nhận CK' : 'Chưa thanh toán');
+      const payCls = o.pay_status === 'paid' ? '' : (o.pay_status === 'checking' ? 'badge-warn' : 'badge-err');
+      return el('div', { className: 'card ocard st-' + o.status },
+        el('div', { className: 'row-between' },
+          el('b', { className: 'num', style: 'font-size:17px', text: o.code }),
+          el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' },
+            el('span', { className: 'badge ' + (o.status === 'new' ? 'badge-err' : o.status === 'cancelled' ? 'badge-muted' : ''), text: (ONLINE_STATES.find(x => x.id === o.status) || {}).label || o.status }),
+            el('span', { className: 'badge ' + payCls, text: payLabel })
+          )
+        ),
+        el('div', { style: 'font-size:13.5px;color:var(--text-sub);margin-top:4px', text: 'Đặt lúc ' + app.formatVnDateTime(o.ordered_at || o.created_at) + (o.deliver_at ? ' · Hẹn giao ' + app.formatVnDateTime(o.deliver_at) : '') }),
+        el('div', { style: 'margin-top:6px;font-weight:600' },
+          (o.customer_name || 'Khách') + ' · ',
+          o.customer_phone ? el('a', { href: 'tel:' + o.customer_phone, style: 'color:var(--accent)', text: o.customer_phone }) : null
+        ),
+        (o.place || o.address) ? el('div', { style: 'font-size:14px;color:var(--text-sub)', text: [o.place, o.address].filter(Boolean).join(' – ') + (o.delivery_fee > 0 ? ' (phí giao ' + app.formatMoney(o.delivery_fee) + ')' : '') }) : null,
+        o.note ? el('div', { style: 'font-size:14px;font-style:italic;margin-top:4px', text: 'Ghi chú: ' + o.note }) : null,
+        el('div', { style: 'margin-top:8px;border-top:1px solid var(--border);padding-top:8px' },
+          (o.order_items || []).map(it => el('div', { className: 'row-between', style: 'padding:2px 0;font-size:14.5px' },
+            el('span', { text: it.qty + ' × ' + it.name }),
+            el('span', { className: 'num', text: app.formatMoney(it.price * it.qty) })
+          )),
+          o.discount > 0 ? el('div', { className: 'row-between', style: 'font-size:14px;color:var(--accent)' },
+            el('span', { text: 'Giảm giá' }), el('span', { className: 'num', text: '−' + app.formatMoney(o.discount) })
+          ) : null,
+          el('div', { className: 'row-between', style: 'font-weight:700;font-size:16px;margin-top:4px' },
+            el('span', { text: 'Tổng (' + payMethodName(o.pay_method_id) + ')' }),
+            el('span', { className: 'num', text: app.formatMoney(o.total) })
+          )
+        ),
+        el('div', { className: 'toolbar', style: 'margin-top:10px;display:flex;gap:8px;flex-wrap:wrap' },
+          next ? el('button', {
+            type: 'button', className: 'btn btn-primary', style: 'flex:1',
+            onClick: () => updateOnlineStatus(o, next.next),
+            text: next.label
+          }) : null,
+          o.status !== 'done' && o.status !== 'cancelled' ? el('button', {
+            type: 'button', className: 'btn btn-danger',
+            onClick: e => confirmModal('Hủy đơn ' + o.code + '?', 'Đơn sẽ chuyển sang trạng thái Đã hủy.', 'Xác nhận hủy', () => updateOnlineStatus(o, 'cancelled'), e.currentTarget),
+            text: 'Hủy đơn'
+          }) : null,
+          o.status !== 'cancelled' && o.pay_status !== 'paid' ? el('button', {
+            type: 'button', className: 'btn',
+            onClick: e => openConfirmPaymentModal(o, async () => { await loadOnlineOrders(false); renderOnlineTab(); }, e.currentTarget),
+            text: 'Đã nhận tiền'
+          }) : null,
+          o.status !== 'cancelled' && o.pay_status === 'unpaid' ? el('button', {
+            type: 'button', className: 'btn btn-sm',
+            onClick: async () => {
+              try {
+                const { error } = await sb.rpc('set_order_payment', { p_order: o.id, p_pay_method: o.pay_method_id, p_pay_status: 'checking', p_paid: 0 });
+                if (error) throw error;
+                o.pay_status = 'checking';
+                app.showToast('Đã đánh dấu chờ xác nhận CK', 'accent');
+                renderOnlineTab();
+              } catch (err) { showErr(err); }
+            },
+            text: 'Chờ xác nhận CK'
+          }) : null
+        )
+      );
+    }) : [el('div', { className: 'card empty-state', text: 'Không có đơn online nào trong mục này.' })];
+
+    const moreBtn = ST.onlineHasMore ? el('button', {
+      type: 'button', className: 'btn', style: 'width:100%',
+      onClick: async () => { await loadOnlineOrders(true); renderOnlineTab(); },
+      text: 'Xem thêm đơn cũ'
+    }) : null;
+
+    contentHost.replaceChildren(
+      renderMetaBar('online', async () => { await loadOnlineOrders(false); markLoaded('online'); renderOnlineTab(); }, soundToggle),
+      filterRow,
+      ...cards,
+      moreBtn
+    );
+  }
+
+  async function updateOnlineStatus(order, newStatus) {
+    const prev = order.status;
+    order.status = newStatus; // Cập nhật lạc quan
+    renderOnlineTab();
+    try {
+      const res = await sb.from('orders').update({ status: newStatus }).eq('id', order.id).eq('shop_id', shopId).select('id');
+      checkMutated(res);
+      app.showToast('Đã chuyển đơn ' + order.code + ' sang ' + ((ONLINE_STATES.find(x => x.id === newStatus) || {}).label || newStatus), 'accent');
+      renderNav();
+    } catch (err) {
+      order.status = prev; // Hoàn tác khi lỗi
+      showErr(err);
+      renderOnlineTab();
+    }
+  }
+
+  // Thời gian thực cho đơn online + dự phòng 30 giây
+  const onlineChannel = sb.channel('orders-' + shopId)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders', filter: 'shop_id=eq.' + shopId }, async payload => {
+      if (payload.new && payload.new.source === 'online') {
+        playTing();
+        app.showToast('Có đơn online mới: ' + payload.new.code, 'accent');
+        await loadOnlineOrders(false);
+        renderNav();
+        if (ST.tab === 'online') renderOnlineTab();
+      }
+    })
+    .subscribe();
+  const pollOnlineTimer = setInterval(async () => {
+    if (document.visibilityState !== 'visible') return;
+    try {
+      const prevNew = ST.onlineOrders.filter(o => o.status === 'new').length;
+      await loadOnlineOrders(false);
+      const currNew = ST.onlineOrders.filter(o => o.status === 'new').length;
+      if (currNew > prevNew) playTing();
+      renderNav();
+      if (ST.tab === 'online') renderOnlineTab();
+    } catch (e) {}
+  }, 30000);
+  window.addEventListener('beforeunload', () => {
+    clearInterval(pollOnlineTimer);
+    try { sb.removeChannel(onlineChannel); } catch (e) {}
+  });
+
+  /* ===== TAB: Menu (gói tối thiểu: standard) ===== */
+  function renderMenuTab() {
+    const cats = new Map();
+    for (const m of ST.menuItems) {
+      const c = (m.category || '').trim() || 'Khác';
+      if (!cats.has(c)) cats.set(c, []);
+      cats.get(c).push(m);
+    }
+
+    const toolbar = el('div', { className: 'toolbar', style: 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px' },
+      el('button', { type: 'button', className: 'btn btn-primary', onClick: e => openMenuModal(null, e.currentTarget), text: '+ Thêm món' }),
+      el('button', { type: 'button', className: 'btn', onClick: e => openMenuCsvImportModal(e.currentTarget), text: 'Nhập CSV' }),
+      el('button', { type: 'button', className: 'btn', onClick: () => {
+        const rows = [['Tên món', 'Giá', 'Đơn vị', 'Nhóm', 'Mô tả', 'Đang bán']]
+          .concat(ST.menuItems.map(m => [m.name, m.price, m.unit || 'phần', m.category || '', m.description || '', m.active ? 'Có' : 'Tạm ngưng']));
+        app.downloadCsv('menu-' + ST.shop.slug + '.csv', rows);
+      }, text: 'Xuất CSV' }),
+      el('button', { type: 'button', className: 'btn', onClick: () => {
+        app.downloadCsv('mau-nhap-menu.csv', [['Tên món', 'Giá', 'Đơn vị', 'Nhóm', 'Mô tả'], ['Cà phê sữa đá', 25000, 'ly', 'Cà phê', 'Đậm vị']]);
+      }, text: 'Tải file mẫu' })
+    );
+
+    const listNodes = ST.menuItems.length ? [...cats.entries()].map(([cat, list]) => el('div', { className: 'card' },
+      el('div', { style: 'font-weight:700;margin-bottom:6px', text: cat + ' (' + list.length + ')' }),
+      list.map(m => el('div', { className: 'line-row' },
+        el('div', { className: 'line-main' },
+          el('b', { text: m.name }),
+          el('small', { className: 'num', text: app.formatMoney(m.price) + ' / ' + (m.unit || 'phần') + (m.active ? '' : ' · Tạm ngưng') })
+        ),
+        el('button', {
+          type: 'button', className: 'chip', 'aria-pressed': String(m.active),
+          onClick: async () => {
+            try {
+              const res = await sb.from('menu_items').update({ active: !m.active }).eq('id', m.id).eq('shop_id', shopId).select('id');
+              checkMutated(res);
+              m.active = !m.active;
+              renderMenuTab();
+            } catch (err) { showErr(err); }
+          },
+          text: m.active ? 'Đang bán' : 'Tạm tắt'
+        }),
+        app.hasPlan('pro') ? el('button', {
+          type: 'button', className: 'btn btn-sm',
+          onClick: () => { ST.recipeMenuId = m.id; switchTab('recipe'); },
+          text: 'Định mức'
+        }) : null,
+        el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openMenuModal(m, e.currentTarget), text: 'Sửa' }),
+        el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: e => confirmModal('Xóa món "' + m.name + '"?', 'Món sẽ bị xóa khỏi thực đơn.', 'Xóa món', async () => {
+          const res = await sb.from('menu_items').delete().eq('id', m.id).eq('shop_id', shopId).select('id');
+          checkMutated(res);
+          app.showToast('Đã xóa món ' + m.name, 'accent');
+          await loadMenu();
+          renderMenuTab();
+        }, e.currentTarget), text: 'Xóa' })
+      ))
+    )) : [el('div', { className: 'card empty-state' }, el('b', { text: 'Chưa có món nào' }), el('span', { text: 'Bấm "+ Thêm món" hoặc "Nhập CSV" để tạo thực đơn.' }))];
+
+    contentHost.replaceChildren(
+      renderMetaBar('menu', async () => { await loadMenu(); renderMenuTab(); }),
+      toolbar,
+      ...listNodes
+    );
+  }
+
+  function openMenuModal(item, opener) {
+    const f = {
+      name: item ? item.name : '',
+      price: item ? item.price : '',
+      unit: item ? (item.unit || 'phần') : 'phần',
+      category: item ? (item.category || '') : '',
+      description: item ? (item.description || '') : '',
+      image_url: item ? (item.image_url || '') : '',
+      sort: item ? (item.sort || 0) : ST.menuItems.length * 10,
+      active: item ? item.active : true
+    };
+    const existingCats = [...new Set(ST.menuItems.map(m => (m.category || '').trim()).filter(Boolean))];
+    const unitSuggestions = ['chai', 'ly', 'tô', 'đĩa', 'cái', 'chiếc', 'kg', 'phần'];
+    const imgPrev = el('img', { className: 'img-preview' + (f.image_url.startsWith('https://') ? '' : ' hidden'), src: f.image_url.startsWith('https://') ? f.image_url : '', alt: 'Xem trước' });
+
+    const body = el('div', null,
+      el('div', { className: 'field' },
+        el('label', { for: 'mn-name', text: 'Tên món (kèm cỡ nếu có)' }),
+        el('input', { id: 'mn-name', className: 'input', maxlength: 120, value: f.name, onInput: e => { f.name = e.target.value; } })
+      ),
+      el('div', { className: 'grid-2' },
+        el('div', { className: 'field' },
+          el('label', { for: 'mn-price', text: 'Giá bán (đ)' }),
+          el('input', { id: 'mn-price', className: 'input num', type: 'number', min: 0, value: f.price, onInput: e => { f.price = e.target.value; } })
+        ),
+        el('div', { className: 'field' },
+          el('label', { for: 'mn-unit', text: 'Đơn vị' }),
+          el('input', { id: 'mn-unit', className: 'input', list: 'dl-units', value: f.unit, onInput: e => { f.unit = e.target.value; } }),
+          el('datalist', { id: 'dl-units' }, unitSuggestions.map(u => el('option', { value: u })))
+        )
+      ),
+      el('div', { className: 'grid-2' },
+        el('div', { className: 'field' },
+          el('label', { for: 'mn-cat', text: 'Nhóm món' }),
+          el('input', { id: 'mn-cat', className: 'input', list: 'dl-cats', value: f.category, placeholder: 'Ví dụ: Đồ uống', onInput: e => { f.category = e.target.value; } }),
+          el('datalist', { id: 'dl-cats' }, existingCats.map(c => el('option', { value: c })))
+        ),
+        el('div', { className: 'field' },
+          el('label', { for: 'mn-sort', text: 'Thứ tự hiển thị' }),
+          el('input', { id: 'mn-sort', className: 'input num', type: 'number', value: f.sort, onInput: e => { f.sort = e.target.value; } })
+        )
+      ),
+      el('div', { className: 'field' },
+        el('label', { for: 'mn-desc', text: 'Mô tả' }),
+        el('textarea', { id: 'mn-desc', className: 'textarea', value: f.description, onInput: e => { f.description = e.target.value; } })
+      ),
+      el('div', { className: 'field' },
+        el('label', { for: 'mn-img', text: 'Link ảnh (bắt đầu bằng https://)' }),
+        el('input', {
+          id: 'mn-img', className: 'input', type: 'url', value: f.image_url, placeholder: 'https://...',
+          onInput: e => {
+            f.image_url = e.target.value.trim();
+            if (f.image_url.startsWith('https://')) { imgPrev.src = f.image_url; imgPrev.classList.remove('hidden'); }
+            else imgPrev.classList.add('hidden');
+          }
+        }),
+        imgPrev
+      ),
+      el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:600' },
+        el('input', { type: 'checkbox', checked: f.active, style: 'width:20px;height:20px', onChange: e => { f.active = e.target.checked; } }),
+        'Đang bán'
+      )
+    );
+
+    const saveBtn = el('button', {
+      type: 'button', className: 'btn btn-primary',
+      onClick: async () => {
+        const name = f.name.trim();
+        const price = Math.round(Number(f.price));
+        if (!name || name.length > 120) { app.showToast('Tên món từ 1–120 ký tự', 'error'); return; }
+        if (Number.isNaN(price) || price < 0) { app.showToast('Giá bán phải là số ≥ 0', 'error'); return; }
+        if (f.image_url && !f.image_url.startsWith('https://')) { app.showToast('Link ảnh phải bắt đầu bằng https://', 'error'); return; }
+        saveBtn.disabled = true; saveBtn.textContent = 'Đang lưu…';
+        try {
+          const rec = {
+            name, price, unit: f.unit.trim() || 'phần',
+            category: f.category.trim() || null,
+            description: f.description.trim() || null,
+            image_url: f.image_url || null,
+            sort: Math.round(Number(f.sort) || 0),
+            active: f.active
+          };
+          if (item) {
+            const res = await sb.from('menu_items').update(rec).eq('id', item.id).eq('shop_id', shopId).select('id');
+            checkMutated(res);
+          } else {
+            const { error } = await sb.from('menu_items').insert(Object.assign({ shop_id: shopId }, rec));
+            if (error) throw error;
+          }
+          closeModal();
+          app.showToast(item ? 'Đã cập nhật món' : 'Đã thêm món mới', 'accent');
+          await loadMenu();
+          renderMenuTab();
+        } catch (err) { showErr(err); saveBtn.disabled = false; saveBtn.textContent = 'Lưu món'; }
+      },
+      text: 'Lưu món'
+    });
+    openModal(item ? 'Sửa món' : 'Thêm món mới', body, [
+      el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }),
+      saveBtn
+    ], opener);
+  }
+
+  function openMenuCsvImportModal(opener) {
+    let parsed = [];
+    const prevBox = el('div', { style: 'margin-top:10px' });
+    const impBtn = el('button', {
+      type: 'button', className: 'btn btn-primary', disabled: true,
+      onClick: async () => {
+        const valid = parsed.filter(r => !r.err);
+        if (!valid.length) return;
+        impBtn.disabled = true; impBtn.textContent = 'Đang nhập…';
+        try {
+          const rows = valid.map((r, idx) => ({
+            shop_id: shopId, name: r.name, price: r.price, unit: r.unit || 'phần',
+            category: r.category || null, description: r.description || null, active: true, sort: (ST.menuItems.length + idx) * 10
+          }));
+          const { error } = await sb.from('menu_items').insert(rows);
+          if (error) throw error;
+          closeModal();
+          app.showToast('Đã nhập ' + rows.length + ' món', 'accent');
+          await loadMenu();
+          renderMenuTab();
+        } catch (err) { showErr(err); impBtn.disabled = false; impBtn.textContent = 'Nhập các dòng hợp lệ'; }
+      },
+      text: 'Nhập các dòng hợp lệ'
+    });
+
+    const parseText = txt => {
+      const lines = txt.replace(/^\uFEFF/, '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      parsed = [];
+      lines.forEach((line, idx) => {
+        const cols = line.split(';').map(c => c.trim().replace(/^"|"$/g, ''));
+        if (idx === 0 && /tên/i.test(cols[0]) && /giá/i.test(cols[1] || '')) return;
+        const name = cols[0] || '';
+        const price = Math.round(Number((cols[1] || '').replace(/[^\d-]/g, '')));
+        const unit = cols[2] || 'phần';
+        const category = cols[3] || '';
+        const description = cols[4] || '';
+        let err = '';
+        if (!name) err = 'Thiếu tên món';
+        else if (Number.isNaN(price) || price < 0) err = 'Giá không hợp lệ';
+        parsed.push({ lineNo: idx + 1, name, price, unit, category, description, err });
+      });
+      const okCount = parsed.filter(r => !r.err).length;
+      const errCount = parsed.length - okCount;
+      impBtn.disabled = okCount === 0;
+      prevBox.replaceChildren(
+        el('div', { className: 'alert ' + (errCount ? 'alert-warn' : 'alert-success'), text: 'Hợp lệ: ' + okCount + ' dòng · Lỗi: ' + errCount + ' dòng' }),
+        el('div', { className: 'table-scroll', style: 'max-height:220px;overflow-y:auto;margin-top:8px' },
+          el('table', { className: 'bh-tbl' },
+            el('tbody', null, parsed.map(r => el('tr', { className: r.err ? 'low-row' : '' },
+              el('td', { text: 'Dòng ' + r.lineNo }),
+              el('td', { text: r.name || '—' }),
+              el('td', { className: 'r num', text: r.err ? r.err : app.formatMoney(r.price) })
+            )))
+          )
+        )
+      );
+    };
+
+    const fileInp = el('input', {
+      type: 'file', accept: '.csv,text/csv', className: 'input',
+      onChange: async e => {
+        const f = e.target.files && e.target.files[0];
+        if (f) parseText(await f.text());
+      }
+    });
+    const ta = el('textarea', {
+      className: 'textarea', placeholder: 'Hoặc dán trực tiếp mỗi dòng: tên;giá;đơn vị;nhóm;mô tả',
+      onInput: e => parseText(e.target.value)
+    });
+    openModal('Nhập menu từ CSV', el('div', null,
+      el('div', { className: 'field' }, el('label', { text: 'Chọn file CSV (ngăn bằng dấu ;)' }), fileInp),
+      el('div', { className: 'field' }, el('label', { text: 'Hoặc dán nội dung CSV' }), ta),
+      prevBox
+    ), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' }), impBtn], opener);
+  }
+
+  /* ===== TAB: Cài đặt (gói tối thiểu: standard) ===== */
+  function renderSettingsTab() {
+    const sh = ST.shop;
+    const pf = { name: sh.name || '', phone: sh.phone || '', address: sh.address || '', payment_note: sh.payment_note || '' };
+    const st = {
+      accepting: sh.accepting !== false,
+      open_from: sh.open_from || '',
+      open_to: sh.open_to || '',
+      min_order: sh.min_order || 0,
+      cancel_minutes: sh.cancel_minutes || 0,
+      max_advance_days: sh.max_advance_days || 0,
+      places: Array.isArray(sh.places) ? sh.places.map(p => Object.assign({}, p)) : []
+    };
+
+    const orderLink = new URL('index.html?shop=' + encodeURIComponent(sh.slug), location.href).href;
+
+    // 1. Link đặt hàng
+    const linkCard = el('div', { className: 'card' },
+      el('div', { style: 'font-weight:700;margin-bottom:6px', text: 'Link đặt hàng cho khách' }),
+      el('input', { className: 'input', readonly: true, value: orderLink }),
+      el('div', { style: 'display:flex;gap:8px;margin-top:8px;flex-wrap:wrap' },
+        el('button', {
+          type: 'button', className: 'btn btn-primary',
+          onClick: () => {
+            if (navigator.clipboard) navigator.clipboard.writeText(orderLink).then(() => app.showToast('Đã sao chép link đặt hàng', 'accent'));
+          },
+          text: 'Sao chép'
+        }),
+        el('a', { className: 'btn', href: orderLink, target: '_blank', rel: 'noopener', text: 'Xem thử' })
+      )
+    );
+
+    // 2. Hồ sơ tiệm
+    const pfBtn = el('button', {
+      type: 'button', className: 'btn btn-primary', style: 'margin-top:10px',
+      onClick: async () => {
+        if (!pf.name.trim()) { app.showToast('Tên tiệm không được trống', 'error'); return; }
+        pfBtn.disabled = true; pfBtn.textContent = 'Đang lưu…';
+        try {
+          const { error } = await sb.rpc('update_shop_profile', {
+            p_shop: shopId, p_name: pf.name.trim(), p_phone: pf.phone.trim(),
+            p_address: pf.address.trim(), p_payment_note: pf.payment_note.trim()
+          });
+          if (error) throw error;
+          await loadShopFull();
+          app.showToast('Đã lưu hồ sơ tiệm', 'accent');
+        } catch (err) { showErr(err); } finally { pfBtn.disabled = false; pfBtn.textContent = 'Lưu hồ sơ'; }
+      },
+      text: 'Lưu hồ sơ'
+    });
+    const profileCard = el('div', { className: 'card' },
+      el('div', { style: 'font-weight:700', text: 'Hồ sơ tiệm' }),
+      el('div', { className: 'field' }, el('label', { text: 'Tên tiệm' }), el('input', { className: 'input', maxlength: 80, value: pf.name, onInput: e => { pf.name = e.target.value; } })),
+      el('div', { className: 'grid-2' },
+        el('div', { className: 'field' }, el('label', { text: 'Số điện thoại' }), el('input', { className: 'input', type: 'tel', value: pf.phone, onInput: e => { pf.phone = e.target.value; } })),
+        el('div', { className: 'field' }, el('label', { text: 'Địa chỉ' }), el('input', { className: 'input', value: pf.address, onInput: e => { pf.address = e.target.value; } }))
+      ),
+      el('div', { className: 'field' },
+        el('label', { text: 'Hướng dẫn chuyển khoản (hiện cho khách sau khi đặt)' }),
+        el('textarea', { className: 'textarea', maxlength: 500, value: pf.payment_note, placeholder: 'Ngân hàng, số tài khoản, tên chủ tài khoản…', onInput: e => { pf.payment_note = e.target.value; } })
+      ),
+      pfBtn
+    );
+
+    // 3. Cài đặt nhận đơn & Nơi giao
+    const placesBox = el('div', { style: 'margin-top:8px' });
+    const drawPlaces = () => {
+      placesBox.replaceChildren(
+        st.places.map((pl, idx) => el('div', { className: 'line-row' },
+          el('input', { className: 'input', style: 'flex:2 1 130px', maxlength: 40, placeholder: 'Tên nơi giao', value: pl.name || '', onInput: e => { pl.name = e.target.value; } }),
+          el('input', { className: 'input num', style: 'flex:1 1 90px', type: 'number', min: 0, max: 1000000, placeholder: 'Phí (đ)', value: pl.fee || 0, onInput: e => { pl.fee = Math.max(0, Math.round(Number(e.target.value) || 0)); } }),
+          el('select', { className: 'select', style: 'flex:1 1 120px', onChange: e => { pl.needs = e.target.value; } },
+            el('option', { value: 'apt', selected: pl.needs === 'apt', text: 'Hỏi căn hộ' }),
+            el('option', { value: 'address', selected: pl.needs === 'address', text: 'Hỏi địa chỉ' }),
+            el('option', { value: 'none', selected: pl.needs === 'none', text: 'Không hỏi gì' })
+          ),
+          el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: () => { st.places.splice(idx, 1); drawPlaces(); }, text: 'Xóa' })
+        )),
+        st.places.length < 10 ? el('button', {
+          type: 'button', className: 'btn btn-sm', style: 'margin-top:6px',
+          onClick: () => { st.places.push({ name: '', fee: 0, needs: 'address' }); drawPlaces(); },
+          text: '+ Thêm nơi giao'
+        }) : null
+      );
+    };
+    drawPlaces();
+
+    const stBtn = el('button', {
+      type: 'button', className: 'btn btn-primary', style: 'margin-top:12px',
+      onClick: async () => {
+        stBtn.disabled = true; stBtn.textContent = 'Đang lưu…';
+        try {
+          const cleanPlaces = st.places.filter(p => (p.name || '').trim()).map(p => ({
+            name: p.name.trim(), fee: Math.max(0, Math.round(Number(p.fee) || 0)), needs: p.needs || 'none'
+          }));
+          const { error } = await sb.rpc('update_shop_settings', {
+            p_shop: shopId,
+            p_accepting: st.accepting,
+            p_open_from: st.open_from || null,
+            p_open_to: st.open_to || null,
+            p_min_order: Math.max(0, Math.round(Number(st.min_order) || 0)),
+            p_cancel_minutes: Math.max(0, Math.round(Number(st.cancel_minutes) || 0)),
+            p_places: cleanPlaces,
+            p_max_advance_days: Math.max(0, Math.round(Number(st.max_advance_days) || 0))
+          });
+          if (error) throw error;
+          await loadShopFull();
+          app.showToast('Đã lưu cài đặt nhận đơn', 'accent');
+        } catch (err) { showErr(err); } finally { stBtn.disabled = false; stBtn.textContent = 'Lưu cài đặt nhận đơn'; }
+      },
+      text: 'Lưu cài đặt nhận đơn'
+    });
+
+    const settingsCard = el('div', { className: 'card' },
+      el('div', { style: 'font-weight:700', text: 'Nhận đơn online' }),
+      el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:600' },
+        el('input', { type: 'checkbox', checked: !st.accepting, style: 'width:20px;height:20px', onChange: e => { st.accepting = !e.target.checked; } }),
+        'Tạm ngưng nhận đơn'
+      ),
+      el('div', { className: 'grid-2' },
+        el('div', { className: 'field' }, el('label', { text: 'Giờ mở cửa' }), el('input', { className: 'input', type: 'time', value: st.open_from, onChange: e => { st.open_from = e.target.value; } })),
+        el('div', { className: 'field' }, el('label', { text: 'Giờ đóng cửa' }), el('input', { className: 'input', type: 'time', value: st.open_to, onChange: e => { st.open_to = e.target.value; } }))
+      ),
+      el('div', { className: 'grid-3' },
+        el('div', { className: 'field' }, el('label', { text: 'Đơn tối thiểu (đ)' }), el('input', { className: 'input num', type: 'number', min: 0, value: st.min_order, onInput: e => { st.min_order = e.target.value; } })),
+        el('div', { className: 'field' }, el('label', { text: 'Phút khách tự hủy' }), el('input', { className: 'input num', type: 'number', min: 0, value: st.cancel_minutes, onInput: e => { st.cancel_minutes = e.target.value; } })),
+        el('div', { className: 'field' }, el('label', { text: 'Đặt trước tối đa (ngày)' }), el('input', { className: 'input num', type: 'number', min: 0, value: st.max_advance_days, onInput: e => { st.max_advance_days = e.target.value; } }))
+      ),
+      el('div', { style: 'font-weight:600;margin-top:12px', text: 'Nơi giao và phí giao' }),
+      placesBox,
+      stBtn
+    );
+
+    // 4. Phương thức thanh toán
+    const newPmInp = el('input', { className: 'input', maxlength: 30, placeholder: 'Ví dụ: Momo, Quẹt thẻ…' });
+    const pmCard = el('div', { className: 'card' },
+      el('div', { style: 'font-weight:700;margin-bottom:8px', text: 'Phương thức thanh toán' }),
+      ST.payMethods.map(m => {
+        const nameInp = el('input', { className: 'input', maxlength: 30, value: m.name, style: 'flex:1 1 130px' });
+        return el('div', { className: 'line-row' },
+          nameInp,
+          el('button', {
+            type: 'button', className: 'btn btn-sm',
+            onClick: async () => {
+              const nm = nameInp.value.trim();
+              if (!nm) return;
+              try {
+                const res = await sb.from('payment_methods').update({ name: nm }).eq('id', m.id).eq('shop_id', shopId).select('id');
+                checkMutated(res);
+                m.name = nm;
+                app.showToast('Đã đổi tên phương thức', 'accent');
+              } catch (err) { showErr(err); }
+            },
+            text: 'Lưu tên'
+          }),
+          el('button', {
+            type: 'button', className: 'chip', 'aria-pressed': String(m.active),
+            onClick: async () => {
+              try {
+                const res = await sb.from('payment_methods').update({ active: !m.active }).eq('id', m.id).eq('shop_id', shopId).select('id');
+                checkMutated(res);
+                m.active = !m.active;
+                renderSettingsTab();
+              } catch (err) { showErr(err); }
+            },
+            text: m.active ? 'Đang bật' : 'Đã tắt'
+          })
+        );
+      }),
+      el('div', { style: 'display:flex;gap:8px;margin-top:10px' },
+        newPmInp,
+        el('button', {
+          type: 'button', className: 'btn btn-primary',
+          onClick: async () => {
+            const nm = newPmInp.value.trim();
+            if (!nm) return;
+            try {
+              const { error } = await sb.from('payment_methods').insert({ shop_id: shopId, name: nm, active: true, sort: ST.payMethods.length * 10 });
+              if (error) throw error;
+              await loadPayMethods();
+              app.showToast('Đã thêm ' + nm, 'accent');
+              renderSettingsTab();
+            } catch (err) { showErr(err); }
+          },
+          text: 'Thêm'
+        })
+      )
+    );
+
+    // 5. Đổi mật khẩu & Gói đang dùng
+    const pwInp = el('input', { className: 'input', type: 'password', placeholder: 'Mật khẩu mới (ít nhất 6 ký tự)' });
+    const pwBtn = el('button', {
+      type: 'button', className: 'btn',
+      onClick: async () => {
+        if (pwInp.value.length < 6) { app.showToast('Mật khẩu cần ít nhất 6 ký tự', 'error'); return; }
+        pwBtn.disabled = true; pwBtn.textContent = 'Đang đổi…';
+        try {
+          const { error } = await sb.auth.updateUser({ password: pwInp.value });
+          if (error) throw error;
+          pwInp.value = '';
+          app.showToast('Đã đổi mật khẩu thành công', 'accent');
+        } catch (err) { showErr(err); } finally { pwBtn.disabled = false; pwBtn.textContent = 'Đổi mật khẩu'; }
+      },
+      text: 'Đổi mật khẩu'
+    });
+    const planNames = { standard: 'Standard', pro: 'Pro', proplus: 'Pro plus' };
+    const accCard = el('div', { className: 'card' },
+      el('div', { className: 'row-between', style: 'margin-bottom:10px' },
+        el('b', { text: 'Tài khoản & Gói dịch vụ' }),
+        el('span', { className: 'badge', text: 'Gói: ' + (planNames[app.plan] || app.plan) })
+      ),
+      el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, pwInp, pwBtn)
+    );
+
+    contentHost.replaceChildren(
+      renderMetaBar('settings', async () => { await loadTabData('settings'); renderSettingsTab(); }),
+      linkCard, profileCard, settingsCard, pmCard, accCard
+    );
+  }
+
+  /* ===== TAB: Mua (gói tối thiểu: pro) ===== */
+  const BUY_GROUPS_PRO = [
+    { id: 'nl', label: 'Nguyên liệu' },
+    { id: 'bb', label: 'Bao bì' },
+    { id: 'dc', label: 'Dụng cụ' }
+  ];
+  const BUY_GROUPS_PROPLUS = [
+    { id: 'gh', label: 'Giao hàng' },
+    { id: 'qc', label: 'Quảng cáo' },
+    { id: 'kh', label: 'Chi phí khác' },
+    { id: 'ht', label: 'Hoàn tiền' }
+  ];
+  function buyGroups() { return app.hasPlan('proplus') ? BUY_GROUPS_PRO.concat(BUY_GROUPS_PROPLUS) : BUY_GROUPS_PRO; }
+
+  async function loadPurchases() {
+    const { data, error } = await sb.from('purchases').select('*').eq('shop_id', shopId).order('at', { ascending: false }).range(0, 59);
+    if (error) throw error;
+    ST.purchases = data || [];
+  }
+  async function loadDebts() {
+    const { data, error } = await sb.from('purchases').select('*').eq('shop_id', shopId).eq('on_credit', true).order('due_date', { ascending: true });
+    if (error) throw error;
+    ST.debts = (data || []).filter(p => (p.total - p.paid) > 0);
+  }
+
+  function renderBuyTab() {
+    const seg = el('div', { className: 'bh-seg' },
+      el('button', { type: 'button', 'aria-pressed': String(ST.buySub === 'form'), onClick: () => { ST.buySub = 'form'; renderBuyTab(); }, text: 'Phiếu mua' }),
+      el('button', { type: 'button', 'aria-pressed': String(ST.buySub === 'debt'), onClick: () => { ST.buySub = 'debt'; renderBuyTab(); }, text: 'Nợ nhà cung cấp (' + ST.debts.length + ')' })
+    );
+
+    if (ST.buySub === 'debt') {
+      renderDebtView(seg);
+      return;
+    }
+
+    const bf = ST.buyForm;
+    const suppliers = [...new Set(ST.purchases.map(p => p.place).filter(Boolean))];
+    const groups = buyGroups();
+    const totalBuy = bf.lines.reduce((s, l) => s + (Math.round(Number(l.cost)) || 0), 0);
+
+    const formCard = el('div', { className: 'card' },
+      el('div', { className: 'row-between', style: 'margin-bottom:8px' },
+        el('b', { text: ST.buyEditId ? 'Đang sửa phiếu mua' : 'Nhập phiếu mua mới' }),
+        ST.buyEditId ? el('button', {
+          type: 'button', className: 'btn btn-sm',
+          onClick: () => { resetBuyForm(); renderBuyTab(); },
+          text: 'Hủy sửa'
+        }) : null
+      ),
+      el('div', { className: 'grid-2' },
+        el('div', { className: 'field' },
+          el('label', { text: 'Nơi mua / Nhà cung cấp' }),
+          el('input', { className: 'input', list: 'dl-suppliers', maxlength: 60, value: bf.place, placeholder: 'Ví dụ: Chợ đầu mối', onInput: e => { bf.place = e.target.value; } }),
+          el('datalist', { id: 'dl-suppliers' }, suppliers.map(sp => el('option', { value: sp })))
+        ),
+        el('div', { className: 'field' },
+          el('label', { text: 'Ngày giờ (để trống = bây giờ)' }),
+          el('input', { className: 'input', type: 'datetime-local', value: bf.at, onChange: e => { bf.at = e.target.value; } })
+        )
+      ),
+      el('div', { className: 'field' },
+        el('label', { text: 'Cách trả' }),
+        el('div', { className: 'chips' },
+          activePayMethods().map(m => el('button', {
+            type: 'button', className: 'chip', 'aria-pressed': String(!bf.on_credit && bf.pay_method_id === m.id),
+            onClick: () => { bf.on_credit = false; bf.pay_method_id = m.id; renderBuyTab(); }, text: m.name
+          })),
+          el('button', {
+            type: 'button', className: 'chip', 'aria-pressed': String(bf.on_credit),
+            onClick: () => { bf.on_credit = !bf.on_credit; renderBuyTab(); }, text: 'Mua chịu / trả sau'
+          })
+        )
+      ),
+      bf.on_credit ? el('div', { className: 'field', style: 'max-width:220px' },
+        el('label', { text: 'Hẹn trả ngày' }),
+        el('input', { className: 'input', type: 'date', value: bf.due_date || '', onChange: e => { bf.due_date = e.target.value; } })
+      ) : null,
+      el('div', { className: 'field' },
+        el('label', { text: 'Ghi chú' }),
+        el('input', { className: 'input', value: bf.note || '', onInput: e => { bf.note = e.target.value; } })
+      ),
+      el('div', { style: 'font-weight:700;margin-top:14px;margin-bottom:6px', text: 'Danh sách mặt hàng' }),
+      el('datalist', { id: 'dl-inv-names' }, ST.invItems.map(it => el('option', { value: it.name }))),
+      bf.lines.map((ln, idx) => {
+        const qtyN = Number(ln.qty) || 0;
+        const costN = Number(ln.cost) || 0;
+        const unitPrice = qtyN > 0 && costN >= 0 ? app.formatMoney(costN / qtyN) + '/' + (ln.unit || 'đv') : '';
+        return el('div', { style: 'padding:10px 0;border-top:1px solid var(--border)' },
+          el('div', { className: 'grid-3' },
+            el('select', { className: 'select', onChange: e => { ln.grp = e.target.value; } },
+              groups.map(g => el('option', { value: g.id, selected: ln.grp === g.id, text: g.label }))
+            ),
+            el('input', {
+              className: 'input', list: 'dl-inv-names', placeholder: 'Tên hàng', value: ln.name,
+              onInput: e => {
+                ln.name = e.target.value;
+                const match = ST.invItems.find(x => x.name.toLowerCase() === ln.name.trim().toLowerCase());
+                if (match) {
+                  ln.inv_item_id = match.id;
+                  ln.unit = match.unit;
+                  if (match.kind === 'nl' || match.kind === 'bb') ln.grp = match.kind;
+                } else {
+                  ln.inv_item_id = null;
+                }
+              },
+              onChange: () => renderBuyTab()
+            }),
+            el('input', { className: 'input', placeholder: 'Đơn vị', value: ln.unit, onInput: e => { ln.unit = e.target.value; } })
+          ),
+          el('div', { className: 'grid-3', style: 'margin-top:6px;align-items:center' },
+            el('input', { className: 'input num', type: 'number', step: 'any', min: 0, placeholder: 'Số lượng', value: ln.qty, onInput: e => { ln.qty = e.target.value; updateBuySticky(); } }),
+            el('input', { className: 'input num', type: 'number', min: 0, placeholder: 'Thành tiền (đ)', value: ln.cost, onInput: e => { ln.cost = e.target.value; updateBuySticky(); } }),
+            el('div', { className: 'row-between' },
+              el('small', { className: 'num', style: 'color:var(--text-sub)', text: unitPrice }),
+              bf.lines.length > 1 ? el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: () => { bf.lines.splice(idx, 1); renderBuyTab(); }, text: 'Xóa' }) : null
+            )
+          )
+        );
+      }),
+      el('button', {
+        type: 'button', className: 'btn btn-sm', style: 'margin-top:8px',
+        onClick: () => { bf.lines.push({ grp: 'nl', name: '', unit: 'kg', qty: '', cost: '', inv_item_id: null }); renderBuyTab(); },
+        text: '+ Thêm dòng hàng'
+      })
+    );
+
+    const listCard = el('div', { className: 'card' },
+      el('div', { style: 'font-weight:700;margin-bottom:8px', text: 'Phiếu mua gần đây (' + ST.purchases.length + ')' }),
+      ST.purchases.length ? ST.purchases.map(p => el('div', { className: 'line-row' },
+        el('div', { className: 'line-main' },
+          el('b', { className: 'num', text: p.code + ' · ' + app.formatMoney(p.total) }),
+          el('small', { text: app.formatVnDateTime(p.at) + ' · ' + p.place })
+        ),
+        p.on_credit ? el('span', { className: 'badge ' + (p.paid < p.total ? 'badge-warn' : ''), text: p.paid < p.total ? 'Trả sau' : 'Đã trả đủ' }) : null,
+        el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openPurchaseDetailModal(p, e.currentTarget), text: 'Xem' }),
+        el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: e => confirmModal('Xóa phiếu ' + p.code + '?', 'Kho sẽ được hoàn lại tương ứng.', 'Xóa phiếu', async () => {
+          const { error } = await sb.rpc('delete_purchase', { p_purchase: p.id });
+          if (error) throw error;
+          app.showToast('Đã xóa phiếu ' + p.code, 'accent');
+          await Promise.all([loadPurchases(), loadDebts(), loadInvItems()]);
+          renderBuyTab();
+        }, e.currentTarget), text: 'Xóa' })
+      )) : el('div', { className: 'empty-state', text: 'Chưa có phiếu mua nào.' })
+    );
+
+    contentHost.replaceChildren(
+      renderMetaBar('buy', async () => { await loadTabData('buy'); renderBuyTab(); }),
+      seg, formCard, listCard
+    );
+    updateBuySticky();
+  }
+
+  function updateBuySticky() {
+    if (ST.tab !== 'buy' || ST.buySub !== 'form') { stickyHost.replaceChildren(); return; }
+    const total = ST.buyForm.lines.reduce((s, l) => s + (Math.round(Number(l.cost)) || 0), 0);
+    const saveBtn = el('button', {
+      type: 'button', className: 'btn-save',
+      onClick: () => submitPurchase(saveBtn),
+      text: ST.buyEditId ? 'Cập nhật phiếu' : 'Lưu phiếu mua'
+    });
+    stickyHost.replaceChildren(el('div', { className: 'sticky-bar' },
+      el('div', { className: 'sticky-bar-in' },
+        el('div', { className: 'sum' },
+          el('small', { text: ST.buyForm.lines.length + ' dòng hàng' }),
+          el('b', { className: 'num', text: app.formatMoney(total) })
+        ),
+        saveBtn
+      )
+    ));
+  }
+
+  function resetBuyForm() {
+    ST.buyEditId = null;
+    ST.buyForm = {
+      at: '', place: '', pay_method_id: activePayMethods()[0] ? activePayMethods()[0].id : null,
+      on_credit: false, due_date: '', note: '',
+      lines: [{ grp: 'nl', name: '', unit: 'kg', qty: '', cost: '', inv_item_id: null }]
+    };
+  }
+
+  async function submitPurchase(btn) {
+    const bf = ST.buyForm;
+    if (!bf.place.trim()) { app.showToast('Nhập nơi mua / nhà cung cấp', 'error'); return; }
+    const lines = [];
+    for (const l of bf.lines) {
+      const qty = Number(l.qty);
+      const cost = Math.round(Number(l.cost));
+      if (!l.name.trim() || !(qty > 0) || Number.isNaN(cost) || cost < 0) {
+        app.showToast('Kiểm tra lại tên hàng, số lượng (>0) và thành tiền (≥0)', 'error');
+        return;
+      }
+      lines.push({ grp: l.grp, name: l.name.trim(), unit: l.unit.trim() || 'cái', qty, cost, inv_item_id: l.inv_item_id || null });
+    }
+    btn.disabled = true; btn.textContent = 'Đang lưu…';
+    try {
+      const { data, error } = await sb.rpc('save_purchase', {
+        p_shop: shopId, p_purchase: ST.buyEditId || null, p_at: localDtToIso(bf.at),
+        p_place: bf.place.trim(), p_pay_method: bf.on_credit ? null : bf.pay_method_id,
+        p_on_credit: bf.on_credit, p_due: bf.on_credit && bf.due_date ? bf.due_date : null,
+        p_note: bf.note.trim(), p_lines: lines
+      });
+      if (error) throw error;
+      app.showToast('Đã lưu phiếu ' + data.code + ' · ' + app.formatMoney(data.total), 'accent');
+      resetBuyForm();
+      await Promise.all([loadPurchases(), loadDebts(), loadInvItems()]);
+      renderBuyTab();
+    } catch (err) { showErr(err); btn.disabled = false; btn.textContent = 'Lưu phiếu mua'; }
+  }
+
+  async function openPurchaseDetailModal(p, opener) {
+    const { data: lines, error } = await sb.from('purchase_lines').select('*').eq('purchase_id', p.id).eq('shop_id', shopId);
+    if (error) { showErr(error); return; }
+    const body = el('div', null,
+      el('div', { style: 'font-size:14px;color:var(--text-sub);margin-bottom:8px', text: app.formatVnDateTime(p.at) + ' · ' + p.place + (p.note ? ' · ' + p.note : '') }),
+      (lines || []).map(l => el('div', { className: 'line-row' },
+        el('div', { className: 'line-main' },
+          el('b', { text: l.name }),
+          el('small', { className: 'num', text: l.qty + ' ' + l.unit })
+        ),
+        el('b', { className: 'num', text: app.formatMoney(l.cost) })
+      )),
+      el('div', { className: 'row-between', style: 'font-weight:700;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)' },
+        el('span', { text: 'Tổng phiếu' }), el('span', { className: 'num', text: app.formatMoney(p.total) })
+      )
+    );
+    openModal('Chi tiết phiếu ' + p.code, body, [
+      el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' }),
+      el('button', {
+        type: 'button', className: 'btn btn-primary',
+        onClick: () => {
+          ST.buyEditId = p.id;
+          ST.buyForm = {
+            at: toLocalDtValue(p.at), place: p.place, pay_method_id: p.pay_method_id,
+            on_credit: p.on_credit, due_date: p.due_date || '', note: p.note || '',
+            lines: (lines || []).map(l => ({ grp: l.grp, name: l.name, unit: l.unit, qty: l.qty, cost: l.cost, inv_item_id: l.inv_item_id }))
+          };
+          closeModal();
+          renderBuyTab();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        text: 'Sửa phiếu'
+      })
+    ], opener);
+  }
+
+  function renderDebtView(seg) {
+    stickyHost.replaceChildren();
+    const today = app.toVnYmd(new Date());
+    const byPlace = new Map();
+    let grandTotal = 0;
+    for (const p of ST.debts) {
+      const left = p.total - p.paid;
+      grandTotal += left;
+      if (!byPlace.has(p.place)) byPlace.set(p.place, { total: 0, list: [] });
+      byPlace.get(p.place).total += left;
+      byPlace.get(p.place).list.push(p);
+    }
+
+    contentHost.replaceChildren(
+      renderMetaBar('buy', async () => { await loadDebts(); renderBuyTab(); }),
+      seg,
+      el('div', { className: 'card row-between' },
+        el('span', { style: 'font-weight:700', text: 'Tổng nợ nhà cung cấp' }),
+        el('b', { className: 'num', style: 'font-size:20px;color:var(--error)', text: app.formatMoney(grandTotal) })
+      ),
+      byPlace.size ? [...byPlace.entries()].map(([place, grp]) => el('div', { className: 'card' },
+        el('div', { className: 'row-between', style: 'margin-bottom:6px' },
+          el('b', { text: place }),
+          el('b', { className: 'num', style: 'color:var(--error)', text: app.formatMoney(grp.total) })
+        ),
+        grp.list.map(p => {
+          const left = p.total - p.paid;
+          const overdue = p.due_date && p.due_date < today;
+          return el('div', { className: 'line-row' },
+            el('div', { className: 'line-main' },
+              el('b', { className: 'num', text: p.code + ' · Còn nợ ' + app.formatMoney(left) }),
+              el('small', { text: 'Tổng ' + app.formatMoney(p.total) + ' · Đã trả ' + app.formatMoney(p.paid) + (p.due_date ? ' · Hẹn ' + p.due_date.split('-').reverse().join('/') : '') })
+            ),
+            overdue ? el('span', { className: 'badge badge-err', text: 'Quá hạn' }) : null,
+            el('button', { type: 'button', className: 'btn btn-primary btn-sm', onClick: e => openPayDebtModal(p, e.currentTarget), text: 'Trả nợ' }),
+            el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openDebtHistoryModal(p, e.currentTarget), text: 'Lịch sử' })
+          );
+        })
+      )) : el('div', { className: 'card empty-state', text: 'Không còn khoản nợ nhà cung cấp nào.' })
+    );
+  }
+
+  function openPayDebtModal(p, opener) {
+    const left = p.total - p.paid;
+    let amount = left;
+    let methodId = activePayMethods()[0] ? activePayMethods()[0].id : null;
+    let note = '';
+    const body = el('div');
+    const draw = () => {
+      body.replaceChildren(
+        el('div', { className: 'field' },
+          el('label', { text: 'Số tiền trả (tối đa ' + app.formatMoney(left) + ')' }),
+          el('input', { className: 'input num', type: 'number', min: 1, max: left, value: amount, onInput: e => { amount = Math.round(Number(e.target.value) || 0); } })
+        ),
+        el('div', { className: 'field' },
+          el('label', { text: 'Phương thức trả' }),
+          el('div', { className: 'chips' }, activePayMethods().map(m => el('button', {
+            type: 'button', className: 'chip', 'aria-pressed': String(methodId === m.id),
+            onClick: () => { methodId = m.id; draw(); }, text: m.name
+          })))
+        ),
+        el('div', { className: 'field' },
+          el('label', { text: 'Ghi chú' }),
+          el('input', { className: 'input', value: note, onInput: e => { note = e.target.value; } })
+        )
+      );
+    };
+    draw();
+    const okBtn = el('button', {
+      type: 'button', className: 'btn btn-primary',
+      onClick: async () => {
+        if (!(amount > 0) || amount > left) { app.showToast('Số tiền không hợp lệ', 'error'); return; }
+        okBtn.disabled = true; okBtn.textContent = 'Đang lưu…';
+        try {
+          const { error } = await sb.rpc('pay_debt', { p_purchase: p.id, p_amount: amount, p_pay_method: methodId, p_at: null, p_note: note.trim() });
+          if (error) throw error;
+          closeModal();
+          app.showToast('Đã ghi nhận trả nợ ' + app.formatMoney(amount), 'accent');
+          await Promise.all([loadDebts(), loadPurchases()]);
+          renderBuyTab();
+        } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = 'Xác nhận trả'; }
+      },
+      text: 'Xác nhận trả'
+    });
+    openModal('Trả nợ phiếu ' + p.code, body, [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), okBtn], opener);
+  }
+
+  async function openDebtHistoryModal(p, opener) {
+    const { data, error } = await sb.from('debt_payments').select('*').eq('purchase_id', p.id).eq('shop_id', shopId).order('at', { ascending: false });
+    if (error) { showErr(error); return; }
+    openModal('Lịch sử trả nợ ' + p.code,
+      (data && data.length) ? el('div', null, data.map(d => el('div', { className: 'line-row' },
+        el('div', { className: 'line-main' },
+          el('b', { className: 'num', text: app.formatMoney(d.amount) }),
+          el('small', { text: app.formatVnDateTime(d.at) + ' · ' + payMethodName(d.pay_method_id) + (d.note ? ' · ' + d.note : '') })
+        )
+      ))) : el('div', { className: 'empty-state', text: 'Chưa có lần trả nợ nào.' }),
+      [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' })], opener
+    );
+  }
+
+  /* ===== TAB: Kho (gói tối thiểu: pro) ===== */
+  const INV_KINDS = { nl: 'Nguyên liệu', bb: 'Bao bì', btp: 'Bán thành phẩm' };
+  const MOVE_KINDS = { buy: 'Mua', batch_in: 'Làm ra', batch_out: 'Dùng để làm', sale: 'Bán', adjust: 'Kiểm kho' };
+
+  async function loadInventoryReport() {
+    const [rep, list] = await Promise.all([
+      sb.rpc('report_inventory', { p_shop: shopId }),
+      sb.from('inv_items').select('*').eq('shop_id', shopId).order('name', { ascending: true })
+    ]);
+    if (rep.error) throw rep.error;
+    if (list.error) throw list.error;
+    ST.invSummary = rep.data;
+    ST.invItems = list.data || [];
+  }
+
+  function renderInvTab() {
+    const sum = ST.invSummary || { total_value: 0, low_count: 0 };
+    const q = fold(ST.invSearch.trim());
+    const items = ST.invItems.filter(it => {
+      if (ST.invKind !== 'all' && it.kind !== ST.invKind) return false;
+      if (ST.invLowOnly && !(it.qty <= it.min_stock)) return false;
+      if (q && !fold(it.name).includes(q)) return false;
+      return true;
+    });
+
+    contentHost.replaceChildren(
+      renderMetaBar('inv', async () => { await loadInventoryReport(); markLoaded('inv'); renderInvTab(); }),
+      el('div', { className: 'grid-2', style: 'margin-bottom:12px' },
+        el('div', { className: 'kpi-box' }, el('small', { text: 'Tổng giá trị kho' }), el('b', { className: 'num', text: app.formatMoney(sum.total_value) })),
+        el('div', { className: 'kpi-box' }, el('small', { text: 'Vật tư sắp hết' }), el('b', { className: 'num', style: sum.low_count > 0 ? 'color:var(--error)' : '', text: String(sum.low_count) }))
+      ),
+      el('div', { className: 'card' },
+        el('div', { className: 'row-between', style: 'margin-bottom:10px' },
+          el('input', { className: 'input', style: 'flex:1 1 180px', type: 'search', placeholder: 'Tìm tên vật tư…', value: ST.invSearch, onInput: e => { ST.invSearch = e.target.value; renderInvTab(); } }),
+          el('button', { type: 'button', className: 'btn btn-primary', onClick: e => openInvItemModal(null, e.currentTarget), text: '+ Thêm vào kho' })
+        ),
+        el('div', { className: 'chips', style: 'margin-bottom:10px' },
+          el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.invKind === 'all'), onClick: () => { ST.invKind = 'all'; renderInvTab(); }, text: 'Tất cả' }),
+          Object.entries(INV_KINDS).map(([k, lbl]) => el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.invKind === k), onClick: () => { ST.invKind = k; renderInvTab(); }, text: lbl })),
+          el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.invLowOnly), onClick: () => { ST.invLowOnly = !ST.invLowOnly; renderInvTab(); }, text: 'Chỉ sắp hết' })
+        ),
+        items.length ? items.map(it => {
+          const low = it.qty <= it.min_stock;
+          return el('div', { className: 'line-row' + (low ? ' low-row' : ''), style: 'padding:10px 6px;border-radius:8px' },
+            el('div', { className: 'line-main' },
+              el('b', { text: it.name + (it.active ? '' : ' (Ngưng dùng)') }),
+              el('small', { className: 'num', text: 'Tồn: ' + it.qty + ' ' + it.unit + ' · Giá BQ: ' + app.formatMoney(it.avg_cost) + ' · Giá trị: ' + app.formatMoney(it.qty * it.avg_cost) })
+            ),
+            low ? el('span', { className: 'badge badge-warn', text: 'Sắp hết' }) : null,
+            el('button', { type: 'button', className: 'btn btn-sm btn-primary', onClick: e => openAdjustStockModal(it, e.currentTarget), text: 'Kiểm kho' }),
+            el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openStockMovesModal(it, e.currentTarget), text: 'Lịch sử' }),
+            el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openInvItemModal(it, e.currentTarget), text: 'Sửa' })
+          );
+        }) : el('div', { className: 'empty-state', text: 'Chưa có vật tư khớp bộ lọc.' })
+      )
+    );
+  }
+
+  function openInvItemModal(item, opener) {
+    const f = { name: item ? item.name : '', unit: item ? item.unit : 'kg', kind: item ? item.kind : 'nl', min_stock: item ? item.min_stock : 0, active: item ? item.active : true };
+    const body = el('div', null,
+      el('div', { className: 'field' }, el('label', { text: 'Tên vật tư' }), el('input', { className: 'input', value: f.name, onInput: e => { f.name = e.target.value; } })),
+      el('div', { className: 'grid-2' },
+        el('div', { className: 'field' }, el('label', { text: 'Đơn vị' }), el('input', { className: 'input', value: f.unit, onInput: e => { f.unit = e.target.value; } })),
+        el('div', { className: 'field' }, el('label', { text: 'Loại' }),
+          el('select', { className: 'select', onChange: e => { f.kind = e.target.value; } },
+            Object.entries(INV_KINDS).map(([k, lbl]) => el('option', { value: k, selected: f.kind === k, text: lbl }))
+          )
+        )
+      ),
+      el('div', { className: 'field' }, el('label', { text: 'Tồn tối thiểu (cảnh báo sắp hết)' }), el('input', { className: 'input num', type: 'number', step: 'any', min: 0, value: f.min_stock, onInput: e => { f.min_stock = e.target.value; } })),
+      item ? el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:600' },
+        el('input', { type: 'checkbox', checked: f.active, style: 'width:20px;height:20px', onChange: e => { f.active = e.target.checked; } }), 'Đang dùng'
+      ) : null
+    );
+    const saveBtn = el('button', {
+      type: 'button', className: 'btn btn-primary',
+      onClick: async () => {
+        if (!f.name.trim() || !f.unit.trim()) { app.showToast('Nhập tên và đơn vị vật tư', 'error'); return; }
+        saveBtn.disabled = true; saveBtn.textContent = 'Đang lưu…';
+        try {
+          const rec = { name: f.name.trim(), unit: f.unit.trim(), kind: f.kind, min_stock: Number(f.min_stock) || 0, active: f.active };
+          if (item) {
+            const res = await sb.from('inv_items').update(rec).eq('id', item.id).eq('shop_id', shopId).select('id');
+            checkMutated(res);
+          } else {
+            const { error } = await sb.from('inv_items').insert(Object.assign({ shop_id: shopId }, rec));
+            if (error) throw error;
+          }
+          closeModal();
+          app.showToast('Đã lưu vật tư', 'accent');
+          await loadInventoryReport();
+          renderInvTab();
+        } catch (err) { showErr(err); saveBtn.disabled = false; saveBtn.textContent = 'Lưu'; }
+      },
+      text: 'Lưu'
+    });
+    openModal(item ? 'Sửa vật tư' : 'Thêm vật tư vào kho', body, [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), saveBtn], opener);
+  }
+
+  function openAdjustStockModal(item, opener) {
+    let newQty = item.qty;
+    let note = '';
+    const diffEl = el('div', { className: 'alert alert-success', style: 'margin-top:8px', text: 'Chênh lệch: 0 ' + item.unit });
+    const updateDiff = () => {
+      const diff = (Number(newQty) || 0) - Number(item.qty);
+      diffEl.textContent = 'Chênh lệch: ' + (diff > 0 ? '+' : '') + Number(diff.toFixed(3)) + ' ' + item.unit;
+      diffEl.className = 'alert ' + (diff < 0 ? 'alert-error' : 'alert-success');
+    };
+    const body = el('div', null,
+      el('p', { style: 'margin:0 0 8px', text: 'Tồn trên sổ: ' + item.qty + ' ' + item.unit }),
+      el('div', { className: 'field' },
+        el('label', { text: 'Số tồn thực tế (' + item.unit + ')' }),
+        el('input', { className: 'input num', type: 'number', step: 'any', min: 0, value: newQty, onInput: e => { newQty = e.target.value; updateDiff(); } })
+      ),
+      diffEl,
+      el('div', { className: 'field' },
+        el('label', { text: 'Ghi chú kiểm kho' }),
+        el('input', { className: 'input', placeholder: 'Ví dụ: Kiểm cuối tuần', onInput: e => { note = e.target.value; } })
+      )
+    );
+    const okBtn = el('button', {
+      type: 'button', className: 'btn btn-primary',
+      onClick: async () => {
+        okBtn.disabled = true; okBtn.textContent = 'Đang lưu…';
+        try {
+          const { error } = await sb.rpc('adjust_stock', { p_item: item.id, p_new_qty: Number(newQty) || 0, p_note: note.trim() });
+          if (error) throw error;
+          closeModal();
+          app.showToast('Đã cập nhật kiểm kho ' + item.name, 'accent');
+          await loadInventoryReport();
+          renderInvTab();
+        } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = 'Lưu kiểm kho'; }
+      },
+      text: 'Lưu kiểm kho'
+    });
+    openModal('Kiểm kho: ' + item.name, body, [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), okBtn], opener);
+  }
+
+  async function openStockMovesModal(item, opener) {
+    const { data, error } = await sb.from('stock_moves').select('*').eq('shop_id', shopId).eq('inv_item_id', item.id).order('at', { ascending: false }).range(0, 49);
+    if (error) { showErr(error); return; }
+    openModal('Lịch sử kho: ' + item.name,
+      (data && data.length) ? el('div', null, data.map(m => el('div', { className: 'line-row' },
+        el('div', { className: 'line-main' },
+          el('b', { text: MOVE_KINDS[m.kind] || m.kind }),
+          el('small', { text: app.formatVnDateTime(m.at) + (m.note ? ' · ' + m.note : '') })
+        ),
+        el('b', { className: 'num', style: 'color:' + (m.qty < 0 ? 'var(--error)' : 'var(--accent)'), text: (m.qty > 0 ? '+' : '') + m.qty + ' ' + item.unit })
+      ))) : el('div', { className: 'empty-state', text: 'Chưa có biến động kho nào.' }),
+      [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' })], opener
+    );
+  }
+
+  /* ===== TAB: Định mức (gói tối thiểu: pro) ===== */
+  async function loadAllRecipeFlags() {
+    const { data } = await sb.from('recipes').select('menu_item_id').eq('shop_id', shopId);
+    ST.allRecipeMenuIds = new Set((data || []).map(r => r.menu_item_id));
+  }
+  async function loadRecipesForMenu(menuId) {
+    const { data, error } = await sb.from('recipes').select('*').eq('shop_id', shopId).eq('menu_item_id', menuId);
+    if (error) throw error;
+    ST.recipes = data || [];
+  }
+
+  function renderRecipeTab() {
+    const selMenu = ST.menuItems.find(m => m.id === ST.recipeMenuId) || null;
+    const invMap = new Map(ST.invItems.map(i => [i.id, i]));
+    let estCost = 0;
+    for (const r of ST.recipes) {
+      const iv = invMap.get(r.inv_item_id);
+      if (iv) estCost += Number(r.qty) * Number(iv.avg_cost || 0);
+    }
+
+    const menuSelect = el('select', {
+      className: 'select',
+      onChange: async e => { ST.recipeMenuId = e.target.value; await loadRecipesForMenu(ST.recipeMenuId); renderRecipeTab(); }
+    }, ST.menuItems.map(m => el('option', {
+      value: m.id, selected: m.id === ST.recipeMenuId,
+      text: m.name + (ST.allRecipeMenuIds.has(m.id) ? '' : ' (Chưa có định mức)')
+    })));
+
+    let newInvId = ST.invItems[0] ? ST.invItems[0].id : '';
+    let newQty = '';
+    const addRow = el('div', { className: 'grid-3', style: 'margin-top:12px;align-items:end' },
+      el('div', { className: 'field', style: 'margin:0' },
+        el('label', { text: 'Vật tư' }),
+        el('select', { className: 'select', onChange: e => { newInvId = e.target.value; } },
+          ST.invItems.map(i => el('option', { value: i.id, text: i.name + ' (' + i.unit + ')' }))
+        )
+      ),
+      el('div', { className: 'field', style: 'margin:0' },
+        el('label', { text: 'Lượng cho 1 ' + (selMenu ? (selMenu.unit || 'đơn vị') : 'đơn vị') }),
+        el('input', { className: 'input num', type: 'number', step: 'any', min: 0, placeholder: 'Ví dụ: 0.25', onInput: e => { newQty = e.target.value; } })
+      ),
+      el('button', {
+        type: 'button', className: 'btn btn-primary',
+        onClick: async () => {
+          const q = Number(newQty);
+          if (!ST.recipeMenuId || !newInvId || !(q > 0)) { app.showToast('Chọn vật tư và nhập lượng > 0', 'error'); return; }
+          try {
+            const { error } = await sb.from('recipes').insert({ shop_id: shopId, menu_item_id: ST.recipeMenuId, inv_item_id: newInvId, qty: q });
+            if (error) throw error;
+            app.showToast('Đã thêm định mức', 'accent');
+            await Promise.all([loadRecipesForMenu(ST.recipeMenuId), loadAllRecipeFlags()]);
+            renderRecipeTab();
+          } catch (err) { showErr(err); }
+        },
+        text: 'Thêm vào định mức'
+      })
+    );
+
+    contentHost.replaceChildren(
+      renderMetaBar('recipe', async () => { await loadTabData('recipe'); renderRecipeTab(); }),
+      el('div', { className: 'card' },
+        el('div', { className: 'row-between', style: 'margin-bottom:8px' },
+          el('b', { text: 'Chọn món để cài định mức' }),
+          ST.menuItems.length > 1 && selMenu ? el('button', {
+            type: 'button', className: 'btn btn-sm',
+            onClick: e => openCopyRecipeModal(selMenu, e.currentTarget),
+            text: 'Sao chép từ món khác'
+          }) : null
+        ),
+        ST.menuItems.length ? menuSelect : el('div', { className: 'empty-state', text: 'Hãy thêm món ở tab Menu trước.' })
+      ),
+      selMenu ? el('div', { className: 'card' },
+        el('div', { style: 'font-weight:700;margin-bottom:6px', text: 'Thành phần cho 1 ' + (selMenu.unit || 'đơn vị') + ' ' + selMenu.name }),
+        ST.recipes.length ? ST.recipes.map(r => {
+          const iv = invMap.get(r.inv_item_id);
+          const lineCost = iv ? Number(r.qty) * Number(iv.avg_cost || 0) : 0;
+          const qInp = el('input', { className: 'input num', style: 'width:100px', type: 'number', step: 'any', value: r.qty });
+          return el('div', { className: 'line-row' },
+            el('div', { className: 'line-main' },
+              el('b', { text: iv ? iv.name : r.inv_item_id }),
+              el('small', { className: 'num', text: 'Tạm tính: ' + app.formatMoney(lineCost) + ' (' + (iv ? iv.unit : '') + ')' })
+            ),
+            qInp,
+            el('button', {
+              type: 'button', className: 'btn btn-sm',
+              onClick: async () => {
+                const q = Number(qInp.value);
+                if (!(q > 0)) return;
+                try {
+                  const res = await sb.from('recipes').update({ qty: q }).eq('id', r.id).eq('shop_id', shopId).select('id');
+                  checkMutated(res);
+                  app.showToast('Đã cập nhật định mức', 'accent');
+                  await loadRecipesForMenu(ST.recipeMenuId);
+                  renderRecipeTab();
+                } catch (err) { showErr(err); }
+              },
+              text: 'Lưu'
+            }),
+            el('button', {
+              type: 'button', className: 'btn btn-sm btn-danger',
+              onClick: async () => {
+                try {
+                  const res = await sb.from('recipes').delete().eq('id', r.id).eq('shop_id', shopId).select('id');
+                  checkMutated(res);
+                  await Promise.all([loadRecipesForMenu(ST.recipeMenuId), loadAllRecipeFlags()]);
+                  renderRecipeTab();
+                } catch (err) { showErr(err); }
+              },
+              text: 'Xóa'
+            })
+          );
+        }) : el('div', { className: 'empty-state', text: 'Món này chưa có định mức vật tư.' }),
+        ST.invItems.length ? addRow : el('div', { className: 'alert alert-warn', style: 'margin-top:10px', text: 'Hãy thêm vật tư ở tab Kho hoặc nhập phiếu Mua trước.' }),
+        el('div', { className: 'grid-2', style: 'margin-top:14px;padding-top:12px;border-top:1px solid var(--border)' },
+          el('div', { className: 'kpi-box' }, el('small', { text: 'Giá vốn dự kiến / 1 ' + (selMenu.unit || 'đv') }), el('b', { className: 'num', text: app.formatMoney(estCost) })),
+          el('div', { className: 'kpi-box' }, el('small', { text: 'Lãi gộp dự kiến (giá bán ' + app.formatMoney(selMenu.price) + ')' }), el('b', { className: 'num', style: 'color:var(--accent)', text: app.formatMoney(selMenu.price - estCost) }))
+        )
+      ) : null
+    );
+  }
+
+  function openCopyRecipeModal(targetMenu, opener) {
+    const sources = ST.menuItems.filter(m => m.id !== targetMenu.id && ST.allRecipeMenuIds.has(m.id));
+    if (!sources.length) { app.showToast('Chưa có món nào khác có định mức để sao chép', 'error'); return; }
+    let srcId = sources[0].id;
+    const sel = el('select', { className: 'select', onChange: e => { srcId = e.target.value; } },
+      sources.map(m => el('option', { value: m.id, text: m.name }))
+    );
+    const okBtn = el('button', {
+      type: 'button', className: 'btn btn-primary',
+      onClick: async () => {
+        okBtn.disabled = true; okBtn.textContent = 'Đang sao chép…';
+        try {
+          const { data: srcRows, error } = await sb.from('recipes').select('inv_item_id,qty').eq('shop_id', shopId).eq('menu_item_id', srcId);
+          if (error) throw error;
+          const existingInv = new Set(ST.recipes.map(r => r.inv_item_id));
+          const toInsert = (srcRows || []).filter(r => !existingInv.has(r.inv_item_id)).map(r => ({
+            shop_id: shopId, menu_item_id: targetMenu.id, inv_item_id: r.inv_item_id, qty: r.qty
+          }));
+          if (toInsert.length) {
+            const ins = await sb.from('recipes').insert(toInsert);
+            if (ins.error) throw ins.error;
+          }
+          closeModal();
+          app.showToast('Đã sao chép ' + toInsert.length + ' dòng định mức', 'accent');
+          await Promise.all([loadRecipesForMenu(targetMenu.id), loadAllRecipeFlags()]);
+          renderRecipeTab();
+        } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = 'Sao chép'; }
+      },
+      text: 'Sao chép'
+    });
+    openModal('Sao chép định mức sang ' + targetMenu.name, el('div', { className: 'field' }, el('label', { text: 'Chọn món nguồn' }), sel), [
+      el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), okBtn
+    ], opener);
+  }
+
+  /* ===== TAB: Thu chi (gói tối thiểu: pro) ===== */
+  const CASH_CATS = [
+    { id: 'von', label: 'Vốn đầu tư', dir: 'in' },
+    { id: 'rut_von', label: 'Rút vốn', dir: 'out' },
+    { id: 'thu_khac', label: 'Thu khác', dir: 'in' },
+    { id: 'chi_khac', label: 'Chi khác', dir: 'out' }
+  ];
+  async function loadCashEntries() {
+    const { data, error } = await sb.from('cash_entries').select('*').eq('shop_id', shopId)
+      .gte('at', ST.cashFrom + 'T00:00:00+07:00').lte('at', ST.cashTo + 'T23:59:59+07:00')
+      .order('at', { ascending: false });
+    if (error) throw error;
+    ST.cashEntries = data || [];
+  }
+
+  function renderCashTab() {
+    let totalIn = 0, totalOut = 0;
+    for (const c of ST.cashEntries) { if (c.dir === 'in') totalIn += c.amount; else totalOut += c.amount; }
+
+    contentHost.replaceChildren(
+      renderMetaBar('cash', async () => { await loadCashEntries(); markLoaded('cash'); renderCashTab(); }),
+      el('div', { className: 'card' },
+        el('div', { className: 'grid-3', style: 'align-items:end' },
+          el('div', { className: 'field', style: 'margin:0' }, el('label', { text: 'Từ ngày' }), el('input', { className: 'input', type: 'date', value: ST.cashFrom, onChange: async e => { ST.cashFrom = e.target.value; await loadCashEntries(); renderCashTab(); } })),
+          el('div', { className: 'field', style: 'margin:0' }, el('label', { text: 'Đến ngày' }), el('input', { className: 'input', type: 'date', value: ST.cashTo, onChange: async e => { ST.cashTo = e.target.value; await loadCashEntries(); renderCashTab(); } })),
+          el('button', { type: 'button', className: 'btn btn-primary', onClick: e => openCashModal(null, e.currentTarget), text: '+ Ghi thu / chi' })
+        )
+      ),
+      el('div', { className: 'grid-3', style: 'margin-bottom:12px' },
+        el('div', { className: 'kpi-box' }, el('small', { text: 'Tổng thu' }), el('b', { className: 'num', style: 'color:var(--accent)', text: app.formatMoney(totalIn) })),
+        el('div', { className: 'kpi-box' }, el('small', { text: 'Tổng chi' }), el('b', { className: 'num', style: 'color:var(--error)', text: app.formatMoney(totalOut) })),
+        el('div', { className: 'kpi-box' }, el('small', { text: 'Chênh lệch' }), el('b', { className: 'num', text: app.formatMoney(totalIn - totalOut) }))
+      ),
+      el('div', { className: 'card' },
+        ST.cashEntries.length ? ST.cashEntries.map(c => {
+          const catObj = CASH_CATS.find(x => x.id === c.cat);
+          return el('div', { className: 'line-row' },
+            el('div', { className: 'line-main' },
+              el('b', { text: (catObj ? catObj.label : c.cat) + (c.note ? ' · ' + c.note : '') }),
+              el('small', { text: app.formatVnDateTime(c.at) + ' · ' + payMethodName(c.pay_method_id) })
+            ),
+            el('b', { className: 'num', style: 'color:' + (c.dir === 'in' ? 'var(--accent)' : 'var(--error)'), text: (c.dir === 'in' ? '+' : '−') + app.formatMoney(c.amount) }),
+            el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openCashModal(c, e.currentTarget), text: 'Sửa' }),
+            el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: e => confirmModal('Xóa khoản thu chi?', 'Khoản này sẽ bị xóa khỏi sổ.', 'Xóa', async () => {
+              const res = await sb.from('cash_entries').delete().eq('id', c.id).eq('shop_id', shopId).select('id');
+              checkMutated(res);
+              await loadCashEntries();
+              renderCashTab();
+            }, e.currentTarget), text: 'Xóa' })
+          );
+        }) : el('div', { className: 'empty-state', text: 'Chưa có khoản thu chi tay nào trong khoảng ngày này.' })
+      )
+    );
+  }
+
+  function openCashModal(entry, opener) {
+    const f = {
+      at: entry ? toLocalDtValue(entry.at) : toLocalDtValue(null),
+      cat: entry ? entry.cat : 'von',
+      amount: entry ? entry.amount : '',
+      pay_method_id: entry ? entry.pay_method_id : (activePayMethods()[0] ? activePayMethods()[0].id : null),
+      note: entry ? (entry.note || '') : ''
+    };
+    const body = el('div');
+    const draw = () => {
+      body.replaceChildren(
+        el('div', { className: 'field' },
+          el('label', { text: 'Loại thu / chi' }),
+          el('div', { className: 'chips' }, CASH_CATS.map(c => el('button', {
+            type: 'button', className: 'chip', 'aria-pressed': String(f.cat === c.id),
+            onClick: () => { f.cat = c.id; draw(); }, text: c.label
+          })))
+        ),
+        el('div', { className: 'grid-2' },
+          el('div', { className: 'field' }, el('label', { text: 'Số tiền (đ)' }), el('input', { className: 'input num', type: 'number', min: 1, value: f.amount, onInput: e => { f.amount = e.target.value; } })),
+          el('div', { className: 'field' }, el('label', { text: 'Ngày giờ' }), el('input', { className: 'input', type: 'datetime-local', value: f.at, onChange: e => { f.at = e.target.value; } }))
+        ),
+        el('div', { className: 'field' },
+          el('label', { text: 'Phương thức' }),
+          el('div', { className: 'chips' }, activePayMethods().map(m => el('button', {
+            type: 'button', className: 'chip', 'aria-pressed': String(f.pay_method_id === m.id),
+            onClick: () => { f.pay_method_id = m.id; draw(); }, text: m.name
+          })))
+        ),
+        el('div', { className: 'field' }, el('label', { text: 'Ghi chú' }), el('input', { className: 'input', value: f.note, onInput: e => { f.note = e.target.value; } }))
+      );
+    };
+    draw();
+    const okBtn = el('button', {
+      type: 'button', className: 'btn btn-primary',
+      onClick: async () => {
+        const amt = Math.round(Number(f.amount));
+        if (!(amt > 0)) { app.showToast('Số tiền phải lớn hơn 0', 'error'); return; }
+        const catObj = CASH_CATS.find(c => c.id === f.cat) || CASH_CATS[0];
+        okBtn.disabled = true; okBtn.textContent = 'Đang lưu…';
+        try {
+          const rec = { at: localDtToIso(f.at), dir: catObj.dir, cat: catObj.id, amount: amt, pay_method_id: f.pay_method_id, note: f.note.trim() || null };
+          if (entry) {
+            const res = await sb.from('cash_entries').update(rec).eq('id', entry.id).eq('shop_id', shopId).select('id');
+            checkMutated(res);
+          } else {
+            const { error } = await sb.from('cash_entries').insert(Object.assign({ shop_id: shopId }, rec));
+            if (error) throw error;
+          }
+          closeModal();
+          app.showToast('Đã lưu khoản thu chi', 'accent');
+          await loadCashEntries();
+          renderCashTab();
+        } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = 'Lưu'; }
+      },
+      text: 'Lưu'
+    });
+    openModal(entry ? 'Sửa thu chi' : 'Ghi thu / chi', body, [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), okBtn], opener);
+  }
+
+  /* ===== TAB: Làm / Sản xuất (gói tối thiểu: pro, đặt cuối nhóm Pro) ===== */
+  async function loadBatches() {
+    const { data, error } = await sb.from('batches').select('*').eq('shop_id', shopId).order('at', { ascending: false }).range(0, 39);
+    if (error) throw error;
+    ST.batches = data || [];
+  }
+
+  function renderBatchTab() {
+    const bf = ST.batchForm;
+    const invMap = new Map(ST.invItems.map(i => [i.id, i]));
+    let estTotal = 0;
+    for (const inp of bf.inputs) {
+      const iv = invMap.get(inp.inv_item_id);
+      if (iv && Number(inp.qty) > 0) estTotal += Number(inp.qty) * Number(iv.avg_cost || 0);
+    }
+    const estUnit = Number(bf.out_qty) > 0 ? estTotal / Number(bf.out_qty) : 0;
+
+    const formCard = el('div', { className: 'card' },
+      el('div', { className: 'row-between', style: 'margin-bottom:8px' },
+        el('b', { text: ST.batchEditId ? 'Đang sửa mẻ sản xuất' : 'Ghi mẻ sản xuất (tùy chọn)' }),
+        el('div', { style: 'display:flex;gap:6px' },
+          ST.batchEditId ? el('button', { type: 'button', className: 'btn btn-sm', onClick: () => { resetBatchForm(); renderBatchTab(); }, text: 'Hủy sửa' }) : null,
+          bf.out_item_id ? el('button', { type: 'button', className: 'btn btn-sm', onClick: () => fillFromLatestBatch(bf.out_item_id), text: 'Lấy theo mẻ gần nhất' }) : null
+        )
+      ),
+      el('div', { className: 'grid-2' },
+        el('div', { className: 'field' },
+          el('div', { className: 'row-between', style: 'margin-bottom:4px' },
+            el('label', { style: 'margin:0', text: 'Vật tư làm ra' }),
+            el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openInvItemModal(null, e.currentTarget), text: '+ Tạo mới' })
+          ),
+          el('select', { className: 'select', onChange: e => { bf.out_item_id = e.target.value; renderBatchTab(); } },
+            el('option', { value: '', text: 'Chọn vật tư…' }),
+            ST.invItems.map(i => el('option', { value: i.id, selected: i.id === bf.out_item_id, text: i.name + ' (' + INV_KINDS[i.kind] + ', ' + i.unit + ')' }))
+          )
+        ),
+        el('div', { className: 'field' },
+          el('label', { text: 'Số lượng thu được' }),
+          el('input', { className: 'input num', type: 'number', step: 'any', min: 0, value: bf.out_qty, onInput: e => { bf.out_qty = e.target.value; renderBatchTab(); } })
+        )
+      ),
+      el('div', { className: 'grid-2' },
+        el('div', { className: 'field' }, el('label', { text: 'Ngày giờ (trống = bây giờ)' }), el('input', { className: 'input', type: 'datetime-local', value: bf.at, onChange: e => { bf.at = e.target.value; } })),
+        el('div', { className: 'field' }, el('label', { text: 'Ghi chú' }), el('input', { className: 'input', value: bf.note, onInput: e => { bf.note = e.target.value; } }))
+      ),
+      el('div', { style: 'font-weight:700;margin-top:12px;margin-bottom:6px', text: 'Nguyên liệu đã dùng' }),
+      bf.inputs.map((inp, idx) => {
+        const iv = invMap.get(inp.inv_item_id);
+        const over = iv && (Number(inp.qty) || 0) > Number(iv.qty);
+        return el('div', { className: 'line-row' },
+          el('select', { className: 'select', style: 'flex:2 1 160px', onChange: e => { inp.inv_item_id = e.target.value; renderBatchTab(); } },
+            el('option', { value: '', text: 'Chọn nguyên liệu…' }),
+            ST.invItems.map(i => el('option', { value: i.id, selected: i.id === inp.inv_item_id, text: i.name + ' (còn ' + i.qty + ' ' + i.unit + ')' }))
+          ),
+          el('input', { className: 'input num', style: 'flex:1 1 100px', type: 'number', step: 'any', min: 0, placeholder: 'Lượng dùng', value: inp.qty, onInput: e => { inp.qty = e.target.value; renderBatchTab(); } }),
+          over ? el('span', { className: 'badge badge-err', text: 'Vượt tồn' }) : null,
+          bf.inputs.length > 1 ? el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: () => { bf.inputs.splice(idx, 1); renderBatchTab(); }, text: 'Xóa' }) : null
+        );
+      }),
+      el('div', { className: 'row-between', style: 'margin-top:10px' },
+        el('button', { type: 'button', className: 'btn btn-sm', onClick: () => { bf.inputs.push({ inv_item_id: '', qty: '' }); renderBatchTab(); }, text: '+ Thêm nguyên liệu' }),
+        el('span', { className: 'num', style: 'font-size:14px;font-weight:600', text: 'Giá vốn dự kiến: ' + app.formatMoney(estTotal) + (estUnit > 0 ? ' (' + app.formatMoney(estUnit) + '/đv)' : '') })
+      ),
+      el('button', {
+        type: 'button', className: 'btn btn-primary', style: 'width:100%;margin-top:12px',
+        onClick: e => submitBatch(e.currentTarget),
+        text: ST.batchEditId ? 'Cập nhật mẻ' : 'Lưu mẻ sản xuất'
+      })
+    );
+
+    const listCard = el('div', { className: 'card' },
+      el('div', { style: 'font-weight:700;margin-bottom:8px', text: 'Mẻ gần đây (' + ST.batches.length + ')' }),
+      ST.batches.length ? ST.batches.map(b => {
+        const outIv = invMap.get(b.out_item_id);
+        const unitCost = b.out_qty > 0 ? b.cost_total / b.out_qty : 0;
+        return el('div', { className: 'line-row' },
+          el('div', { className: 'line-main' },
+            el('b', { text: (outIv ? outIv.name : 'Vật tư') + ' · ' + b.out_qty + ' ' + (outIv ? outIv.unit : '') }),
+            el('small', { className: 'num', text: app.formatVnDateTime(b.at) + ' · Giá vốn: ' + app.formatMoney(unitCost) + '/' + (outIv ? outIv.unit : 'đv') })
+          ),
+          el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openBatchDetailModal(b, e.currentTarget), text: 'Xem' }),
+          el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: e => confirmModal('Xóa mẻ sản xuất?', 'Kho nguyên liệu và thành phẩm sẽ được hoàn lại.', 'Xóa mẻ', async () => {
+            const { error } = await sb.rpc('delete_batch', { p_batch: b.id });
+            if (error) throw error;
+            app.showToast('Đã xóa mẻ', 'accent');
+            await Promise.all([loadBatches(), loadInvItems()]);
+            renderBatchTab();
+          }, e.currentTarget), text: 'Xóa' })
+        );
+      }) : el('div', { className: 'empty-state', text: 'Chưa có mẻ sản xuất nào.' })
+    );
+
+    contentHost.replaceChildren(
+      renderMetaBar('batch', async () => { await loadTabData('batch'); renderBatchTab(); }),
+      formCard, listCard
+    );
+  }
+
+  function resetBatchForm() {
+    ST.batchEditId = null;
+    ST.batchForm = { at: '', out_item_id: '', out_qty: '', note: '', inputs: [{ inv_item_id: '', qty: '' }] };
+  }
+
+  async function fillFromLatestBatch(outItemId) {
+    const prev = ST.batches.find(b => b.out_item_id === outItemId);
+    if (!prev) { app.showToast('Chưa có mẻ trước cùng loại này', 'error'); return; }
+    const { data, error } = await sb.from('batch_inputs').select('inv_item_id,qty').eq('batch_id', prev.id).eq('shop_id', shopId);
+    if (error) { showErr(error); return; }
+    ST.batchForm.out_qty = prev.out_qty;
+    ST.batchForm.inputs = (data && data.length) ? data.map(d => ({ inv_item_id: d.inv_item_id, qty: d.qty })) : [{ inv_item_id: '', qty: '' }];
+    renderBatchTab();
+  }
+
+  async function submitBatch(btn) {
+    const bf = ST.batchForm;
+    const outQty = Number(bf.out_qty);
+    const inputs = bf.inputs.filter(i => i.inv_item_id && Number(i.qty) > 0).map(i => ({ inv_item_id: i.inv_item_id, qty: Number(i.qty) }));
+    if (!bf.out_item_id || !(outQty > 0) || !inputs.length) {
+      app.showToast('Chọn vật tư làm ra, số lượng > 0 và ít nhất 1 nguyên liệu', 'error');
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Đang lưu…';
+    try {
+      const { data, error } = await sb.rpc('save_batch', {
+        p_shop: shopId, p_batch: ST.batchEditId || null, p_at: localDtToIso(bf.at),
+        p_out_item: bf.out_item_id, p_out_qty: outQty, p_inputs: inputs, p_note: bf.note.trim()
+      });
+      if (error) throw error;
+      app.showToast('Đã lưu mẻ · Giá vốn ' + app.formatMoney(data.unit_cost) + '/đv', 'accent');
+      resetBatchForm();
+      await Promise.all([loadBatches(), loadInvItems()]);
+      renderBatchTab();
+    } catch (err) { showErr(err); btn.disabled = false; btn.textContent = 'Lưu mẻ sản xuất'; }
+  }
+
+  async function openBatchDetailModal(b, opener) {
+    const { data: inputs, error } = await sb.from('batch_inputs').select('*').eq('batch_id', b.id).eq('shop_id', shopId);
+    if (error) { showErr(error); return; }
+    const invMap = new Map(ST.invItems.map(i => [i.id, i]));
+    openModal('Chi tiết mẻ sản xuất', el('div', null,
+      (inputs || []).map(inp => {
+        const iv = invMap.get(inp.inv_item_id);
+        return el('div', { className: 'line-row' },
+          el('span', { text: (iv ? iv.name : inp.inv_item_id) + ' × ' + inp.qty + ' ' + (iv ? iv.unit : '') }),
+          el('b', { className: 'num', text: app.formatMoney(inp.cost) })
+        );
+      })
+    ), [
+      el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' }),
+      el('button', {
+        type: 'button', className: 'btn btn-primary',
+        onClick: () => {
+          ST.batchEditId = b.id;
+          ST.batchForm = {
+            at: toLocalDtValue(b.at), out_item_id: b.out_item_id, out_qty: b.out_qty, note: b.note || '',
+            inputs: (inputs || []).map(i => ({ inv_item_id: i.inv_item_id, qty: i.qty }))
+          };
+          closeModal();
+          renderBatchTab();
+        },
+        text: 'Sửa mẻ'
+      })
+    ], opener);
+  }
+
+  /* ===== TAB: Khách (gói tối thiểu: proplus) ===== */
+  async function loadCustomersWithStats() {
+    await loadCustomersBase();
+    const { data } = await sb.from('orders').select('customer_id,total,ordered_at,status').eq('shop_id', shopId).not('customer_id', 'is', null).neq('status', 'cancelled');
+    const map = new Map();
+    for (const o of (data || [])) {
+      const cur = map.get(o.customer_id) || { orders: 0, spent: 0, last: '' };
+      cur.orders += 1; cur.spent += Number(o.total) || 0;
+      if (!cur.last || o.ordered_at > cur.last) cur.last = o.ordered_at;
+      map.set(o.customer_id, cur);
+    }
+    ST.custStats = map;
+  }
+
+  function renderCustTab() {
+    const grps = [...new Set(ST.customers.map(c => (c.grp || '').trim()).filter(Boolean))];
+    const q = fold(ST.custSearch.trim());
+    const list = ST.customers.filter(c => {
+      if (ST.custMemberOnly && !c.member) return false;
+      if (ST.custGrp && (c.grp || '') !== ST.custGrp) return false;
+      if (q && !fold(c.name).includes(q) && !fold(c.phone).includes(q) && !fold(c.apt).includes(q)) return false;
+      return true;
+    });
+
+    const toolbar = el('div', { className: 'toolbar', style: 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px' },
+      el('button', { type: 'button', className: 'btn btn-primary', onClick: e => openCustomerModal(null, async () => { await loadCustomersWithStats(); renderCustTab(); }, e.currentTarget), text: '+ Thêm khách' }),
+      el('button', { type: 'button', className: 'btn', onClick: e => openCustCsvImportModal(e.currentTarget), text: 'Nhập CSV' }),
+      el('button', { type: 'button', className: 'btn', onClick: () => {
+        const rows = [['Mã', 'Tên', 'Nhóm', 'Căn hộ', 'Số điện thoại', 'Thành viên', 'Số đơn', 'Tổng mua']]
+          .concat(ST.customers.map(c => {
+            const st = ST.custStats.get(c.id) || { orders: 0, spent: 0 };
+            return [c.code, c.name, c.grp || '', c.apt || '', app.csvPhoneCell(c.phone || ''), c.member ? 'Có' : 'Không', st.orders, st.spent];
+          }));
+        app.downloadCsv('khach-hang-' + ST.shop.slug + '.csv', rows);
+      }, text: 'Xuất CSV' })
+    );
+
+    contentHost.replaceChildren(
+      renderMetaBar('cust', async () => { await loadTabData('cust'); renderCustTab(); }),
+      toolbar,
+      el('div', { className: 'card' },
+        el('input', { className: 'input', type: 'search', placeholder: 'Tìm tên, SĐT, căn hộ…', value: ST.custSearch, onInput: e => { ST.custSearch = e.target.value; renderCustTab(); } }),
+        el('div', { className: 'chips', style: 'margin-top:8px' },
+          el('button', { type: 'button', className: 'chip', 'aria-pressed': String(!ST.custGrp), onClick: () => { ST.custGrp = ''; renderCustTab(); }, text: 'Tất cả nhóm' }),
+          grps.map(g => el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.custGrp === g), onClick: () => { ST.custGrp = g; renderCustTab(); }, text: g })),
+          el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.custMemberOnly), onClick: () => { ST.custMemberOnly = !ST.custMemberOnly; renderCustTab(); }, text: 'Chỉ thành viên' })
+        ),
+        el('div', { style: 'margin-top:10px' },
+          list.length ? list.map(c => {
+            const st = ST.custStats.get(c.id) || { orders: 0, spent: 0, last: '' };
+            return el('div', { className: 'line-row' },
+              el('div', { className: 'line-main' },
+                el('b', { text: c.name + (c.apt ? ' · ' + c.apt : '') }),
+                el('small', { className: 'num', text: (c.phone || 'Chưa có SĐT') + ' · ' + st.orders + ' đơn · ' + app.formatMoney(st.spent) + (st.last ? ' · Gần nhất ' + app.formatVnDateTime(st.last).slice(0, 10) : '') })
+              ),
+              c.member ? el('span', { className: 'badge', text: 'Thành viên' }) : null,
+              el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openCustomerDetailModal(c, e.currentTarget), text: 'Chi tiết' }),
+              el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openCustomerModal(c, async () => { await loadCustomersWithStats(); renderCustTab(); }, e.currentTarget), text: 'Sửa' })
+            );
+          }) : el('div', { className: 'empty-state', text: 'Chưa có khách hàng khớp tìm kiếm.' })
+        )
+      )
+    );
+  }
+
+  function openCustomerModal(c, onSaved, opener) {
+    const f = {
+      name: c ? c.name : '', grp: c ? (c.grp || '') : '', apt: c ? (c.apt || '') : '',
+      phone: c ? (c.phone || '') : '', address: c ? (c.address || '') : '', note: c ? (c.note || '') : '',
+      member: c ? !!c.member : false
+    };
+    const grps = [...new Set(ST.customers.map(x => (x.grp || '').trim()).filter(Boolean))];
+    const body = el('div', null,
+      el('div', { className: 'field' }, el('label', { text: 'Tên khách' }), el('input', { className: 'input', value: f.name, onInput: e => { f.name = e.target.value; } })),
+      el('div', { className: 'grid-2' },
+        el('div', { className: 'field' },
+          el('label', { text: 'Nhóm' }),
+          el('input', { className: 'input', list: 'dl-cgrps', value: f.grp, onInput: e => { f.grp = e.target.value; } }),
+          el('datalist', { id: 'dl-cgrps' }, grps.map(g => el('option', { value: g })))
+        ),
+        el('div', { className: 'field' }, el('label', { text: 'Căn hộ / Phòng' }), el('input', { className: 'input', value: f.apt, onInput: e => { f.apt = e.target.value; } }))
+      ),
+      el('div', { className: 'grid-2' },
+        el('div', { className: 'field' }, el('label', { text: 'Số điện thoại' }), el('input', { className: 'input', type: 'tel', value: f.phone, onInput: e => { f.phone = e.target.value; } })),
+        el('div', { className: 'field' }, el('label', { text: 'Địa chỉ' }), el('input', { className: 'input', value: f.address, onInput: e => { f.address = e.target.value; } }))
+      ),
+      el('div', { className: 'field' }, el('label', { text: 'Ghi chú' }), el('input', { className: 'input', value: f.note, onInput: e => { f.note = e.target.value; } })),
+      el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:600' },
+        el('input', { type: 'checkbox', checked: f.member, style: 'width:20px;height:20px', onChange: e => { f.member = e.target.checked; } }), 'Là thành viên'
+      )
+    );
+    const saveBtn = el('button', {
+      type: 'button', className: 'btn btn-primary',
+      onClick: async () => {
+        if (!f.name.trim()) { app.showToast('Nhập tên khách hàng', 'error'); return; }
+        saveBtn.disabled = true; saveBtn.textContent = 'Đang lưu…';
+        try {
+          const rec = { name: f.name.trim(), grp: f.grp.trim() || null, apt: f.apt.trim() || null, phone: f.phone.trim() || null, address: f.address.trim() || null, note: f.note.trim() || null, member: f.member };
+          let saved = c;
+          if (c) {
+            const res = await sb.from('customers').update(rec).eq('id', c.id).eq('shop_id', shopId).select('id');
+            checkMutated(res);
+          } else {
+            const { data, error } = await sb.from('customers').insert(Object.assign({ shop_id: shopId }, rec)).select('*').single();
+            if (error) throw error;
+            saved = data;
+          }
+          closeModal();
+          app.showToast('Đã lưu khách hàng', 'accent');
+          if (onSaved) await onSaved(saved);
+        } catch (err) { showErr(err); saveBtn.disabled = false; saveBtn.textContent = 'Lưu khách'; }
+      },
+      text: 'Lưu khách'
+    });
+    const footer = [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), saveBtn];
+    if (c) {
+      footer.unshift(el('button', {
+        type: 'button', className: 'btn btn-danger',
+        onClick: e => confirmModal('Xóa khách ' + c.name + '?', 'Thông tin khách này sẽ bị xóa.', 'Xóa khách', async () => {
+          const res = await sb.from('customers').delete().eq('id', c.id).eq('shop_id', shopId).select('id');
+          checkMutated(res);
+          app.showToast('Đã xóa khách', 'accent');
+          await loadCustomersWithStats();
+          renderCustTab();
+        }, e.currentTarget),
+        text: 'Xóa'
+      }));
+    }
+    openModal(c ? 'Sửa khách hàng' : 'Thêm khách hàng', body, footer, opener);
+  }
+
+  async function openCustomerDetailModal(c, opener) {
+    const [ordRes, vouRes] = await Promise.all([
+      sb.from('orders').select('code,ordered_at,total,status').eq('shop_id', shopId).eq('customer_id', c.id).order('ordered_at', { ascending: false }).range(0, 19),
+      sb.from('customer_vouchers').select('*').eq('shop_id', shopId).eq('customer_id', c.id).order('issued_at', { ascending: false })
+    ]);
+    const orders = ordRes.data || [];
+    const vouchers = vouRes.data || [];
+    const activeVouchers = ST.promos.filter(p => p.kind === 'voucher' && p.active);
+    let selPromoId = activeVouchers[0] ? activeVouchers[0].id : '';
+    const promoMap = new Map(ST.promos.map(p => [p.id, p]));
+    const todayIso = new Date().toISOString();
+
+    const grantRow = activeVouchers.length ? el('div', { style: 'display:flex;gap:8px;margin-top:8px;flex-wrap:wrap' },
+      el('select', { className: 'select', style: 'flex:1', onChange: e => { selPromoId = e.target.value; } },
+        activeVouchers.map(p => el('option', { value: p.id, text: p.name }))
+      ),
+      el('button', {
+        type: 'button', className: 'btn btn-primary',
+        onClick: async () => {
+          const pr = promoMap.get(selPromoId);
+          if (!pr) return;
+          const now = new Date();
+          const exp = pr.valid_days > 0 ? new Date(now.getTime() + pr.valid_days * 86400000).toISOString() : null;
+          try {
+            const { error } = await sb.from('customer_vouchers').insert({
+              shop_id: shopId, customer_id: c.id, promo_id: pr.id, issued_at: now.toISOString(), expires_at: exp
+            });
+            if (error) throw error;
+            app.showToast('Đã phát voucher ' + pr.name, 'accent');
+            openCustomerDetailModal(c, opener);
+          } catch (err) { showErr(err); }
+        },
+        text: 'Phát voucher'
+      })
+    ) : el('small', { style: 'color:var(--text-sub)', text: 'Chưa có chương trình voucher nào đang bật ở tab Khuyến mãi.' });
+
+    openModal(c.name + (c.code ? ' (' + c.code + ')' : ''), el('div', null,
+      el('div', { style: 'font-weight:700', text: 'Voucher của khách' }),
+      grantRow,
+      vouchers.length ? el('div', { style: 'margin-top:8px' }, vouchers.map(v => {
+        const pr = promoMap.get(v.promo_id);
+        const st = v.used_order_id ? 'Đã dùng' : (v.expires_at && v.expires_at < todayIso ? 'Hết hạn' : 'Còn hạn');
+        return el('div', { className: 'line-row' },
+          el('span', { text: pr ? pr.name : 'Voucher' }),
+          el('span', { className: 'badge ' + (st === 'Còn hạn' ? '' : 'badge-muted'), text: st })
+        );
+      })) : el('div', { style: 'font-size:13.5px;color:var(--text-sub);margin-top:6px', text: 'Chưa có voucher.' }),
+      el('div', { style: 'font-weight:700;margin-top:16px', text: 'Đơn gần đây (' + orders.length + ')' }),
+      orders.length ? orders.map(o => el('div', { className: 'line-row' },
+        el('span', { className: 'num', text: o.code + ' · ' + app.formatVnDateTime(o.ordered_at) }),
+        el('b', { className: 'num', text: app.formatMoney(o.total) })
+      )) : el('div', { style: 'font-size:13.5px;color:var(--text-sub);margin-top:6px', text: 'Chưa có đơn nào.' })
+    ), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' })], opener);
+  }
+
+  function openCustCsvImportModal(opener) {
+    let rows = [];
+    const prev = el('div', { style: 'margin-top:8px' });
+    const okBtn = el('button', {
+      type: 'button', className: 'btn btn-primary', disabled: true,
+      onClick: async () => {
+        okBtn.disabled = true; okBtn.textContent = 'Đang nhập…';
+        try {
+          const { error } = await sb.from('customers').insert(rows.map(r => Object.assign({ shop_id: shopId }, r)));
+          if (error) throw error;
+          closeModal();
+          app.showToast('Đã nhập ' + rows.length + ' khách hàng', 'accent');
+          await loadCustomersWithStats();
+          renderCustTab();
+        } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = 'Nhập khách'; }
+      },
+      text: 'Nhập khách'
+    });
+    const parse = txt => {
+      rows = [];
+      txt.replace(/^\uFEFF/, '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).forEach((l, i) => {
+        const c = l.split(';').map(x => x.trim().replace(/^"|"$/g, ''));
+        if (i === 0 && /tên/i.test(c[0])) return;
+        if (c[0]) rows.push({ name: c[0], grp: c[1] || null, apt: c[2] || null, phone: c[3] || null, member: false });
+      });
+      okBtn.disabled = !rows.length;
+      prev.replaceChildren(el('div', { className: 'alert alert-success', text: 'Sẵn sàng nhập ' + rows.length + ' khách hàng.' }));
+    };
+    openModal('Nhập khách từ CSV', el('div', null,
+      el('div', { className: 'field' }, el('label', { text: 'Định dạng: tên;nhóm;căn hộ;số điện thoại' }),
+        el('input', { type: 'file', accept: '.csv,text/csv', className: 'input', onChange: async e => { if (e.target.files[0]) parse(await e.target.files[0].text()); } })
+      ),
+      el('textarea', { className: 'textarea', placeholder: 'Hoặc dán từng dòng…', onInput: e => parse(e.target.value) }),
+      prev
+    ), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' }), okBtn], opener);
+  }
+
+  /* ===== TAB: Khuyến mãi (gói tối thiểu: proplus) ===== */
+  async function loadPromos() {
+    if (!app.hasPlan('proplus')) return;
+    const { data, error } = await sb.from('promotions').select('*').eq('shop_id', shopId).order('created_at', { ascending: false });
+    if (error) throw error;
+    ST.promos = data || [];
+  }
+
+  function promoStatus(p) {
+    if (!p.active) return { text: 'Tắt', cls: 'badge-muted' };
+    const today = app.toVnYmd(new Date());
+    if (p.from_date && p.from_date > today) return { text: 'Sắp chạy', cls: 'badge-warn' };
+    if (p.to_date && p.to_date < today) return { text: 'Đã hết hạn', cls: 'badge-err' };
+    return { text: 'Đang chạy', cls: '' };
+  }
+
+  function renderPromoTab() {
+    const seg = el('div', { className: 'bh-seg' },
+      el('button', { type: 'button', 'aria-pressed': String(ST.promoKind === 'promo'), onClick: () => { ST.promoKind = 'promo'; renderPromoTab(); }, text: 'Khuyến mãi' }),
+      el('button', { type: 'button', 'aria-pressed': String(ST.promoKind === 'voucher'), onClick: () => { ST.promoKind = 'voucher'; renderPromoTab(); }, text: 'Voucher' }),
+      el('button', { type: 'button', 'aria-pressed': String(ST.promoKind === 'loyalty'), onClick: () => { ST.promoKind = 'loyalty'; renderPromoTab(); }, text: 'Tích đơn' })
+    );
+    const list = ST.promos.filter(p => p.kind === ST.promoKind);
+
+    contentHost.replaceChildren(
+      renderMetaBar('promo', async () => { await loadPromos(); markLoaded('promo'); renderPromoTab(); }),
+      el('div', { className: 'row-between', style: 'margin-bottom:10px' },
+        seg,
+        el('button', { type: 'button', className: 'btn btn-primary', onClick: e => openPromoModal(null, e.currentTarget), text: '+ Thêm chương trình' })
+      ),
+      list.length ? el('div', { className: 'card' }, list.map(p => {
+        const st = promoStatus(p);
+        const valText = p.discount_type === 'percent' ? 'Giảm ' + p.value + '%' :
+          p.discount_type === 'amount' ? 'Giảm ' + app.formatMoney(p.value) :
+          'Tặng ' + p.value + ' món';
+        return el('div', { className: 'line-row' },
+          el('div', { className: 'line-main' },
+            el('b', { text: p.name }),
+            el('small', { text: valText + (p.description ? ' · ' + p.description : '') })
+          ),
+          el('span', { className: 'badge ' + st.cls, text: st.text }),
+          el('button', {
+            type: 'button', className: 'btn btn-sm',
+            onClick: async () => {
+              try {
+                const res = await sb.from('promotions').update({ active: !p.active }).eq('id', p.id).eq('shop_id', shopId).select('id');
+                checkMutated(res);
+                p.active = !p.active;
+                renderPromoTab();
+              } catch (err) { showErr(err); }
+            },
+            text: p.active ? 'Tắt' : 'Bật'
+          }),
+          el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openPromoModal(p, e.currentTarget), text: 'Sửa' }),
+          el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: e => confirmModal('Xóa "' + p.name + '"?', 'Chương trình sẽ bị xóa hẳn.', 'Xóa', async () => {
+            const res = await sb.from('promotions').delete().eq('id', p.id).eq('shop_id', shopId).select('id');
+            checkMutated(res);
+            await loadPromos();
+            renderPromoTab();
+          }, e.currentTarget), text: 'Xóa' })
+        );
+      })) : el('div', { className: 'card empty-state', text: 'Chưa có chương trình nào trong mục này.' })
+    );
+  }
+
+  function openPromoModal(p, opener) {
+    const f = {
+      kind: p ? p.kind : ST.promoKind,
+      name: p ? p.name : '',
+      description: p ? (p.description || '') : '',
+      discount_type: p ? p.discount_type : 'percent',
+      value: p ? p.value : 10,
+      free_item_id: p ? (p.free_item_id || '') : (ST.menuItems[0] ? ST.menuItems[0].id : ''),
+      from_date: p ? (p.from_date || '') : '',
+      to_date: p ? (p.to_date || '') : '',
+      stack: p ? !!p.stack : true,
+      min_qty: p ? (p.min_qty || 0) : 0,
+      min_money: p ? (p.min_money || 0) : 0,
+      valid_days: p ? (p.valid_days || 30) : 30,
+      loyalty_goal: p ? (p.loyalty_goal || 10) : 10,
+      active: p ? !!p.active : true
+    };
+    const body = el('div');
+    const draw = () => {
+      body.replaceChildren(
+        el('div', { className: 'field' }, el('label', { text: 'Tên chương trình' }), el('input', { className: 'input', value: f.name, onInput: e => { f.name = e.target.value; } })),
+        el('div', { className: 'field' }, el('label', { text: 'Mô tả' }), el('input', { className: 'input', value: f.description, onInput: e => { f.description = e.target.value; } })),
+        el('div', { className: 'grid-2' },
+          el('div', { className: 'field' }, el('label', { text: 'Kiểu ưu đãi' }),
+            el('select', { className: 'select', onChange: e => { f.discount_type = e.target.value; draw(); } },
+              el('option', { value: 'percent', selected: f.discount_type === 'percent', text: 'Giảm %' }),
+              el('option', { value: 'amount', selected: f.discount_type === 'amount', text: 'Giảm số tiền' }),
+              el('option', { value: 'free_item', selected: f.discount_type === 'free_item', text: 'Tặng món' })
+            )
+          ),
+          el('div', { className: 'field' }, el('label', { text: f.discount_type === 'percent' ? 'Phần trăm (1–100)' : f.discount_type === 'amount' ? 'Số tiền giảm (đ)' : 'Số lượng tặng' }),
+            el('input', { className: 'input num', type: 'number', min: 1, value: f.value, onInput: e => { f.value = e.target.value; } })
+          )
+        ),
+        f.discount_type === 'free_item' ? el('div', { className: 'field' },
+          el('label', { text: 'Món tặng' }),
+          el('select', { className: 'select', onChange: e => { f.free_item_id = e.target.value; } },
+            ST.menuItems.map(m => el('option', { value: m.id, selected: m.id === f.free_item_id, text: m.name }))
+          )
+        ) : null,
+        el('div', { className: 'grid-2' },
+          el('div', { className: 'field' }, el('label', { text: 'Từ ngày' }), el('input', { className: 'input', type: 'date', value: f.from_date, onChange: e => { f.from_date = e.target.value; } })),
+          el('div', { className: 'field' }, el('label', { text: 'Đến ngày' }), el('input', { className: 'input', type: 'date', value: f.to_date, onChange: e => { f.to_date = e.target.value; } }))
+        ),
+        el('div', { className: 'grid-2' },
+          el('div', { className: 'field' }, el('label', { text: 'Tối thiểu số lượng' }), el('input', { className: 'input num', type: 'number', min: 0, value: f.min_qty, onInput: e => { f.min_qty = e.target.value; } })),
+          el('div', { className: 'field' }, el('label', { text: 'Tối thiểu số tiền (đ)' }), el('input', { className: 'input num', type: 'number', min: 0, value: f.min_money, onInput: e => { f.min_money = e.target.value; } }))
+        ),
+        f.kind === 'voucher' ? el('div', { className: 'field' }, el('label', { text: 'Số ngày hiệu lực từ lúc phát' }), el('input', { className: 'input num', type: 'number', min: 0, value: f.valid_days, onInput: e => { f.valid_days = e.target.value; } })) : null,
+        f.kind === 'loyalty' ? el('div', { className: 'field' }, el('label', { text: 'Mục tiêu tích (số đơn vị)' }), el('input', { className: 'input num', type: 'number', min: 1, value: f.loyalty_goal, onInput: e => { f.loyalty_goal = e.target.value; } })) : null,
+        el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:600' },
+          el('input', { type: 'checkbox', checked: f.stack, style: 'width:20px;height:20px', onChange: e => { f.stack = e.target.checked; } }), 'Cộng dồn với chương trình khác'
+        ),
+        el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:600' },
+          el('input', { type: 'checkbox', checked: f.active, style: 'width:20px;height:20px', onChange: e => { f.active = e.target.checked; } }), 'Đang bật'
+        )
+      );
+    };
+    draw();
+    const okBtn = el('button', {
+      type: 'button', className: 'btn btn-primary',
+      onClick: async () => {
+        if (!f.name.trim()) { app.showToast('Nhập tên chương trình', 'error'); return; }
+        okBtn.disabled = true; okBtn.textContent = 'Đang lưu…';
+        try {
+          const rec = {
+            kind: f.kind, name: f.name.trim(), description: f.description.trim() || null,
+            discount_type: f.discount_type, value: Math.round(Number(f.value) || 0),
+            free_item_id: f.discount_type === 'free_item' ? (f.free_item_id || null) : null,
+            from_date: f.from_date || null, to_date: f.to_date || null,
+            stack: f.stack, min_qty: Math.round(Number(f.min_qty) || 0), min_money: Math.round(Number(f.min_money) || 0),
+            valid_days: f.kind === 'voucher' ? Math.round(Number(f.valid_days) || 0) : 0,
+            loyalty_goal: f.kind === 'loyalty' ? Math.round(Number(f.loyalty_goal) || 0) : 0,
+            active: f.active
+          };
+          if (p) {
+            const res = await sb.from('promotions').update(rec).eq('id', p.id).eq('shop_id', shopId).select('id');
+            checkMutated(res);
+          } else {
+            const { error } = await sb.from('promotions').insert(Object.assign({ shop_id: shopId }, rec));
+            if (error) throw error;
+          }
+          closeModal();
+          app.showToast('Đã lưu chương trình', 'accent');
+          await loadPromos();
+          renderPromoTab();
+        } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = 'Lưu'; }
+      },
+      text: 'Lưu'
+    });
+    openModal(p ? 'Sửa chương trình' : 'Thêm chương trình', body, [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), okBtn], opener);
+  }
+
+  /* ===== TAB: Đánh giá (gói tối thiểu: proplus) ===== */
+  const WANT_LABELS = { exchange: 'Đổi món', refund: 'Hoàn tiền', notify: 'Chỉ báo để tiệm biết' };
+  const FIX_OPTIONS = ['Đổi món', 'Hoàn tiền', 'Giảm giá đơn sau', 'Xin lỗi, ghi nhận', 'Không xác nhận được lỗi'];
+
+  async function loadFeedbacks() {
+    const { data, error } = await sb.from('feedback').select('*, orders(code,customer_name,customer_phone)').eq('shop_id', shopId).order('created_at', { ascending: false }).range(0, 99);
+    if (error) throw error;
+    ST.feedbacks = data || [];
+  }
+
+  function renderFeedbackTab() {
+    const all = ST.feedbacks;
+    const avg = all.length ? (all.reduce((s, f) => s + f.rating, 0) / all.length).toFixed(1).replace('.', ',') : '—';
+    const dist = [5, 4, 3, 2, 1].map(s => ({ s, n: all.filter(f => f.rating === s).length }));
+    const shown = all.filter(f => ST.fbFilter === 'open' ? !f.handled : !!f.handled);
+
+    const summaryCard = el('div', { className: 'card' },
+      el('div', { className: 'row-between' },
+        el('div', null,
+          el('b', { className: 'num', style: 'font-size:26px;color:var(--accent)', text: avg + ' ★' }),
+          el('div', { style: 'font-size:13.5px;color:var(--text-sub)', text: all.length + ' đánh giá' })
+        ),
+        el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
+          dist.map(d => el('span', { className: 'badge badge-muted num', text: d.s + '★: ' + d.n }))
+        )
+      )
+    );
+
+    const seg = el('div', { className: 'bh-seg' },
+      el('button', { type: 'button', 'aria-pressed': String(ST.fbFilter === 'open'), onClick: () => { ST.fbFilter = 'open'; renderFeedbackTab(); }, text: 'Chưa xử lý (' + all.filter(f => !f.handled).length + ')' }),
+      el('button', { type: 'button', 'aria-pressed': String(ST.fbFilter === 'done'), onClick: () => { ST.fbFilter = 'done'; renderFeedbackTab(); }, text: 'Đã xử lý (' + all.filter(f => f.handled).length + ')' })
+    );
+
+    contentHost.replaceChildren(
+      renderMetaBar('feedback', async () => { await loadFeedbacks(); markLoaded('feedback'); renderFeedbackTab(); }),
+      summaryCard,
+      seg,
+      shown.length ? shown.map(fb => {
+        let selFix = fb.fix || FIX_OPTIONS[0];
+        const ord = fb.orders || {};
+        return el('div', { className: 'card' },
+          el('div', { className: 'row-between' },
+            el('b', { style: 'color:#D99A00;font-size:18px', text: '★'.repeat(fb.rating) + '☆'.repeat(5 - fb.rating) }),
+            el('small', { style: 'color:var(--text-sub)', text: app.formatVnDateTime(fb.created_at) })
+          ),
+          el('div', { style: 'font-size:14px;margin-top:4px', text: (ord.code ? 'Đơn ' + ord.code + ' · ' : '') + (ord.customer_name || 'Khách') + (ord.customer_phone ? ' · ' + ord.customer_phone : '') }),
+          fb.comment ? el('div', { style: 'margin-top:6px;font-style:italic', text: '“' + fb.comment + '”' }) : null,
+          fb.want ? el('div', { style: 'font-size:13.5px;color:var(--text-sub);margin-top:4px', text: 'Khách mong muốn: ' + (WANT_LABELS[fb.want] || fb.want) }) : null,
+          el('div', { style: 'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap' },
+            el('select', { className: 'select', style: 'flex:1 1 180px', onChange: e => { selFix = e.target.value; } },
+              FIX_OPTIONS.map(opt => el('option', { value: opt, selected: selFix === opt, text: opt }))
+            ),
+            el('button', {
+              type: 'button', className: 'btn btn-primary',
+              onClick: async () => {
+                try {
+                  const res = await sb.from('feedback').update({ fix: selFix, handled: true }).eq('id', fb.id).eq('shop_id', shopId).select('id');
+                  checkMutated(res);
+                  app.showToast('Đã cập nhật xử lý đánh giá', 'accent');
+                  await loadFeedbacks();
+                  renderFeedbackTab();
+                } catch (err) { showErr(err); }
+              },
+              text: fb.handled ? 'Cập nhật xử lý' : 'Đã xử lý'
+            })
+          )
+        );
+      }) : el('div', { className: 'card empty-state', text: 'Không có đánh giá nào trong mục này.' })
+    );
+  }
+
+  /* ===== KHỞI CHẠY BAN ĐẦU ===== */
+  try {
+    await Promise.all([loadShopFull(), loadPayMethods(), loadOnlineOrders(false)]);
+    await loadTabData('sale');
+    renderCurrentTab();
+  } catch (err) {
+    showErr(err);
+  }
+})();
+</script>
+</body>
+</html>

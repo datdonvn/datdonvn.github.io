@@ -758,7 +758,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
   async function loadManualOrders() {
     const { data, error } = await sb.from('orders')
-      .select('*, order_items(id,item_id,name,unit,price,qty)')
+      .select('*, order_items(id,item_id,name,unit,price,qty,is_gift)')
       .eq('shop_id', shopId)
       .eq('source', 'manual')
       .order('ordered_at', { ascending: false })
@@ -781,12 +781,83 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     ST.eodUnpaid = unpaidList || [];
   }
 
+  // Khuyến mãi tự áp (gói Pro plus): kết quả báo giá của máy chủ, chỉ dùng khi đúng với giỏ hiện tại
+  function saleQuoteKey() {
+    const sl = ST.sale;
+    return JSON.stringify([sl.items.map(it => [it.item_id, it.qty]), String(sl.customer_phone || '').trim(), sl.voucher_id || null]);
+  }
+  function saleQuoteNow() {
+    return (app.hasPlan('proplus') && ST.saleQuote && ST.saleQuote.key === saleQuoteKey()) ? ST.saleQuote : null;
+  }
   function saleTotals() {
     const subtotal = ST.sale.items.reduce((s, it) => s + it.price * it.qty, 0);
-    const disc = Math.max(0, Math.min(subtotal, Number(ST.sale.discount) || 0));
+    const qt = saleQuoteNow();
+    const promo = qt ? Math.max(0, Math.min(subtotal, qt.discount || 0)) : 0;
+    const manual = Math.max(0, Math.min(subtotal - promo, Number(ST.sale.discount) || 0));
+    const disc = promo + manual;
     const total = Math.max(0, subtotal - disc);
     const count = ST.sale.items.reduce((s, it) => s + it.qty, 0);
-    return { subtotal, disc, total, count };
+    return { subtotal, promo, manual, disc, total, count };
+  }
+  let saleQuoteTimer = null;
+  async function fetchSaleQuote() {
+    const sl = ST.sale;
+    if (!app.hasPlan('proplus') || !sl.items.length) { ST.saleQuote = null; drawSalePromo(); updateSaleSticky(); return; }
+    const key = saleQuoteKey();
+    try {
+      const { data, error } = await sb.rpc('quote_sale', {
+        p_shop: shopId, p_phone: String(sl.customer_phone || '').trim(),
+        p_items: sl.items.map(it => ({ item_id: it.item_id, qty: it.qty })), p_voucher: sl.voucher_id || null
+      });
+      if (error) throw error;
+      if (key !== saleQuoteKey()) return; // giỏ đã đổi trong lúc chờ
+      ST.saleQuote = { key, discount: data.discount || 0, applied: data.applied || [], free: data.free_items || [] };
+    } catch (err) {
+      if (key !== saleQuoteKey()) return;
+      if (sl.voucher_id) { sl.voucher_id = null; saveDraft(); app.showToast('Voucher này không dùng được cho đơn, đã bỏ chọn', 'error'); }
+      ST.saleQuote = null;
+    }
+    drawSalePromo(); updateSaleSticky();
+  }
+  function scheduleSaleQuote() {
+    clearTimeout(saleQuoteTimer);
+    saleQuoteTimer = setTimeout(fetchSaleQuote, 350);
+  }
+  let saleVoucherPhone = null;
+  async function fetchSaleVouchers() {
+    const ph = String(ST.sale.customer_phone || '').replace(/[ .\-]/g, '');
+    if (!app.hasPlan('proplus') || ph.length < 8) { ST.saleVouchers = []; saleVoucherPhone = null; drawSalePromo(); return; }
+    if (ph === saleVoucherPhone) return;
+    saleVoucherPhone = ph;
+    try {
+      const { data, error } = await sb.rpc('sale_vouchers', { p_shop: shopId, p_phone: ph });
+      if (error) throw error;
+      if (ph !== String(ST.sale.customer_phone || '').replace(/[ .\-]/g, '')) return;
+      const keep = (ST.sale.voucher_id && (ST.saleVouchers || []).find(v => v.id === ST.sale.voucher_id)) || null;
+      ST.saleVouchers = (data || []).concat(keep && !(data || []).find(v => v.id === keep.id) ? [keep] : []);
+    } catch (err) { ST.saleVouchers = []; }
+    drawSalePromo();
+  }
+  function drawSalePromo() {
+    const host = ST.salePromoHost; if (!host || !host.isConnected) return;
+    const sl = ST.sale, qt = saleQuoteNow();
+    if (!app.hasPlan('proplus')) { host.replaceChildren(); return; }
+    const rows = [];
+    if (qt) {
+      (qt.applied || []).forEach(a => rows.push(el('div', { className: 'row-between', style: 'font-size:14px;color:var(--accent);padding:2px 0' },
+        el('span', { text: (a.voucher ? 'Voucher: ' : 'Khuyến mãi: ') + a.name }), el('span', { className: 'num', text: '−' + app.formatMoney(a.amount) }))));
+      (qt.free || []).forEach(g => rows.push(el('div', { className: 'row-between', style: 'font-size:14px;color:var(--accent);padding:2px 0' },
+        el('span', { text: 'Tặng: ' + g.qty + ' × ' + (g.item_name || 'món tặng') }), el('span', { className: 'num', text: '0đ' }))));
+    }
+    const vs = ST.saleVouchers || [];
+    const vbox = vs.length ? el('div', { style: 'margin-top:6px' },
+      el('div', { style: 'font-size:13px;color:var(--text-sub);margin-bottom:4px', text: 'Khách có voucher, chạm để dùng:' }),
+      el('div', { className: 'chips' }, vs.map(v => el('button', {
+        type: 'button', className: 'chip', 'aria-pressed': String(sl.voucher_id === v.id),
+        onClick: () => { sl.voucher_id = sl.voucher_id === v.id ? null : v.id; sl.paidCustom = null; saveDraft(); ST.saleQuote = null; drawSalePromo(); fetchSaleQuote(); },
+        text: v.name + (v.text ? ' (' + v.text + ')' : '')
+      })))) : null;
+    host.replaceChildren(...[rows.length ? el('div', { style: 'margin-top:8px;border-top:1px dashed var(--border);padding-top:6px' }, rows) : null, vbox].filter(Boolean));
   }
 
   function addSaleItem(mi) {
@@ -871,7 +942,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           }, text: '+' })
         ),
         el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: () => { s.items.splice(idx, 1); s.paidCustom = null; saveDraft(); renderSaleTab(); }, text: 'Xóa' })
-      )) : el('div', { className: 'empty-state', text: 'Chạm vào món phía trên để thêm vào đơn.' })
+      )) : el('div', { className: 'empty-state', text: 'Chạm vào món phía trên để thêm vào đơn.' }),
+      (ST.salePromoHost = el('div'))
     );
 
     // Thông tin đơn & thanh toán
@@ -912,7 +984,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           el('label', { for: 'sl-cphone', text: 'Số điện thoại (không bắt buộc)' }),
           el('input', {
             id: 'sl-cphone', className: 'input', type: 'tel', inputmode: 'tel', value: s.customer_phone || '',
-            onInput: e => { s.customer_phone = e.target.value; saveDraft(); }
+            onInput: e => { s.customer_phone = e.target.value; saveDraft(); scheduleSaleQuote(); fetchSaleVouchers(); }
           })
         )
       ),
@@ -990,7 +1062,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       infoCard,
       recentCard
     );
+    drawSalePromo();
     updateSaleSticky();
+    if (app.hasPlan('proplus')) { if (!saleQuoteNow()) scheduleSaleQuote(); fetchSaleVouchers(); }
   }
 
   function renderSaleCustomerPicker() {
@@ -1058,8 +1132,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     ST.sale = {
       editId: null, editCode: '', items: [],
       place: keepPlace, customer_name: '', customer_phone: '', customer_id: null, note: '',
-      at: '', discount: 0, pay_method_id: keepPay, unpaid: false, paidCustom: null
+      at: '', discount: 0, voucher_id: null, pay_method_id: keepPay, unpaid: false, paidCustom: null
     };
+    ST.saleQuote = null; ST.saleVouchers = [];
     app.storageSet(DRAFT_KEY, null);
   }
 
@@ -1067,28 +1142,38 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     ST.sale = {
       editId: o.id,
       editCode: o.code,
-      items: (o.order_items || []).map(it => ({ item_id: it.item_id, name: it.name, unit: it.unit || 'phần', price: it.price, qty: it.qty })),
+      items: (o.order_items || []).filter(it => !it.is_gift).map(it => ({ item_id: it.item_id, name: it.name, unit: it.unit || 'phần', price: it.price, qty: it.qty })),
       place: o.place || 'Tại quầy',
       customer_name: o.customer_name || '',
       customer_phone: o.customer_phone || '',
       customer_id: o.customer_id || null,
       note: o.note || '',
       at: toLocalDtValue(o.ordered_at),
-      discount: o.discount || 0,
+      discount: Math.max(0, (o.discount || 0) - (o.promo_discount || 0)),
+      voucher_id: null,
       pay_method_id: o.pay_method_id,
       unpaid: o.pay_status === 'unpaid',
       paidCustom: o.paid
     };
+    ST.saleQuote = null; ST.saleVouchers = [];
+    if (app.hasPlan('proplus')) {
+      sb.from('customer_vouchers').select('id,promo_id').eq('shop_id', shopId).eq('used_order_id', o.id).limit(1).then(r => {
+        const cv = r && r.data && r.data[0];
+        if (cv && ST.sale.editId === o.id) { ST.sale.voucher_id = cv.id; ST.saleVouchers = [{ id: cv.id, name: 'Voucher đã dùng cho đơn này', text: '' }]; ST.saleQuote = null; drawSalePromo(); fetchSaleQuote(); }
+      });
+    }
     renderSaleTab();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   async function submitSaleOrder(btn) {
     const s = ST.sale;
-    const tot = saleTotals();
     if (!s.items.length) return;
     btn.disabled = true; btn.textContent = 'Đang lưu…';
     try {
+      clearTimeout(saleQuoteTimer);
+      if (app.hasPlan('proplus') && !saleQuoteNow()) await fetchSaleQuote(); // chốt giá khuyến mãi mới nhất trước khi lưu
+      const tot = saleTotals();
       const place = (s.place || '').trim() || 'Tại quầy';
       if (!ST.salePlaces.includes(place)) {
         ST.salePlaces = [place].concat(ST.salePlaces).slice(0, 10);
@@ -1107,7 +1192,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         p_customer_id: app.hasPlan('proplus') ? (s.customer_id || null) : null,
         p_place: place,
         p_items: s.items.map(it => ({ item_id: it.item_id, qty: it.qty })),
-        p_discount: tot.disc,
+        p_discount: tot.manual,
+        p_promo: app.hasPlan('proplus'),
+        p_voucher: app.hasPlan('proplus') ? (s.voucher_id || null) : null,
         p_pay_method: s.unpaid ? null : (s.pay_method_id || null),
         p_pay_status: s.unpaid ? 'unpaid' : 'paid',
         p_paid: paidAmt,

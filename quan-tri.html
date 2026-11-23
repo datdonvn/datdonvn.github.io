@@ -220,16 +220,11 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
   /* ===== DANH SÁCH TAB THEO GÓI ===== */
   const ALL_TABS = [
     { id: 'overview', label: 'Tổng quan', minPlan: 'standard' },
-    { id: 'payment', label: 'Thanh toán', minPlan: 'standard' },
     { id: 'bctc', label: 'BCTC', minPlan: 'pro' },
     { id: 'stats', label: 'Chỉ số', minPlan: 'standard' },
-    { id: 'orders', label: 'Đơn hàng', minPlan: 'standard' },
-    { id: 'goal', label: 'Mục tiêu', minPlan: 'pro' },
-    { id: 'inventory', label: 'Kho', minPlan: 'pro' },
-    { id: 'debt', label: 'Nợ NCC', minPlan: 'pro' },
-    { id: 'feedback', label: 'Đánh giá', minPlan: 'proplus' }
+    { id: 'cashflow', label: 'Dòng tiền', minPlan: 'pro' }
   ];
-  const MAIN_TABS = ['overview', 'payment', 'bctc', 'stats'];
+  const MAIN_TABS = ['overview', 'bctc', 'stats', 'cashflow'];
   const TABS = ALL_TABS.filter(t => app.hasPlan(t.minPlan));
 
   /* ===== KHOẢNG NGÀY MẶC ĐỊNH: THÁNG NÀY (GIỜ VIỆT NAM) ===== */
@@ -250,6 +245,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
     from: thisMonthStart,
     to: todayYmd,
     goalMonth: thisMonthStart,
+    bcMonth: thisMonthStart.slice(0, 7),
     loading: false,
     // Dữ liệu từng tab
     revenue: null,
@@ -422,28 +418,11 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
   }
 
   function renderNav() {
-    const visible = MAIN_TABS.map(id => TABS.find(t => t.id === id)).filter(Boolean);
-    const overflow = TABS.filter(t => !MAIN_TABS.includes(t.id));
-    const btns = visible.map(t => el('button', {
+    const btns = TABS.map(t => el('button', {
       type: 'button',
       'aria-current': ST.tab === t.id ? 'page' : null,
       onClick: () => switchTab(t.id)
     }, navIcon(t.id), el('span', { text: t.label })));
-    if (overflow.length) {
-      const activeMore = overflow.some(t => t.id === ST.tab);
-      btns.push(el('button', {
-        type: 'button',
-        'aria-current': activeMore ? 'page' : null,
-        onClick: e => openModal('Thêm', el('div', { style: 'display:grid;gap:8px' },
-          overflow.map(t => el('button', {
-            type: 'button',
-            className: 'btn' + (ST.tab === t.id ? ' btn-primary' : ''),
-            style: 'width:100%;justify-content:flex-start;gap:12px',
-            onClick: () => { closeModal(); switchTab(t.id); }
-          }, navIcon(t.id), el('span', { text: t.label })))
-        ), null, e.currentTarget)
-      }, navIcon('more'), el('span', { text: 'Thêm' })));
-    }
     navHost.replaceChildren(el('nav', { className: 'qt-nav', 'aria-label': 'Mục báo cáo' },
       el('div', { className: 'qt-nav-in' }, btns)
     ));
@@ -490,39 +469,65 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
     window.scrollTo({ top: 0 });
   }
 
+  function monthKeysLast6() {
+    const y = Number(todayYmd.slice(0, 4)), m = Number(todayYmd.slice(5, 7)), keys = [];
+    for (let i = 5; i >= 0; i--) { const d = new Date(Date.UTC(y, m - 1 - i, 1)); keys.push(d.getUTCFullYear() + '-' + app.pad2(d.getUTCMonth() + 1)); }
+    return keys;
+  }
+  const monthLabel = k => 'Tháng ' + Number(k.slice(5)) + '/' + k.slice(2, 4);
+  function monthRange(k) {
+    const y = Number(k.slice(0, 4)), m = Number(k.slice(5, 7));
+    return { from: k + '-01', to: k + '-' + app.pad2(new Date(Date.UTC(y, m, 0)).getUTCDate()) };
+  }
+
   async function reloadCurrentTab() {
     ST.loading = true;
     contentHost.replaceChildren(
-      ST.tab !== 'goal' && ST.tab !== 'inventory' && ST.tab !== 'debt' && ST.tab !== 'stats' ? renderRangeBar() : null,
+      ST.tab === 'overview' || ST.tab === 'cashflow' ? renderRangeBar() : null,
       el('div', { className: 'card empty-state', text: 'Đang tải số liệu…' })
     );
     try {
       if (ST.tab === 'overview') {
         const reqs = [
           sb.rpc('report_revenue', { p_shop: shopId, p_from: ST.from, p_to: ST.to }),
-          sb.rpc('report_sales_by_method', { p_shop: shopId, p_from: ST.from, p_to: ST.to })
+          sb.rpc('report_sales_by_method', { p_shop: shopId, p_from: ST.from, p_to: ST.to }),
+          sb.rpc('report_revenue', { p_shop: shopId, p_from: todayYmd, p_to: todayYmd }),
+          sb.from('menu_items').select('name').eq('shop_id', shopId).eq('active', true)
         ];
-        if (app.hasPlan('pro')) reqs.push(sb.rpc('report_goal', { p_shop: shopId, p_month: thisMonthStart }));
-        const res = await Promise.all(reqs);
-        if (res[0].error) throw res[0].error;
-        if (res[1].error) throw res[1].error;
-        ST.revenue = res[0].data;
-        ST.salesByMethod = res[1].data;
-        if (app.hasPlan('pro') && res[2] && !res[2].error) ST.goalData = res[2].data;
-      } else if (ST.tab === 'payment') {
-        const { data, error } = await sb.rpc('report_sales_by_method', { p_shop: shopId, p_from: ST.from, p_to: ST.to });
-        if (error) throw error;
-        ST.salesByMethod = data;
-      } else if (ST.tab === 'bctc' && app.hasPlan('pro')) {
-        const reqs = [
-          sb.rpc('report_cashflow', { p_shop: shopId, p_from: ST.from, p_to: ST.to }),
-          sb.rpc('report_costing', { p_shop: shopId, p_from: ST.from, p_to: ST.to })
-        ];
-        if (app.hasPlan('proplus')) reqs.push(sb.rpc('report_pnl', { p_shop: shopId, p_from: ST.from, p_to: ST.to }));
+        const pro = app.hasPlan('pro');
+        if (pro) {
+          reqs.push(sb.rpc('report_goal', { p_shop: shopId, p_month: thisMonthStart }));
+          reqs.push(sb.rpc('report_inventory', { p_shop: shopId }));
+          reqs.push(sb.from('batches').select('at,out_qty,out_item_id').eq('shop_id', shopId)
+            .gte('at', ST.from + 'T00:00:00+07:00').lte('at', ST.to + 'T23:59:59+07:00'));
+          reqs.push(sb.from('inv_items').select('id,name,unit').eq('shop_id', shopId));
+        }
         const res = await Promise.all(reqs);
         for (const r of res) if (r.error) throw r.error;
-        ST.cashflow = res[0].data; ST.costing = res[1].data;
-        if (res[2]) ST.pnl = res[2].data;
+        ST.revenue = res[0].data;
+        ST.salesByMethod = res[1].data;
+        ST.today = res[2].data;
+        ST.menuNames = (res[3].data || []).map(m => m.name);
+        if (pro) {
+          ST.goalData = res[4].data;
+          ST.inventory = res[5].data;
+          const names = new Map((res[7].data || []).map(i => [i.id, i]));
+          const agg = new Map();
+          for (const b of (res[6].data || [])) {
+            const it = names.get(b.out_item_id) || { name: 'Thành phẩm', unit: '' };
+            const a = agg.get(b.out_item_id) || { name: it.name, unit: it.unit, qty: 0, batches: 0 };
+            a.qty += Number(b.out_qty) || 0; a.batches += 1; agg.set(b.out_item_id, a);
+          }
+          ST.made = [...agg.values()].sort((x, y) => y.qty - x.qty);
+        }
+      } else if (ST.tab === 'bctc' && app.hasPlan('pro')) {
+        const r = monthRange(ST.bcMonth);
+        const reqs = [sb.rpc('report_costing', { p_shop: shopId, p_from: r.from, p_to: r.to })];
+        if (app.hasPlan('proplus')) reqs.push(sb.rpc('report_pnl', { p_shop: shopId, p_from: r.from, p_to: r.to }));
+        const res = await Promise.all(reqs);
+        for (const x of res) if (x.error) throw x.error;
+        ST.costing = res[0].data;
+        ST.pnl = res[1] ? res[1].data : null;
       } else if (ST.tab === 'stats') {
         const y = Number(todayYmd.slice(0, 4)), m = Number(todayYmd.slice(5, 7));
         const d0 = new Date(Date.UTC(y, m - 1 - 5, 1));
@@ -537,64 +542,22 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
         ST.statsRev = res[0].data;
         if (res[1]) ST.statsPnl = res[1].data;
         if (res[2]) ST.statsCust = res[2].data;
-      } else if (ST.tab === 'orders') {
-        await loadOrdersPage(false);
-      } else if (ST.tab === 'goal' && app.hasPlan('pro')) {
-        const { data, error } = await sb.rpc('report_goal', { p_shop: shopId, p_month: ST.goalMonth });
-        if (error) throw error;
-        ST.goalData = data;
       } else if (ST.tab === 'cashflow' && app.hasPlan('pro')) {
         const { data, error } = await sb.rpc('report_cashflow', { p_shop: shopId, p_from: ST.from, p_to: ST.to });
         if (error) throw error;
         ST.cashflow = data;
-      } else if (ST.tab === 'costing' && app.hasPlan('pro')) {
-        const { data, error } = await sb.rpc('report_costing', { p_shop: shopId, p_from: ST.from, p_to: ST.to });
-        if (error) throw error;
-        ST.costing = data;
-      } else if (ST.tab === 'inventory' && app.hasPlan('pro')) {
-        const { data, error } = await sb.rpc('report_inventory', { p_shop: shopId });
-        if (error) throw error;
-        ST.inventory = data;
-      } else if (ST.tab === 'debt' && app.hasPlan('pro')) {
-        const { data, error } = await sb.from('purchases').select('*').eq('shop_id', shopId).eq('on_credit', true).order('due_date', { ascending: true });
-        if (error) throw error;
-        ST.debts = (data || []).filter(p => (p.total - p.paid) > 0);
-      } else if (ST.tab === 'pnl' && app.hasPlan('proplus')) {
-        const { data, error } = await sb.rpc('report_pnl', { p_shop: shopId, p_from: ST.from, p_to: ST.to });
-        if (error) throw error;
-        ST.pnl = data;
-      } else if (ST.tab === 'customers' && app.hasPlan('proplus')) {
-        const { data, error } = await sb.rpc('report_customers', { p_shop: shopId, p_from: ST.from, p_to: ST.to });
-        if (error) throw error;
-        ST.customers = data;
-      } else if (ST.tab === 'feedback' && app.hasPlan('proplus')) {
-        const { data, error } = await sb.from('feedback').select('*, orders(code,customer_name)').eq('shop_id', shopId)
-          .gte('created_at', ST.from + 'T00:00:00+07:00').lte('created_at', ST.to + 'T23:59:59+07:00')
-          .order('created_at', { ascending: false }).range(0, 99);
-        if (error) throw error;
-        ST.feedbacks = data || [];
       }
       ST.loading = false;
       renderCurrentTab();
     } catch (err) {
       ST.loading = false;
       showErr(err);
-      contentHost.replaceChildren(renderRangeBar(), el('div', { className: 'alert alert-error', text: app.translateServerError(err) }));
+      contentHost.replaceChildren(el('div', { className: 'alert alert-error', text: app.translateServerError(err) }));
     }
   }
 
   function renderCurrentTab() {
-    const map = {
-      overview: renderOverviewTab,
-      payment: renderPaymentTab,
-      bctc: renderBctcTab,
-      stats: renderStatsTab,
-      orders: renderOrdersTab,
-      goal: renderGoalTab,
-      inventory: renderInventoryTab,
-      debt: renderDebtTab,
-      feedback: renderFeedbackTab
-    };
+    const map = { overview: renderOverviewTab, bctc: renderBctcTab, stats: renderStatsTab, cashflow: renderCashflowTab };
     const fn = map[ST.tab];
     if (fn) fn();
   }
@@ -611,7 +574,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
     if (!g) {
       return el('div', { className: 'card row-between' },
         el('span', { text: 'Chưa đặt mục tiêu cho ' + mLabel + '.' }),
-        ST.tab !== 'goal' ? el('button', { type: 'button', className: 'btn btn-primary btn-sm', onClick: () => switchTab('goal'), text: 'Đặt mục tiêu' }) : null
+        el('button', { type: 'button', className: 'btn btn-primary btn-sm', onClick: e => openGoalModal(e.currentTarget), text: 'Đặt mục tiêu' })
       );
     }
 
@@ -635,12 +598,44 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
     return el('div', { className: 'card' },
       el('div', { className: 'row-between', style: 'margin-bottom:8px' },
         el('b', { text: 'Mục tiêu ' + mLabel }),
-        el('span', { className: 'badge num', text: 'Ngày ' + elapsed + '/' + dim })
+        el('div', { style: 'display:flex;gap:8px;align-items:center' },
+          el('span', { className: 'badge num', text: 'Ngày ' + elapsed + '/' + dim }),
+          el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openGoalModal(e.currentTarget), text: 'Sửa' })
+        )
       ),
       el('p', { style: 'margin:0 0 10px;font-size:14px;color:var(--text-sub)', text: 'Hôm nay là ngày ' + elapsed + '/' + dim + '. Đã bán ' + a.units + ' / ' + targetUnits + ' đơn vị (' + a.orders + ' đơn).' }),
       bar('Số lượng bán cả tháng', a.units, targetUnits, v => v.toLocaleString('vi-VN') + ' đv', estUnits),
       bar('Lãi gộp cả tháng', a.gross, targetProfit, app.formatMoney, estProfit)
     );
+  }
+
+
+  /* ===== POP-UP ĐẶT MỤC TIÊU THÁNG (CHỖ NHẬP DUY NHẤT CỦA MỤC TIÊU) ===== */
+  function openGoalModal(opener) {
+    const gd = ST.goalData || {};
+    const g = gd.goal || null;
+    const f = { upd: g ? g.units_per_day : '', pm: g ? g.profit_month : '', days: g ? g.days : (gd.days_in_month || 30) };
+    const saveBtn = el('button', { type: 'button', className: 'btn btn-primary', text: 'Lưu mục tiêu' });
+    saveBtn.onclick = async () => {
+      const upd = Number(f.upd), pm = Math.round(Number(f.pm)), days = Math.round(Number(f.days));
+      if (!(upd >= 0) || !(pm >= 0) || !(days >= 1 && days <= 31)) { app.showToast('Kiểm tra lại số lượng mỗi ngày, lãi gộp tháng và số ngày bán (1–31)', 'error'); return; }
+      saveBtn.disabled = true; saveBtn.textContent = 'Đang lưu…';
+      try {
+        const { error } = await sb.from('goals').upsert({ shop_id: shopId, month: thisMonthStart, units_per_day: upd, profit_month: pm, days }, { onConflict: 'shop_id,month' });
+        if (error) throw error;
+        app.showToast('Đã lưu mục tiêu tháng', 'accent');
+        closeModal();
+        await reloadCurrentTab();
+      } catch (err) { showErr(err); saveBtn.disabled = false; saveBtn.textContent = 'Lưu mục tiêu'; }
+    };
+    openModal('Mục tiêu tháng ' + Number(thisMonthStart.slice(5, 7)) + '/' + thisMonthStart.slice(0, 4), el('div', null,
+      el('div', { className: 'field' }, el('label', { text: 'Số lượng bán mỗi ngày' }),
+        el('input', { className: 'input num', type: 'number', step: 'any', min: 0, value: f.upd, onInput: e => { f.upd = e.target.value; } })),
+      el('div', { className: 'field' }, el('label', { text: 'Lãi gộp mục tiêu cả tháng (đ)' }),
+        el('input', { className: 'input num', type: 'number', min: 0, value: f.pm, onInput: e => { f.pm = e.target.value; } })),
+      el('div', { className: 'field' }, el('label', { text: 'Số ngày bán trong tháng' }),
+        el('input', { className: 'input num', type: 'number', min: 1, max: 31, value: f.days, onInput: e => { f.days = e.target.value; } }))
+    ), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' }), saveBtn], opener);
   }
 
   /* ===== TAB: Tổng quan (gói tối thiểu: standard) ===== */
@@ -661,7 +656,19 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
     const topItems = (rev.top_items || []).slice(0, 10);
     const maxTopQty = Math.max(1, ...topItems.map(i => i.qty));
 
+    const td = (ST.today && ST.today.totals) || { orders: 0, revenue: 0 };
+    const soldQty = new Map((rev.top_items || []).map(i => [i.name, i]));
+    const slowItems = (ST.menuNames || []).map(n => soldQty.get(n) || { name: n, qty: 0, revenue: 0 }).sort((a, b) => a.qty - b.qty).slice(0, 3);
+    const made = ST.made || [];
+
     contentHost.replaceChildren(
+      el('div', { className: 'card' },
+        el('b', { text: 'Hôm nay' }),
+        el('div', { className: 'kpi-grid', style: 'margin:8px 0 0;grid-template-columns:1fr 1fr' },
+          el('div', { className: 'kpi-card' }, el('small', { text: 'Đơn' }), el('b', { className: 'num', text: String(td.orders) })),
+          el('div', { className: 'kpi-card' }, el('small', { text: 'Doanh thu' }), el('b', { className: 'num', style: 'color:var(--accent)', text: app.formatMoney(td.revenue) }))
+        )
+      ),
       renderRangeBar(),
       el('div', { className: 'kpi-grid' },
         el('div', { className: 'kpi-card' }, el('small', { text: 'Doanh thu' }), el('b', { className: 'num', style: 'color:var(--accent)', text: app.formatMoney(tot.revenue) })),
@@ -704,7 +711,23 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
           ),
           el('div', { className: 'hbar-track' }, el('div', { className: 'hbar-fill', style: 'width:' + Math.round(i.qty / maxTopQty * 100) + '%' }))
         )) : el('div', { className: 'empty-state', text: 'Chưa có món nào bán trong kỳ này.' })
-      )
+      ),
+      slowItems.length ? el('div', { className: 'card' },
+        el('b', { text: 'Món bán chậm' }),
+        el('div', { style: 'margin-top:8px' }, slowItems.map(i => el('div', { className: 'hbar-top', style: 'padding:4px 0' },
+          el('span', { text: i.name }), el('span', { className: 'num', text: i.qty + ' · ' + app.formatMoney(i.revenue) }))))
+      ) : null,
+      ...collectNodes(renderPaymentTab),
+      ...(app.hasPlan('pro') ? collectNodes(renderInventoryTab) : []),
+      app.hasPlan('pro') && made.length ? el('div', { className: 'card' },
+        el('b', { text: 'Đã nấu' }),
+        el('div', { className: 'table-scroll', style: 'margin-top:8px' }, el('table', { className: 'qt-tbl' },
+          el('thead', null, el('tr', null, el('th', { text: 'Thành phẩm' }), el('th', { className: 'r', text: 'Số mẻ' }), el('th', { className: 'r', text: 'Số lượng làm ra' }))),
+          el('tbody', null, made.map(m => el('tr', null,
+            el('td', { text: m.name }), el('td', { className: 'r num', text: String(m.batches) }),
+            el('td', { className: 'r num', text: (Math.round(m.qty * 100) / 100) + ' ' + (m.unit || '') })))))
+        )
+      ) : null
     );
   }
 
@@ -751,127 +774,112 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
   const STATUS_TXT = { new: 'Mới', preparing: 'Đang làm', delivering: 'Đang giao', done: 'Xong', cancelled: 'Đã hủy' };
   const PAY_TXT = { paid: 'Đã thu', checking: 'Chờ CK', unpaid: 'Chưa thu' };
 
-  async function loadOrdersPage(append) {
-    const from = append ? ST.ordersOffset : 0;
-    const { data, error } = await sb.from('orders')
-      .select('*, order_items(id,name,unit,price,qty)')
-      .eq('shop_id', shopId)
-      .gte('ordered_at', ST.from + 'T00:00:00+07:00')
-      .lte('ordered_at', ST.to + 'T23:59:59+07:00')
-      .order('ordered_at', { ascending: false })
-      .range(from, from + 49);
-    if (error) throw error;
-    const list = data || [];
-    ST.orders = append ? ST.orders.concat(list) : list;
-    ST.ordersOffset = ST.orders.length;
-    ST.ordersHasMore = list.length === 50;
-  }
-
-  function renderOrdersTab() {
-    contentHost.replaceChildren(
-      renderRangeBar(),
-      el('div', { className: 'card' },
-        el('div', { className: 'row-between' },
-          el('b', { text: 'Danh sách đơn hàng (' + ST.orders.length + (ST.ordersHasMore ? '+' : '') + ')' })
-        ),
-        ST.orders.length ? el('div', { style: 'margin-top:6px' },
-          ST.orders.map(o => el('button', {
-            type: 'button', className: 'ord-row', onClick: e => openOrderDetailReadOnly(o, e.currentTarget)
-          },
-            el('div', { style: 'min-width:0;text-align:left' },
-              el('b', { className: 'num', text: o.code }),
-              el('div', { className: 'num', style: 'font-size:13px;color:var(--text-sub)', text: app.formatVnDateTime(o.ordered_at) + ' · ' + (o.customer_name || 'Khách lẻ') })
-            ),
-            el('div', { style: 'text-align:right;flex-shrink:0' },
-              el('b', { className: 'num', text: app.formatMoney(o.total) }),
-              el('div', null, el('span', { className: 'badge ' + (o.status === 'cancelled' ? 'badge-err' : ''), text: STATUS_TXT[o.status] || o.status }))
-            )
-          ))
-        ) : el('div', { className: 'empty-state', text: 'Không có đơn hàng nào trong khoảng ngày này.' }),
-        ST.ordersHasMore ? el('button', {
-          type: 'button', className: 'btn', style: 'width:100%;margin-top:10px',
-          onClick: async () => { await loadOrdersPage(true); renderOrdersTab(); },
-          text: 'Xem thêm'
-        }) : null
-      )
-    );
-  }
-
-  function openOrderDetailReadOnly(o, opener) {
-    const items = o.order_items || [];
-    openModal('Chi tiết đơn ' + o.code, el('div', null,
-      el('div', { style: 'font-size:14px;color:var(--text-sub);margin-bottom:8px', text: app.formatVnDateTime(o.ordered_at) + ' · ' + (o.source === 'online' ? 'Online' : 'Tại quầy') + ' · ' + (STATUS_TXT[o.status] || o.status) }),
-      el('div', { style: 'margin-bottom:8px' },
-        el('b', { text: o.customer_name || 'Khách lẻ' }),
-        o.customer_phone ? el('span', { text: ' · ' + o.customer_phone }) : null,
-        (o.place || o.address) ? el('div', { style: 'font-size:13.5px;color:var(--text-sub)', text: [o.place, o.address].filter(Boolean).join(' – ') }) : null,
-        o.note ? el('div', { style: 'font-size:13.5px;font-style:italic', text: 'Ghi chú: ' + o.note }) : null
-      ),
-      el('table', { className: 'qt-tbl' },
-        el('tbody', null,
-          items.map(it => el('tr', null,
-            el('td', { text: it.qty + ' × ' + it.name }),
-            el('td', { className: 'r num', text: app.formatMoney(it.price * it.qty) })
-          )),
-          o.discount > 0 ? el('tr', null, el('td', { text: 'Giảm giá' }), el('td', { className: 'r num', text: '−' + app.formatMoney(o.discount) })) : null,
-          o.delivery_fee > 0 ? el('tr', null, el('td', { text: 'Phí giao' }), el('td', { className: 'r num', text: app.formatMoney(o.delivery_fee) })) : null,
-          el('tr', { className: 'sum-row' }, el('td', { text: 'Tổng (' + (PAY_TXT[o.pay_status] || o.pay_status) + ')' }), el('td', { className: 'r num', text: app.formatMoney(o.total) }))
-        )
-      )
-    ), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' })], opener);
-  }
-
-  // Một nút xuất chung: 1 sheet, mỗi dòng là một món trong đơn, dữ liệu thô để lọc và tính tiếp
+  // Một nút xuất chung: toàn bộ dữ liệu tính đến hiện tại, mỗi loại một sheet, số liệu ghi thẳng
   function openExportModal(opener) {
-    const f = { from: ST.from, to: ST.to };
     const prog = el('div');
     const goBtn = el('button', { type: 'button', className: 'btn btn-primary', text: 'Tải file Excel' });
-    goBtn.onclick = () => exportAllXlsx(f, goBtn, prog);
+    goBtn.onclick = () => exportAllXlsx(goBtn, prog);
+    const sheetsTxt = ['Bán hàng', 'Giá bán', 'Khách hàng'].concat(app.hasPlan('pro') ? ['Mua hàng', 'Định mức', 'NK Sản xuất', 'Thu chi', 'Tồn kho'] : []).join(', ');
     openModal('Xuất Excel', el('div', null,
-      el('p', { style: 'margin:0 0 10px;color:var(--text-sub);font-size:14px', text: 'Một sheet dữ liệu thô: mỗi dòng là một món trong đơn, kèm ngày giờ, khách, thanh toán, giảm giá. Dùng để lọc và tính tiếp bằng Excel.' }),
-      el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:8px' },
-        el('div', { className: 'field', style: 'margin:0' }, el('label', { text: 'Từ ngày' }), el('input', { className: 'input', type: 'date', value: f.from, onChange: e => { if (e.target.value) f.from = e.target.value; } })),
-        el('div', { className: 'field', style: 'margin:0' }, el('label', { text: 'Đến ngày' }), el('input', { className: 'input', type: 'date', value: f.to, onChange: e => { if (e.target.value) f.to = e.target.value; } }))
-      ),
+      el('p', { style: 'margin:0 0 8px;font-size:14px', text: 'Xuất toàn bộ dữ liệu từ đầu đến lúc bấm. Mỗi loại một sheet: ' + sheetsTxt + '.' }),
+      el('p', { style: 'margin:0;color:var(--text-sub);font-size:14px', text: 'Số liệu ghi thẳng, không có công thức. Bạn tự lọc và tính tiếp trong Excel.' }),
       prog
     ), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' }), goBtn], opener);
   }
 
-  async function exportAllXlsx(f, btn, progBox) {
+  const BUY_GRP_TXT = { nl: 'Nguyên liệu', bb: 'Bao bì', dc: 'Dụng cụ', gh: 'Giao hàng', qc: 'Quảng cáo', kh: 'Chi phí khác', ht: 'Hoàn tiền' };
+  const INV_KIND_TXT = { nl: 'Nguyên liệu', bb: 'Bao bì', btp: 'Bán thành phẩm' };
+  const CASH_TXT = { von: 'Vốn đầu tư', rut_von: 'Rút vốn', thu_khac: 'Thu khác', chi_khac: 'Chi khác' };
+
+  async function fetchAll(makeQuery) {
+    const out = [];
+    for (let off = 0; ; off += 1000) {
+      const { data, error } = await makeQuery().range(off, off + 999);
+      if (error) throw error;
+      out.push(...(data || []));
+      if (!data || data.length < 1000) break;
+    }
+    return out;
+  }
+  const dtParts = iso => { const t = iso ? app.formatVnDateTime(iso) : ''; return [t.slice(0, 10), t.slice(11)]; };
+
+  async function exportAllXlsx(btn, progBox) {
     btn.disabled = true; btn.textContent = 'Đang xuất…';
-    const rows = [['Mã đơn', 'Ngày', 'Giờ', 'Nguồn', 'Nơi bán', 'Địa chỉ', 'Khách hàng', 'Điện thoại', 'Ghi chú đơn', 'Trạng thái đơn', 'Cách thanh toán', 'Tình trạng thu tiền', 'Đã thu', 'Tên món', 'Đơn vị', 'Số lượng', 'Đơn giá', 'Thành tiền', 'Hàng tặng', 'Giảm giá đơn', 'Khuyến mãi', 'Phí giao', 'Tổng đơn']];
-    let offset = 0, loaded = 0;
+    const say = t => progBox.replaceChildren(el('small', { style: 'display:block;margin-top:8px;color:var(--text-sub)', text: t }));
+    const pro = app.hasPlan('pro'), plus = app.hasPlan('proplus');
+    const sheets = [];
     try {
-      while (true) {
-        progBox.replaceChildren(el('small', { style: 'display:block;margin-top:8px;color:var(--text-sub)', text: 'Đang tải đơn hàng (' + loaded + ' đơn)…' }));
-        const { data, error } = await sb.from('orders')
-          .select('*, order_items(name,unit,qty,price,is_gift)')
-          .eq('shop_id', shopId)
-          .gte('ordered_at', f.from + 'T00:00:00+07:00')
-          .lte('ordered_at', f.to + 'T23:59:59+07:00')
-          .order('ordered_at', { ascending: true })
-          .range(offset, offset + 499);
-        if (error) throw error;
-        const batch = data || [];
-        loaded += batch.length;
-        for (const o of batch) {
-          const items = o.order_items && o.order_items.length ? o.order_items : [{ name: '', unit: '', qty: 0, price: 0, is_gift: false }];
-          const dt = app.formatVnDateTime(o.ordered_at);
-          for (const it of items) {
-            rows.push([
-              o.code, dt.slice(0, 10), dt.slice(11), o.source === 'online' ? 'Online' : 'Tại quầy',
-              o.place || '', o.address || '', o.customer_name || 'Khách lẻ', o.customer_phone && o.customer_phone !== '-' ? o.customer_phone : '',
-              o.note || '', STATUS_TXT[o.status] || o.status, ST.payMethodsMap.get(o.pay_method_id) || '', PAY_TXT[o.pay_status] || o.pay_status, o.paid || 0,
-              it.name, it.unit || '', it.qty, it.price, it.price * it.qty, it.is_gift ? 'Có' : '',
-              o.discount || 0, o.promo_discount || 0, o.delivery_fee || 0, o.total
-            ]);
-          }
+      say('Đang tải bán hàng…');
+      const orders = await fetchAll(() => sb.from('orders').select('*, order_items(name,unit,qty,price,unit_cost,is_gift)').eq('shop_id', shopId).order('ordered_at', { ascending: true }).order('id'));
+      const sale = [['Mã đơn', 'Ngày', 'Giờ', 'Nguồn', 'Nơi bán', 'Địa chỉ', 'Khách hàng', 'Điện thoại', 'Ghi chú đơn', 'Trạng thái đơn', 'Cách thanh toán', 'Tình trạng thu tiền', 'Đã thu', 'Tên món', 'Đơn vị', 'Số lượng', 'Đơn giá', 'Thành tiền']
+        .concat(pro ? ['Giá vốn / đơn vị', 'Tổng giá vốn'] : []).concat(['Hàng tặng', 'Giảm giá đơn', 'Khuyến mãi', 'Phí giao', 'Tổng đơn'])];
+      for (const o of orders) {
+        const items = o.order_items && o.order_items.length ? o.order_items : [{ name: '', unit: '', qty: 0, price: 0, unit_cost: null, is_gift: false }];
+        const [d, t] = dtParts(o.ordered_at);
+        for (const it of items) {
+          sale.push([o.code, d, t, o.source === 'online' ? 'Online' : 'Tại quầy', o.place || '', o.address || '', o.customer_name || 'Khách lẻ',
+            o.customer_phone && o.customer_phone !== '-' ? o.customer_phone : '', o.note || '', STATUS_TXT[o.status] || o.status,
+            ST.payMethodsMap.get(o.pay_method_id) || '', PAY_TXT[o.pay_status] || o.pay_status, o.paid || 0,
+            it.name, it.unit || '', it.qty, it.price, it.price * it.qty]
+            .concat(pro ? [it.unit_cost != null ? it.unit_cost : '', it.unit_cost != null ? it.unit_cost * it.qty : ''] : [])
+            .concat([it.is_gift ? 'Có' : '', o.discount || 0, o.promo_discount || 0, o.delivery_fee || 0, o.total]));
         }
-        if (batch.length < 500) break;
-        offset += 500;
       }
-      app.downloadXlsx('du-lieu-' + shopSlug + '-' + f.from + '_' + f.to + '.xlsx', rows, 'Du lieu');
-      app.showToast('Đã xuất ' + loaded + ' đơn hàng', 'accent');
+      sheets.push({ name: 'Bán hàng', rows: sale });
+
+      say('Đang tải menu…');
+      const menu = await fetchAll(() => sb.from('menu_items').select('*').eq('shop_id', shopId).order('sort').order('id'));
+      sheets.push({ name: 'Giá bán', rows: [['Tên món', 'Nhóm', 'Đơn vị', 'Giá bán', 'Đang bán', 'Mô tả']].concat(menu.map(m => [m.name, m.category || '', m.unit || '', m.price, m.active ? 'Có' : 'Không', m.description || ''])) });
+
+      if (pro) {
+        say('Đang tải mua hàng…');
+        const buys = await fetchAll(() => sb.from('purchases').select('*, purchase_lines(grp,name,unit,qty,cost)').eq('shop_id', shopId).order('at', { ascending: true }).order('id'));
+        const buy = [['Mã phiếu', 'Ngày', 'Giờ', 'Nơi mua', 'Cách thanh toán', 'Mua chịu', 'Hạn trả', 'Ghi chú', 'Nhóm', 'Tên hàng', 'Đơn vị', 'Số lượng', 'Thành tiền', 'Tổng phiếu', 'Đã trả']];
+        for (const b of buys) {
+          const [d, t] = dtParts(b.at);
+          const lines = b.purchase_lines && b.purchase_lines.length ? b.purchase_lines : [{ grp: '', name: '', unit: '', qty: '', cost: '' }];
+          for (const l of lines) buy.push([b.code, d, t, b.place || '', ST.payMethodsMap.get(b.pay_method_id) || '', b.on_credit ? 'Có' : '', b.due_date || '', b.note || '', BUY_GRP_TXT[l.grp] || l.grp, l.name, l.unit || '', l.qty, l.cost, b.total, b.paid]);
+        }
+        sheets.push({ name: 'Mua hàng', rows: buy });
+
+        say('Đang tải kho và sản xuất…');
+        const inv = await fetchAll(() => sb.from('inv_items').select('*').eq('shop_id', shopId).order('name').order('id'));
+        const invBy = new Map(inv.map(i => [i.id, i]));
+        const menuBy = new Map(menu.map(m => [m.id, m]));
+        const recipes = await fetchAll(() => sb.from('recipes').select('menu_item_id,inv_item_id,qty').eq('shop_id', shopId).order('id'));
+        sheets.push({ name: 'Định mức', rows: [['Món', 'Nguyên liệu', 'Số lượng cho 1 món', 'Đơn vị']].concat(recipes.map(r => {
+          const m = menuBy.get(r.menu_item_id) || {}, i = invBy.get(r.inv_item_id) || {};
+          return [m.name || '', i.name || '', r.qty, i.unit || ''];
+        })) });
+
+        const batches = await fetchAll(() => sb.from('batches').select('*, batch_inputs(inv_item_id,qty,cost)').eq('shop_id', shopId).order('at', { ascending: true }).order('id'));
+        const mk = [['Ngày', 'Giờ', 'Thành phẩm', 'Số lượng làm ra', 'Đơn vị', 'Giá vốn cả mẻ', 'Giá vốn / đơn vị', 'Nguyên liệu dùng', 'Số lượng dùng', 'Đơn vị NL', 'Chi phí NL', 'Ghi chú']];
+        for (const b of batches) {
+          const [d, t] = dtParts(b.at), out = invBy.get(b.out_item_id) || {};
+          const ins = b.batch_inputs && b.batch_inputs.length ? b.batch_inputs : [{ inv_item_id: null, qty: '', cost: '' }];
+          for (const x of ins) { const i = invBy.get(x.inv_item_id) || {};
+            mk.push([d, t, out.name || '', b.out_qty, out.unit || '', b.cost_total, b.out_qty ? Math.round(b.cost_total / b.out_qty * 100) / 100 : '', i.name || '', x.qty, i.unit || '', x.cost, b.note || '']); }
+        }
+        sheets.push({ name: 'NK Sản xuất', rows: mk });
+
+        say('Đang tải thu chi…');
+        const cash = await fetchAll(() => sb.from('cash_entries').select('*').eq('shop_id', shopId).order('at', { ascending: true }).order('id'));
+        sheets.push({ name: 'Thu chi', rows: [['Ngày', 'Giờ', 'Thu / Chi', 'Mục', 'Số tiền', 'Cách thanh toán', 'Ghi chú']].concat(cash.map(c => {
+          const [d, t] = dtParts(c.at);
+          return [d, t, c.dir === 'in' ? 'Thu' : 'Chi', CASH_TXT[c.cat] || c.cat, c.amount, ST.payMethodsMap.get(c.pay_method_id) || '', c.note || ''];
+        })) });
+
+        sheets.push({ name: 'Tồn kho', rows: [['Tên', 'Loại', 'Đơn vị', 'Tồn hiện tại', 'Giá vốn bình quân', 'Giá trị tồn', 'Tồn tối thiểu', 'Đang dùng']].concat(inv.map(i =>
+          [i.name, INV_KIND_TXT[i.kind] || i.kind, i.unit || '', i.qty, i.avg_cost, Math.round(i.qty * i.avg_cost), i.min_stock || '', i.active ? 'Có' : 'Không'])) });
+      }
+
+      say('Đang tải khách hàng…');
+      const cus = await fetchAll(() => sb.from('customers').select('*').eq('shop_id', shopId).order('name').order('id'));
+      sheets.push({ name: 'Khách hàng', rows: [['Tên', 'Nhóm', 'Căn hộ', 'Điện thoại', 'Địa chỉ', 'Ghi chú'].concat(plus ? ['Thành viên'] : [])].concat(cus.map(c =>
+        [c.name, c.grp || '', c.apt || '', c.phone || '', c.address || '', c.note || ''].concat(plus ? [c.member ? 'Có' : ''] : []))) });
+
+      app.downloadXlsx('datdon-' + shopSlug + '-' + todayYmd + '.xlsx', sheets);
+      app.showToast('Đã xuất ' + sheets.length + ' sheet', 'accent');
       closeModal();
     } catch (err) {
       showErr(err);
@@ -880,7 +888,6 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       btn.disabled = false; btn.textContent = 'Tải file Excel';
     }
   }
-
 
   /* ===== BCTC: gom Kết quả KD + Dòng tiền + Giá vốn vào một màn ===== */
   function collectNodes(fn) {
@@ -891,10 +898,28 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
     return nodes.filter(n => n && !(n.classList && n.classList.contains('qt-range')));
   }
   function renderBctcTab() {
+    const keys = monthKeysLast6().reverse();
+    const mk = ST.bcMonth;
+    const plus = app.hasPlan('proplus');
+    const c = ST.costing || { totals: { revenue: 0, cogs: 0, gross: 0 } };
+    const p = ST.pnl || { revenue: 0, gross: 0, net: 0 };
+    const rev = plus ? p.revenue : c.totals.revenue, gross = plus ? p.gross : c.totals.gross;
+    const kpi = (l, v, sub) => el('div', { className: 'kpi-card' }, el('small', { text: l }), el('b', { className: 'num', text: v }), sub ? el('small', { text: sub }) : null);
     const parts = [];
-    if (app.hasPlan('proplus')) parts.push(...collectNodes(renderPnlTab));
-    parts.push(...collectNodes(renderCashflowTab), ...collectNodes(renderCostingTab));
-    contentHost.replaceChildren(renderRangeBar(), ...parts);
+    if (plus) parts.push(...collectNodes(renderPnlTab));
+    parts.push(...collectNodes(renderCostingTab));
+    contentHost.replaceChildren(
+      el('div', { className: 'hscroll', style: 'margin-bottom:12px' }, keys.map(k => el('button', {
+        type: 'button', className: 'chip', 'aria-pressed': String(k === mk),
+        onClick: async () => { ST.bcMonth = k; await reloadCurrentTab(); }, text: monthLabel(k)
+      }))),
+      el('div', { className: 'kpi-grid' },
+        kpi('Doanh thu', app.formatMoney(rev)),
+        kpi('Lãi gộp', app.formatMoney(gross), rev ? pct(gross, rev) + ' doanh thu' : 'chưa có doanh thu'),
+        plus ? kpi('Lãi thuần', app.formatMoney(p.net), rev ? pct(p.net, rev) + ' doanh thu' : 'chưa có doanh thu') : null
+      ),
+      ...parts
+    );
   }
 
   /* ===== CHỈ SỐ: so với tháng trước + biểu đồ theo tháng ===== */
@@ -939,67 +964,6 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       ST.customers = saved;
     }
     contentHost.replaceChildren(...kids);
-  }
-
-  /* ===== TAB: Mục tiêu (gói tối thiểu: pro — CHỖ NHẬP DUY NHẤT CỦA APP) ===== */
-  function renderGoalTab() {
-    const gd = ST.goalData || { goal: null, actual: { units: 0, orders: 0, gross: 0 }, elapsed_days: 0, days_in_month: 30 };
-    const g = gd.goal || { units_per_day: '', profit_month: '', days: gd.days_in_month || 30 };
-    const f = { units_per_day: g.units_per_day, profit_month: g.profit_month, days: g.days || 30 };
-
-    const monthInput = el('input', {
-      className: 'input', type: 'month', value: ST.goalMonth.slice(0, 7), style: 'max-width:200px',
-      onChange: async e => { if (!e.target.value) return; ST.goalMonth = e.target.value + '-01'; await reloadCurrentTab(); }
-    });
-
-    const saveBtn = el('button', {
-      type: 'button', className: 'btn btn-primary', style: 'margin-top:12px',
-      onClick: async () => {
-        const upd = Number(f.units_per_day);
-        const pm = Math.round(Number(f.profit_month));
-        const days = Math.round(Number(f.days));
-        if (!(upd >= 0) || !(pm >= 0) || !(days >= 1 && days <= 31)) {
-          app.showToast('Kiểm tra lại số lượng/ngày, lãi gộp tháng và số ngày bán (1–31)', 'error');
-          return;
-        }
-        saveBtn.disabled = true; saveBtn.textContent = 'Đang lưu…';
-        try {
-          const { error } = await sb.from('goals').upsert({
-            shop_id: shopId, month: ST.goalMonth, units_per_day: upd, profit_month: pm, days
-          }, { onConflict: 'shop_id,month' });
-          if (error) throw error;
-          app.showToast('Đã lưu mục tiêu tháng', 'accent');
-          await reloadCurrentTab();
-        } catch (err) { showErr(err); saveBtn.disabled = false; saveBtn.textContent = 'Lưu mục tiêu'; }
-      },
-      text: 'Lưu mục tiêu'
-    });
-
-    contentHost.replaceChildren(
-      el('div', { className: 'card row-between' },
-        el('label', { style: 'font-weight:700', text: 'Chọn tháng xem mục tiêu' }),
-        monthInput
-      ),
-      buildGoalProgressCard(gd, ST.goalMonth),
-      el('div', { className: 'card' },
-        el('div', { style: 'font-weight:700;margin-bottom:8px', text: 'Đặt mục tiêu tháng ' + Number(ST.goalMonth.slice(5, 7)) + '/' + ST.goalMonth.slice(0, 4) }),
-        el('div', { className: 'grid-3' },
-          el('div', { className: 'field' },
-            el('label', { text: 'Số lượng bán mỗi ngày' }),
-            el('input', { className: 'input num', type: 'number', step: 'any', min: 0, value: f.units_per_day, onInput: e => { f.units_per_day = e.target.value; } })
-          ),
-          el('div', { className: 'field' },
-            el('label', { text: 'Lãi gộp mục tiêu cả tháng (đ)' }),
-            el('input', { className: 'input num', type: 'number', min: 0, value: f.profit_month, onInput: e => { f.profit_month = e.target.value; } })
-          ),
-          el('div', { className: 'field' },
-            el('label', { text: 'Số ngày bán trong tháng' }),
-            el('input', { className: 'input num', type: 'number', min: 1, max: 31, value: f.days, onInput: e => { f.days = e.target.value; } })
-          )
-        ),
-        saveBtn
-      )
-    );
   }
 
   /* ===== TAB: Dòng tiền (gói tối thiểu: pro) ===== */
@@ -1134,10 +1098,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       ),
       el('div', { className: 'card' },
         el('div', { className: 'row-between', style: 'margin-bottom:8px' },
-          el('b', { text: 'Tồn kho hiện tại (chỉ đọc)' }),
-          el('div', { style: 'display:flex;gap:8px' },
-            el('button', { type: 'button', className: 'btn btn-sm', onClick: reloadCurrentTab, text: 'Tải lại' })
-          )
+          el('b', { text: 'Kho nguyên liệu hiện tại' })
         ),
         items.length ? el('div', { className: 'table-scroll' },
           el('table', { className: 'qt-tbl' },
@@ -1155,51 +1116,6 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
     );
   }
 
-  /* ===== TAB: Nợ nhà cung cấp (gói tối thiểu: pro — chỉ đọc) ===== */
-  function renderDebtTab() {
-    const byPlace = new Map();
-    let grand = 0;
-    for (const p of ST.debts) {
-      const left = p.total - p.paid;
-      grand += left;
-      if (!byPlace.has(p.place)) byPlace.set(p.place, { total: 0, list: [] });
-      byPlace.get(p.place).total += left;
-      byPlace.get(p.place).list.push(p);
-    }
-
-    contentHost.replaceChildren(
-      el('div', { className: 'card row-between' },
-        el('div', null,
-          el('small', { style: 'display:block;color:var(--text-sub)', text: 'Tổng nợ nhà cung cấp còn lại (chỉ đọc)' }),
-          el('b', { className: 'num', style: 'font-size:22px;color:var(--error)', text: app.formatMoney(grand) })
-        ),
-        el('div', { style: 'display:flex;gap:8px' },
-          el('button', { type: 'button', className: 'btn btn-sm', onClick: reloadCurrentTab, text: 'Tải lại' })
-        )
-      ),
-      byPlace.size ? [...byPlace.entries()].map(([place, grp]) => el('div', { className: 'card' },
-        el('div', { className: 'row-between', style: 'margin-bottom:6px' },
-          el('b', { text: place }),
-          el('b', { className: 'num', style: 'color:var(--error)', text: app.formatMoney(grp.total) })
-        ),
-        el('div', { className: 'table-scroll' },
-          el('table', { className: 'qt-tbl' },
-            el('thead', null, el('tr', null, el('th', { text: 'Mã phiếu' }), el('th', { text: 'Hẹn trả' }), el('th', { className: 'r', text: 'Tổng' }), el('th', { className: 'r', text: 'Còn nợ' }))),
-            el('tbody', null, grp.list.map(p => {
-              const overdue = p.due_date && p.due_date < todayYmd;
-              return el('tr', null,
-                el('td', { className: 'num', text: p.code }),
-                el('td', null, p.due_date ? fmtDmyFull(p.due_date) : '—', overdue ? el('span', { className: 'badge badge-err', style: 'margin-left:6px', text: 'Quá hạn' }) : null),
-                el('td', { className: 'r num', text: app.formatMoney(p.total) }),
-                el('td', { className: 'r num', style: 'font-weight:700', text: app.formatMoney(p.total - p.paid) })
-              );
-            }))
-          )
-        )
-      )) : el('div', { className: 'card empty-state', text: 'Không còn khoản nợ nhà cung cấp nào.' })
-    );
-  }
-
   /* ===== TAB: Báo cáo kết quả kinh doanh (gói tối thiểu: proplus) ===== */
   function renderPnlTab() {
     const p = ST.pnl || { revenue: 0, discounts: 0, cogs: 0, sell_costs: { gh: 0, qc: 0, kh: 0, ht: 0, total: 0 }, gross: 0, net: 0, months: [] };
@@ -1211,11 +1127,11 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       { label: 'Lãi gộp', val: p.gross, bold: true },
       { label: 'Chi phí giao hàng', val: sc.gh, bold: false },
       { label: 'Chi phí quảng cáo', val: sc.qc, bold: false },
-      { label: 'Chi phí khác', val: sc.kh, bold: false },
+      { label: 'Chi phí khác (điện, gas, nước…)', val: sc.kh, bold: false },
       { label: 'Hoàn tiền', val: sc.ht, bold: false },
       { label: 'Lãi ròng', val: p.net, bold: true }
     ];
-    const months = p.months || [];
+    const months = ST.tab === 'bctc' ? [] : (p.months || []);
 
     contentHost.replaceChildren(
       renderRangeBar(),
@@ -1289,39 +1205,6 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
           )
         ) : el('div', { className: 'empty-state', text: 'Chưa có dữ liệu khách hàng trong kỳ này.' })
       )
-    );
-  }
-
-  /* ===== TAB: Đánh giá (gói tối thiểu: proplus — chỉ đọc) ===== */
-  function renderFeedbackTab() {
-    const list = ST.feedbacks || [];
-    const avg = list.length ? (list.reduce((s, f) => s + f.rating, 0) / list.length).toFixed(1).replace('.', ',') : '—';
-    const dist = [5, 4, 3, 2, 1].map(s => ({ s, n: list.filter(f => f.rating === s).length }));
-
-    contentHost.replaceChildren(
-      renderRangeBar(),
-      el('div', { className: 'card' },
-        el('div', { className: 'row-between' },
-          el('div', null,
-            el('b', { className: 'num', style: 'font-size:28px;color:var(--accent)', text: avg + ' ★' }),
-            el('div', { style: 'font-size:13.5px;color:var(--text-sub)', text: list.length + ' đánh giá trong kỳ (chỉ đọc; xử lý ở trang Bán hàng)' })
-          ),
-          el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
-            dist.map(d => el('span', { className: 'badge badge-muted num', text: d.s + '★: ' + d.n }))
-          )
-        )
-      ),
-      list.length ? list.map(f => {
-        const ord = f.orders || {};
-        return el('div', { className: 'card' },
-          el('div', { className: 'row-between' },
-            el('b', { style: 'color:#D99A00;font-size:18px', text: '★'.repeat(f.rating) + '☆'.repeat(5 - f.rating) }),
-            el('span', { className: 'badge ' + (f.handled ? '' : 'badge-warn'), text: f.handled ? ('Đã xử lý' + (f.fix ? ': ' + f.fix : '')) : 'Chưa xử lý' })
-          ),
-          el('div', { style: 'font-size:13.5px;color:var(--text-sub);margin-top:4px', text: app.formatVnDateTime(f.created_at) + (ord.code ? ' · Đơn ' + ord.code : '') + (ord.customer_name ? ' · ' + ord.customer_name : '') }),
-          f.comment ? el('div', { style: 'margin-top:6px;font-style:italic', text: '“' + f.comment + '”' }) : null
-        );
-      }) : [el('div', { className: 'card empty-state', text: 'Chưa có đánh giá nào trong khoảng ngày này.' })]
     );
   }
 

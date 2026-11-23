@@ -500,7 +500,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     invItems: [],
     customers: [],
     promos: [],
-    soundOn: app.storageGet('dd_sound_on', true),
+    soundOn: true,
     // Bán (Standard)
     saleSub: 'pos', // 'pos' | 'eod'
     saleSearch: '',
@@ -607,7 +607,15 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       el('span', { text: txt }),
       el('div', { style: 'display:flex;gap:8px;align-items:center' },
         extraRight || null,
-        el('button', { type: 'button', className: 'btn btn-sm', onClick: onRefresh, text: 'Làm mới' })
+        el('button', { type: 'button', className: 'btn btn-sm', 'aria-label': 'Làm mới', title: 'Làm mới', style: 'min-width:44px;padding:8px 10px;display:inline-flex;align-items:center;justify-content:center', onClick: onRefresh },
+          (() => {
+            const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+            svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '20'); svg.setAttribute('height', '20');
+            svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2.2');
+            svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
+            const pth = document.createElementNS(ns, 'path'); pth.setAttribute('d', 'M20 11a8 8 0 0 0-14.9-3M4 5v4h4M4 13a8 8 0 0 0 14.9 3M20 19v-4h-4');
+            svg.appendChild(pth); return svg;
+          })())
       )
     );
   }
@@ -1251,12 +1259,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     for (const o of ST.onlineOrders) counts[o.status] = (counts[o.status] || 0) + 1;
     const shown = ST.onlineFilter === 'all' ? ST.onlineOrders : ST.onlineOrders.filter(o => o.status === ST.onlineFilter);
 
-    const soundToggle = el('button', {
-      type: 'button', className: 'btn btn-sm',
-      onClick: () => { ST.soundOn = !ST.soundOn; app.storageSet('dd_sound_on', ST.soundOn); renderOnlineTab(); },
-      text: ST.soundOn ? 'Âm báo: Bật' : 'Âm báo: Tắt'
-    });
-
     const filterRow = el('div', { className: 'chips', style: 'margin-bottom:12px' },
       ONLINE_STATES.map(st => el('button', {
         type: 'button', className: 'chip', 'aria-pressed': String(ST.onlineFilter === st.id),
@@ -1342,7 +1344,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     }) : null;
 
     contentHost.replaceChildren(
-      renderMetaBar('online', async () => { await loadOnlineOrders(false); markLoaded('online'); renderOnlineTab(); }, soundToggle),
+      renderMetaBar('online', async () => { await loadOnlineOrders(false); markLoaded('online'); renderOnlineTab(); }),
       filterRow,
       ...cards,
       moreBtn

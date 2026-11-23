@@ -734,7 +734,15 @@ function isOpenNow(shop) {
 }
 
 /* ===== TRẠNG THÁI ỨNG DỤNG ===== */
-const SLUG = (new URLSearchParams(location.search).get('shop') || '').trim();
+const SLUG = (() => {
+  // Có ?shop= thì dùng và nhớ lại; mở app đã cài (không có ?shop=) thì dùng quán đã nhớ
+  let s = (new URLSearchParams(location.search).get('shop') || '').trim();
+  try {
+    if (s) localStorage.setItem('dd_last_shop', s);
+    else s = (localStorage.getItem('dd_last_shop') || '').trim();
+  } catch (e) {}
+  return s;
+})();
 const ST = {
   shop: null,
   tab: 'menu',
@@ -864,7 +872,7 @@ document.addEventListener('keydown', e => {
 /* ===== TẢI DỮ LIỆU TIỆM ===== */
 async function loadShop(silent) {
   if (!SLUG) {
-    renderNotFound('Đường link thiếu mã tiệm (?shop=...). Vui lòng hỏi lại tiệm để lấy đúng link đặt hàng.');
+    renderNotFound('Đường link thiếu mã quán (?shop=...). Vui lòng hỏi lại quán để lấy đúng link đặt hàng.');
     return false;
   }
   if (!silent) {
@@ -911,11 +919,11 @@ async function loadShop(silent) {
 }
 
 function renderNotFound(desc) {
-  document.title = 'Không tìm thấy tiệm';
+  document.title = 'Không tìm thấy quán';
   document.getElementById('app-root').replaceChildren(
     el('div', { className: 'wrap' },
       el('div', { className: 'card empty-box', style: 'margin-top:32px' },
-        el('b', { text: 'Không tìm thấy tiệm' }),
+        el('b', { text: 'Không tìm thấy quán' }),
         el('p', { text: desc })
       )
     )

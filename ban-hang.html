@@ -288,10 +288,19 @@ body { overflow-x: hidden; font-family: "Be Vietnam Pro", var(--font, system-ui,
 .badge-muted { background: var(--surface-alt); color: var(--text-sub); }
 
 .ocard { border-left: 4px solid var(--border); }
-.ocard.st-new { border-left-color: var(--error); }
-.ocard.st-preparing { border-left-color: var(--yellow); }
-.ocard.st-delivering { border-left-color: var(--accent); }
-.ocard.st-done { border-left-color: var(--accent); }
+/* Màu trạng thái đơn online: đỏ Mới, vàng Đang làm, xanh dương Đang giao, xanh lá Xong, xám Đã hủy */
+:root { --st-new: #C0392B; --st-prep: #D99A00; --st-deliv: #2F6FB0; --st-done: #2E7D52; --st-cancel: #8A918C; }
+@media (prefers-color-scheme: dark) { :root { --st-new: #F07A5E; --st-prep: #F2C14E; --st-deliv: #6AA6E6; --st-done: #5CBF8A; --st-cancel: #9AA39D; } }
+.ocard.st-new { border-left-color: var(--st-new); }
+.ocard.st-preparing { border-left-color: var(--st-prep); }
+.ocard.st-delivering { border-left-color: var(--st-deliv); }
+.ocard.st-done { border-left-color: var(--st-done); }
+.ocard.st-cancelled { border-left-color: var(--st-cancel); }
+.stb { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; color: #fff; }
+.stb-new { background: var(--st-new); } .stb-preparing { background: var(--st-prep); color: #3A2A00; }
+.stb-delivering { background: var(--st-deliv); } .stb-done { background: var(--st-done); } .stb-cancelled { background: var(--st-cancel); }
+.st-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-sub); margin: -4px 0 12px; }
+.st-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
 
 .kpi-box {
   background: var(--surface);
@@ -518,7 +527,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     eodData: null,
     eodUnpaid: [],
     // Đơn online (Standard)
-    onlineFilter: 'new',
+    onlineFilter: 'active',
     onlineOrders: [],
     onlineOffset: 0,
     onlineHasMore: false,
@@ -1227,6 +1236,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     { id: 'cancelled', label: 'Đã hủy' },
     { id: 'all', label: 'Tất cả' }
   ];
+  const ONLINE_TABS = [{ id: 'active', label: 'Đang xử lý' }, { id: 'closed', label: 'Đã xong' }];
+  const ACTIVE_ST = ['new', 'preparing', 'delivering'];
   const NEXT_ACTION = {
     new: { next: 'preparing', label: 'Nhận đơn' },
     preparing: { next: 'delivering', label: 'Giao hàng' },
@@ -1257,15 +1268,22 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   function renderOnlineTab() {
     const counts = { all: ST.onlineOrders.length };
     for (const o of ST.onlineOrders) counts[o.status] = (counts[o.status] || 0) + 1;
-    const shown = ST.onlineFilter === 'all' ? ST.onlineOrders : ST.onlineOrders.filter(o => o.status === ST.onlineFilter);
+    if (ST.onlineFilter !== 'active' && ST.onlineFilter !== 'closed') ST.onlineFilter = 'active';
+    const nActive = ST.onlineOrders.filter(o => ACTIVE_ST.indexOf(o.status) >= 0).length;
+    const shown = ST.onlineFilter === 'active'
+      ? ST.onlineOrders.filter(o => ACTIVE_ST.indexOf(o.status) >= 0).sort((a, b) => (ACTIVE_ST.indexOf(a.status) - ACTIVE_ST.indexOf(b.status)) || (new Date(a.created_at) - new Date(b.created_at)))
+      : ST.onlineOrders.filter(o => ACTIVE_ST.indexOf(o.status) < 0);
 
     const filterRow = el('div', { className: 'chips', style: 'margin-bottom:12px' },
-      ONLINE_STATES.map(st => el('button', {
+      ONLINE_TABS.map(st => el('button', {
         type: 'button', className: 'chip', 'aria-pressed': String(ST.onlineFilter === st.id),
         onClick: () => { ST.onlineFilter = st.id; renderOnlineTab(); },
-        text: st.label + (counts[st.id] ? ' (' + counts[st.id] + ')' : '')
+        text: st.label + (st.id === 'active' && nActive ? ' (' + nActive + ')' : '')
       }))
     );
+    const legend = ST.onlineFilter === 'active' ? el('div', { className: 'st-legend' },
+      [['new', 'Mới'], ['preparing', 'Đang làm'], ['delivering', 'Đang giao']].map(x => el('span', null, el('i', { style: 'background:var(--st-' + (x[0] === 'preparing' ? 'prep' : x[0] === 'delivering' ? 'deliv' : x[0]) + ')' }), x[1]))
+    ) : null;
 
     const cards = shown.length ? shown.map(o => {
       const next = NEXT_ACTION[o.status];
@@ -1275,7 +1293,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('div', { className: 'row-between' },
           el('b', { className: 'num', style: 'font-size:17px', text: o.code }),
           el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' },
-            el('span', { className: 'badge ' + (o.status === 'new' ? 'badge-err' : o.status === 'cancelled' ? 'badge-muted' : ''), text: (ONLINE_STATES.find(x => x.id === o.status) || {}).label || o.status }),
+            el('span', { className: 'stb stb-' + o.status, text: (ONLINE_STATES.find(x => x.id === o.status) || {}).label || o.status }),
             el('span', { className: 'badge ' + payCls, text: payLabel })
           )
         ),
@@ -1345,7 +1363,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
     contentHost.replaceChildren(
       renderMetaBar('online', async () => { await loadOnlineOrders(false); markLoaded('online'); renderOnlineTab(); }),
-      filterRow,
+      filterRow, legend,
       ...cards,
       moreBtn
     );

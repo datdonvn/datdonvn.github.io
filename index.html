@@ -1514,7 +1514,7 @@ async function submitOrder() {
     p_address: address,
     p_note: (ST.co.note || '').trim(),
     p_items: cartEntries().map(e => ({ item_id: e.item.id, qty: e.qty })),
-    p_pay_method: (window.__lastPayCash = /tiền mặt/i.test(((ST.shop.payment_methods || []).find(m => m.id === ST.co.payMethodId) || {}).name || ''), ST.co.payMethodId || null),
+    p_pay_method: (window.__lastPayId = ST.co.payMethodId || null, window.__lastPayCash = /tiền mặt/i.test(((ST.shop.payment_methods || []).find(m => m.id === ST.co.payMethodId) || {}).name || ''), ST.co.payMethodId || null),
     p_voucher: ST.co.voucherId || null,
     p_place: selPlace ? selPlace.name : null,
     p_deliver_at: ST.co.asap ? null : ST.co.deliverAt
@@ -1548,6 +1548,62 @@ async function submitOrder() {
 }
 
 /* ===== MÀN HÌNH ĐẶT ĐƠN THÀNH CÔNG ===== */
+/* Khối thanh toán của đơn: hiện cách đang chọn, QR nếu chuyển khoản, nút đổi cách thanh toán */
+function makePayBlock(code, phone, total, startId, canChange, onChanged) {
+  const box = el('div');
+  let curId = startId || null, picking = false, busy = false;
+  const methods = (Array.isArray(ST.shop.payment_methods) ? ST.shop.payment_methods : []);
+  const isCashId = id => /tiền mặt/i.test(((methods.find(m => m.id === id) || {}).name) || '');
+  const draw = () => {
+    const cur = methods.find(m => m.id === curId) || null;
+    const cash = cur ? isCashId(curId) : !!window.__lastPayCash;
+    const parts = [];
+    if (cur) parts.push(el('div', { className: 'card' },
+      el('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:10px' },
+        el('div', null,
+          el('div', { style: 'font-size:13px;color:var(--text-sub)', text: 'Cách thanh toán' }),
+          el('b', { text: cur.name })
+        ),
+        (canChange && methods.length > 1) ? el('button', {
+          type: 'button', className: 'btn btn-ghost',
+          onClick: () => { picking = !picking; draw(); },
+          text: picking ? 'Đóng' : 'Đổi cách thanh toán'
+        }) : null
+      ),
+      picking ? el('div', { className: 'choices', style: 'margin-top:10px' },
+        methods.map(m => el('button', {
+          type: 'button', className: 'choice-btn', 'aria-pressed': String(curId === m.id), disabled: busy,
+          onClick: async () => {
+            if (busy || m.id === curId) { picking = false; draw(); return; }
+            busy = true; draw();
+            try {
+              await rpc('change_order_pay', { p_slug: SLUG, p_code: code, p_phone: phone, p_pay_method: m.id });
+              curId = m.id; picking = false; busy = false;
+              window.__lastPayId = m.id; window.__lastPayCash = isCashId(m.id);
+              showToast('Đã đổi sang ' + m.name);
+              draw();
+              if (onChanged) onChanged(m.id);
+            } catch (err) { busy = false; draw(); showToast(err.message, 'error'); }
+          },
+          text: m.name
+        }))
+      ) : null
+    ));
+    if (!cash && window.DDQR && DDQR.canShow(ST.shop) && total > 0) parts.push(el('div', { className: 'card' },
+      el('div', { style: 'font-weight:700;margin-bottom:10px;text-align:center', text: 'Quét mã để chuyển khoản' }),
+      DDQR.block(ST.shop, total, code),
+      ST.shop.payment_note ? el('div', { className: 'pay-note', style: 'margin-top:12px', text: ST.shop.payment_note }) : null
+    ));
+    else if (!cash && ST.shop.payment_note) parts.push(el('div', { className: 'card' },
+      el('div', { style: 'font-weight:700;margin-bottom:6px', text: 'Hướng dẫn chuyển khoản' }),
+      el('div', { className: 'pay-note', style: 'margin-top:0', text: ST.shop.payment_note })
+    ));
+    box.replaceChildren(...parts);
+  };
+  draw();
+  return box;
+}
+
 function openSuccessModal(res, phone, itemsSnapshot, createdIso) {
   const shop = ST.shop;
   const cancelMin = Number(shop.cancel_minutes) || 0;
@@ -1637,14 +1693,7 @@ function openSuccessModal(res, phone, itemsSnapshot, createdIso) {
         el('span', { text: 'Tổng thanh toán' }), el('span', { className: 'num', text: formatMoney(res.total) })
       )
     ),
-    (!window.__lastPayCash && window.DDQR && DDQR.canShow(shop) && res.total > 0) ? el('div', { className: 'card' },
-      el('div', { style: 'font-weight:700;margin-bottom:10px;text-align:center', text: 'Quét mã để chuyển khoản' }),
-      DDQR.block(shop, res.total, res.code),
-      shop.payment_note ? el('div', { className: 'pay-note', style: 'margin-top:12px', text: shop.payment_note }) : null
-    ) : (shop.payment_note && !window.__lastPayCash ? el('div', { className: 'card' },
-      el('div', { style: 'font-weight:700;margin-bottom:6px', text: 'Hướng dẫn chuyển khoản' }),
-      el('div', { className: 'pay-note', style: 'margin-top:0', text: shop.payment_note })
-    ) : null),
+    makePayBlock(res.code, phone, res.total, window.__lastPayId, true),
     cancelBox
   );
 
@@ -1701,6 +1750,7 @@ function renderOrderCard(info, phone) {
     el('div', { className: 'row-kv total' },
       el('span', { text: 'Tổng cộng' }), el('span', { className: 'num', text: formatMoney(info.total) })
     ),
+    (info.can_change_pay && info.pay_method_id) ? el('div', { style: 'margin-top:10px' }, makePayBlock(info.code, phone, info.total, info.pay_method_id, true, () => refreshSavedOrders())) : null,
     canCancel ? el('button', {
       type: 'button', className: 'btn btn-danger btn-block', style: 'margin-top:10px',
       onClick: e => confirmDialog(

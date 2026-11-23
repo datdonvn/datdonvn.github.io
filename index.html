@@ -1446,8 +1446,7 @@ function renderCheckoutContentInner() {
         onClick: () => { ST.co.payMethodId = m.id; renderCheckoutContent(); },
         text: m.name
       }))
-    ),
-    shop.payment_note && !isCash ? el('div', { className: 'pay-note', text: shop.payment_note }) : null
+    )
   ) : null;
 
   checkoutRefs.body.replaceChildren(

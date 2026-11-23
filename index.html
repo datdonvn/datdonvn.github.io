@@ -1610,7 +1610,7 @@ async function submitOrder() {
 /* Khối thanh toán của đơn: hiện cách đang chọn, QR nếu chuyển khoản, nút đổi cách thanh toán */
 function makePayBlock(code, phone, total, startId, canChange, onChanged) {
   const box = el('div');
-  let curId = startId || null, picking = false, busy = false;
+  let curId = startId || null, picking = false, busy = false, reported = false;
   const methods = (Array.isArray(ST.shop.payment_methods) ? ST.shop.payment_methods : []);
   const isCashId = id => /tiền mặt/i.test(((methods.find(m => m.id === id) || {}).name) || '');
   const draw = () => {
@@ -1657,6 +1657,19 @@ function makePayBlock(code, phone, total, startId, canChange, onChanged) {
       el('div', { style: 'font-weight:700;margin-bottom:6px', text: 'Hướng dẫn chuyển khoản' }),
       el('div', { className: 'pay-note', style: 'margin-top:0', text: ST.shop.payment_note })
     ));
+    if (!cash) parts.push(reported
+      ? el('div', { className: 'msg msg-ok', role: 'status', text: 'Đã báo quán. Quán sẽ kiểm tra và xác nhận khi nhận được tiền.' })
+      : el('button', {
+          type: 'button', className: 'btn btn-block', disabled: busy,
+          onClick: async () => {
+            busy = true; draw();
+            try {
+              await rpc('report_order_paid', { p_slug: SLUG, p_code: code, p_phone: phone });
+              reported = true; busy = false; draw();
+            } catch (err) { busy = false; draw(); showToast(err.message, 'error'); }
+          },
+          text: 'Tôi đã chuyển khoản'
+        }));
     box.replaceChildren(...parts);
   };
   draw();
@@ -1810,6 +1823,7 @@ function renderOrderCard(info, phone) {
     el('div', { className: 'row-kv total' },
       el('span', { text: 'Tổng cộng' }), el('span', { className: 'num', text: formatMoney(info.total) })
     ),
+    (info.pay_status === 'checking' && info.status !== 'cancelled') ? el('div', { className: 'msg msg-ok', style: 'margin-top:10px', role: 'status', text: 'Bạn đã báo chuyển khoản. Quán đang kiểm tra.' }) : null,
     (info.can_change_pay && info.pay_method_id) ? el('div', { style: 'margin-top:10px' }, makePayBlock(info.code, phone, info.total, info.pay_method_id, true, () => refreshSavedOrders())) : null,
     orderEditButtons(info, phone),
     canCancel ? el('button', {

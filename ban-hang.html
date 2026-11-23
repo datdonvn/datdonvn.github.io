@@ -372,6 +372,7 @@ table.bh-tbl .r { text-align: right; white-space: nowrap; }
 <div id="dd-root"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
+<script src="thuonghieu.js"></script>
 <script src="chung.js"></script>
 <script>
 'use strict';
@@ -1655,6 +1656,99 @@ table.bh-tbl .r { text-align: right; white-space: nowrap; }
       )
     );
 
+
+    // 1b. Logo & màu riêng của tiệm
+    const SUPA = (window.DATDON && window.DATDON.SUPABASE_URL) || '';
+    const br = { theme: sh.theme || 'xanh-la', logo: sh.logo_url || null, blob: null, preview: sh.logo_url || null, removed: false };
+    const logoImg = el('img', { style: 'width:72px;height:72px;border-radius:16px;object-fit:cover;background:var(--accent-soft);border:1px solid var(--border);flex:none', alt: 'Logo' });
+    const logoHint = el('div', { style: 'font-size:12.5px;opacity:.7', text: '' });
+    const drawLogo = () => {
+      if (br.preview) { logoImg.src = br.preview; logoImg.style.visibility = 'visible'; } else { logoImg.removeAttribute('src'); logoImg.style.visibility = 'hidden'; }
+      logoHint.textContent = br.preview ? 'Logo hiện ở đầu trang đặt hàng và là icon khi khách thêm vào màn hình chính.' : 'Chưa có logo. Trang đặt hàng dùng icon chung của datdon.';
+    };
+    const fileInput = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
+    // Cắt vuông, thu nhỏ còn khoảng 256px, giữ dưới 200KB
+    const makeSquare = file => new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file); const im = new Image();
+      im.onload = async () => {
+        try {
+          const side = Math.min(im.naturalWidth, im.naturalHeight);
+          const sx = (im.naturalWidth - side) / 2, sy = (im.naturalHeight - side) / 2;
+          let out = 256, blob = null;
+          while (out >= 96) {
+            const cv = document.createElement('canvas'); cv.width = out; cv.height = out;
+            cv.getContext('2d').drawImage(im, sx, sy, side, side, 0, 0, out, out);
+            blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+            if (blob && blob.size <= 190 * 1024) break;
+            out = Math.round(out * 0.75);
+          }
+          URL.revokeObjectURL(url);
+          if (!blob || blob.size > 200 * 1024) reject(new Error('Ảnh quá nặng, chọn ảnh khác')); else resolve(blob);
+        } catch (e) { reject(e); }
+      };
+      im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Không đọc được ảnh này')); };
+      im.src = url;
+    });
+    fileInput.addEventListener('change', async () => {
+      const f = fileInput.files && fileInput.files[0]; fileInput.value = '';
+      if (!f) return;
+      try {
+        br.blob = await makeSquare(f); br.removed = false;
+        br.preview = URL.createObjectURL(br.blob); drawLogo();
+      } catch (err) { app.showToast(err.message || 'Không dùng được ảnh này', 'error'); }
+    });
+    const themeBox = el('div', { style: 'display:flex;flex-wrap:wrap;gap:10px;margin-top:8px' });
+    const drawThemes = () => {
+      const T = (window.DDBrand && DDBrand.THEMES) || {};
+      themeBox.replaceChildren(Object.keys(T).map(k => el('button', {
+        type: 'button', 'aria-pressed': String(br.theme === k), title: T[k].name,
+        style: 'display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:0;padding:2px;font:inherit;font-size:12px',
+        onClick: () => { br.theme = k; drawThemes(); }
+      },
+        el('span', { style: 'width:40px;height:40px;border-radius:50%;background:' + T[k].c + ';display:block;border:3px solid ' + (br.theme === k ? 'var(--text)' : 'transparent') + ';box-sizing:border-box' }),
+        el('span', { text: T[k].name, style: br.theme === k ? 'font-weight:700' : '' })
+      )));
+    };
+    const brBtn = el('button', {
+      type: 'button', className: 'btn btn-primary', style: 'margin-top:12px',
+      onClick: async () => {
+        brBtn.disabled = true; brBtn.textContent = 'Đang lưu…';
+        try {
+          let logoUrl = br.logo;
+          if (br.removed) logoUrl = null;
+          if (br.blob) {
+            const path = shopId + '/logo.png';
+            const up = await sb.storage.from('shop-logos').upload(path, br.blob, { upsert: true, contentType: 'image/png', cacheControl: '3600' });
+            if (up.error) throw up.error;
+            logoUrl = SUPA + '/storage/v1/object/public/shop-logos/' + path + '?v=' + Date.now();
+          }
+          const { error } = await sb.rpc('set_shop_branding', { p_shop: shopId, p_logo_url: logoUrl, p_theme: br.theme });
+          if (error) throw error;
+          br.logo = logoUrl; br.blob = null; br.removed = false;
+          await loadShopFull();
+          app.showToast('Đã lưu logo và màu', 'accent');
+        } catch (err) { showErr(err); } finally { brBtn.disabled = false; brBtn.textContent = 'Lưu logo và màu'; }
+      },
+      text: 'Lưu logo và màu'
+    });
+    drawLogo(); drawThemes();
+    const brandCard = el('div', { className: 'card' },
+      el('div', { style: 'font-weight:700', text: 'Logo và màu của tiệm' }),
+      el('div', { style: 'display:flex;gap:12px;align-items:center;margin-top:10px' },
+        logoImg,
+        el('div', { style: 'display:flex;flex-direction:column;gap:6px' },
+          el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
+            el('button', { type: 'button', className: 'btn btn-sm', onClick: () => fileInput.click(), text: 'Chọn logo' }),
+            el('button', { type: 'button', className: 'btn btn-sm', onClick: () => { br.blob = null; br.removed = true; br.preview = null; drawLogo(); }, text: 'Bỏ logo' })
+          ),
+          logoHint
+        ),
+        fileInput
+      ),
+      el('div', { className: 'field', style: 'margin-top:14px' }, el('label', { text: 'Màu chủ đạo của trang đặt hàng' }), themeBox),
+      brBtn
+    );
+
     // 2. Hồ sơ tiệm
     const pfBtn = el('button', {
       type: 'button', className: 'btn btn-primary', style: 'margin-top:10px',
@@ -1839,7 +1933,7 @@ table.bh-tbl .r { text-align: right; white-space: nowrap; }
 
     contentHost.replaceChildren(
       renderMetaBar('settings', async () => { await loadTabData('settings'); renderSettingsTab(); }),
-      linkCard, profileCard, settingsCard, pmCard, accCard
+      linkCard, profileCard, brandCard, settingsCard, pmCard, accCard
     );
   }
 

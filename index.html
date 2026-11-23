@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="config.js"></script>
+<script src="thuonghieu.js"></script>
 <style>
 :root {
   --bg: #EDF2EA;
@@ -85,6 +86,8 @@ button {
   max-width: 600px;
   margin: 0 auto;
 }
+.shop-brand { display: flex; align-items: center; gap: 12px; }
+.shop-logo { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: #fff; flex: none; }
 .shop-name {
   margin: 0;
   font-size: 21px;
@@ -859,6 +862,7 @@ async function loadShop(silent) {
     ST.shop = data;
     ST.lastMenuAt = Date.now();
     document.title = data.name + ' – Đặt hàng';
+    if (window.DDBrand) DDBrand.apply(data);
     // Bỏ món không còn bán khỏi giỏ
     const validIds = new Set((data.items || []).map(i => i.id));
     for (const id of Object.keys(ST.cart)) {
@@ -907,7 +911,10 @@ function renderApp() {
 
   const header = el('header', { className: 'shop-header' },
     el('div', { className: 'shop-header-in' },
-      el('h1', { className: 'shop-name', text: shop.name }),
+      el('div', { className: 'shop-brand' },
+        shop.logo_url ? el('img', { className: 'shop-logo', src: shop.logo_url, alt: '', width: 44, height: 44 }) : null,
+        el('h1', { className: 'shop-name', text: shop.name })
+      ),
       (shop.phone || shop.address) ? el('div', { className: 'shop-meta' },
         shop.phone ? el('a', { href: 'tel:' + shop.phone, text: 'Gọi: ' + shop.phone }) : null,
         shop.address ? el('span', { text: shop.address }) : null

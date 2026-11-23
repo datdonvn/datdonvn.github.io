@@ -3079,6 +3079,7 @@ table.bh-tbl .r { text-align: right; white-space: nowrap; }
       from_date: p ? (p.from_date || '') : '',
       to_date: p ? (p.to_date || '') : '',
       stack: p ? !!p.stack : true,
+      item_ids: p && Array.isArray(p.item_ids) ? p.item_ids.slice() : [],
       min_qty: p ? (p.min_qty || 0) : 0,
       min_money: p ? (p.min_money || 0) : 0,
       valid_days: p ? (p.valid_days || 30) : 30,
@@ -3107,6 +3108,13 @@ table.bh-tbl .r { text-align: right; white-space: nowrap; }
           el('select', { className: 'select', onChange: e => { f.free_item_id = e.target.value; } },
             ST.menuItems.map(m => el('option', { value: m.id, selected: m.id === f.free_item_id, text: m.name }))
           )
+        ) : null,
+        f.kind === 'promo' ? el('div', { className: 'field' },
+          el('label', { text: 'Áp dụng cho món nào' }),
+          el('div', { style: 'font-size:12.5px;opacity:.7;margin-bottom:2px', text: 'Không chọn món nào = áp dụng cả giỏ hàng. Chọn món = chỉ tính số lượng và tiền của các món đã chọn.' }),
+          ST.menuItems.map(m => el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:6px;font-weight:500' },
+            el('input', { type: 'checkbox', checked: f.item_ids.indexOf(m.id) >= 0, style: 'width:20px;height:20px', onChange: e => {
+              f.item_ids = f.item_ids.filter(x => x !== m.id); if (e.target.checked) f.item_ids.push(m.id); } }), m.name))
         ) : null,
         el('div', { className: 'grid-2' },
           el('div', { className: 'field' }, el('label', { text: 'Từ ngày' }), el('input', { className: 'input', type: 'date', value: f.from_date, onChange: e => { f.from_date = e.target.value; } })),
@@ -3137,6 +3145,7 @@ table.bh-tbl .r { text-align: right; white-space: nowrap; }
             kind: f.kind, name: f.name.trim(), description: f.description.trim() || null,
             discount_type: f.discount_type, value: Math.round(Number(f.value) || 0),
             free_item_id: f.discount_type === 'free_item' ? (f.free_item_id || null) : null,
+            item_ids: f.kind === 'promo' && f.item_ids.length ? f.item_ids : null,
             from_date: f.from_date || null, to_date: f.to_date || null,
             stack: f.stack, min_qty: Math.round(Number(f.min_qty) || 0), min_money: Math.round(Number(f.min_money) || 0),
             valid_days: f.kind === 'voucher' ? Math.round(Number(f.valid_days) || 0) : 0,

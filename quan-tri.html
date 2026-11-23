@@ -176,6 +176,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
   const app = await DatdonApp.start({ page: 'quan-tri' });
   const sb = app.sb;
   const shopId = app.shop.id;
+  const shopSlug = app.shop.slug || 'quan';
   const el = app.el;
   const SVGNS = 'http://www.w3.org/2000/svg';
 
@@ -220,16 +221,15 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
   const ALL_TABS = [
     { id: 'overview', label: 'Tổng quan', minPlan: 'standard' },
     { id: 'payment', label: 'Thanh toán', minPlan: 'standard' },
+    { id: 'bctc', label: 'BCTC', minPlan: 'pro' },
+    { id: 'stats', label: 'Chỉ số', minPlan: 'standard' },
     { id: 'orders', label: 'Đơn hàng', minPlan: 'standard' },
     { id: 'goal', label: 'Mục tiêu', minPlan: 'pro' },
-    { id: 'cashflow', label: 'Dòng tiền', minPlan: 'pro' },
-    { id: 'costing', label: 'Giá vốn', minPlan: 'pro' },
     { id: 'inventory', label: 'Kho', minPlan: 'pro' },
     { id: 'debt', label: 'Nợ NCC', minPlan: 'pro' },
-    { id: 'pnl', label: 'Kết quả KD', minPlan: 'proplus' },
-    { id: 'customers', label: 'Khách hàng', minPlan: 'proplus' },
     { id: 'feedback', label: 'Đánh giá', minPlan: 'proplus' }
   ];
+  const MAIN_TABS = ['overview', 'payment', 'bctc', 'stats'];
   const TABS = ALL_TABS.filter(t => app.hasPlan(t.minPlan));
 
   /* ===== KHOẢNG NGÀY MẶC ĐỊNH: THÁNG NÀY (GIỜ VIỆT NAM) ===== */
@@ -406,6 +406,8 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
     inventory: 'M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8',
     debt: 'M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2zM9 8h6M9 12h4',
     pnl: 'M5 19V9M12 19V5M19 19v-7',
+    bctc: 'M5 19V9M12 19V5M19 19v-7',
+    stats: 'M3 17l6-6 4 4 8-8M15 7h6v6',
     customers: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21a7 7 0 0 1 14 0M17 4a4 4 0 0 1 0 7M22 21a7 7 0 0 0-4-6',
     feedback: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
     more: 'M5 12h.01M12 12h.01M19 12h.01'
@@ -420,9 +422,8 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
   }
 
   function renderNav() {
-    const isWide = window.innerWidth >= 900;
-    const visible = (!isWide && TABS.length > 5) ? TABS.slice(0, 4) : TABS;
-    const overflow = (!isWide && TABS.length > 5) ? TABS.slice(4) : [];
+    const visible = MAIN_TABS.map(id => TABS.find(t => t.id === id)).filter(Boolean);
+    const overflow = TABS.filter(t => !MAIN_TABS.includes(t.id));
     const btns = visible.map(t => el('button', {
       type: 'button',
       'aria-current': ST.tab === t.id ? 'page' : null,
@@ -433,7 +434,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       btns.push(el('button', {
         type: 'button',
         'aria-current': activeMore ? 'page' : null,
-        onClick: e => openModal('Báo cáo khác', el('div', { style: 'display:grid;gap:8px' },
+        onClick: e => openModal('Thêm', el('div', { style: 'display:grid;gap:8px' },
           overflow.map(t => el('button', {
             type: 'button',
             className: 'btn' + (ST.tab === t.id ? ' btn-primary' : ''),
@@ -456,7 +457,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       { id: 'month', label: 'Tháng này', calc: () => ({ from: thisMonthStart, to: todayYmd }) },
       { id: 'prev_month', label: 'Tháng trước', calc: prevMonthRange }
     ];
-    return el('div', { style: 'margin-bottom:12px' },
+    return el('div', { className: 'qt-range', style: 'margin-bottom:12px' },
       el('div', { className: 'hscroll' },
         presets.map(p => el('button', {
           type: 'button', className: 'chip', 'aria-pressed': String(ST.preset === p.id),
@@ -492,7 +493,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
   async function reloadCurrentTab() {
     ST.loading = true;
     contentHost.replaceChildren(
-      ST.tab !== 'goal' && ST.tab !== 'inventory' && ST.tab !== 'debt' ? renderRangeBar() : null,
+      ST.tab !== 'goal' && ST.tab !== 'inventory' && ST.tab !== 'debt' && ST.tab !== 'stats' ? renderRangeBar() : null,
       el('div', { className: 'card empty-state', text: 'Đang tải số liệu…' })
     );
     try {
@@ -512,6 +513,30 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
         const { data, error } = await sb.rpc('report_sales_by_method', { p_shop: shopId, p_from: ST.from, p_to: ST.to });
         if (error) throw error;
         ST.salesByMethod = data;
+      } else if (ST.tab === 'bctc' && app.hasPlan('pro')) {
+        const reqs = [
+          sb.rpc('report_cashflow', { p_shop: shopId, p_from: ST.from, p_to: ST.to }),
+          sb.rpc('report_costing', { p_shop: shopId, p_from: ST.from, p_to: ST.to })
+        ];
+        if (app.hasPlan('proplus')) reqs.push(sb.rpc('report_pnl', { p_shop: shopId, p_from: ST.from, p_to: ST.to }));
+        const res = await Promise.all(reqs);
+        for (const r of res) if (r.error) throw r.error;
+        ST.cashflow = res[0].data; ST.costing = res[1].data;
+        if (res[2]) ST.pnl = res[2].data;
+      } else if (ST.tab === 'stats') {
+        const y = Number(todayYmd.slice(0, 4)), m = Number(todayYmd.slice(5, 7));
+        const d0 = new Date(Date.UTC(y, m - 1 - 5, 1));
+        ST.statsFrom = d0.getUTCFullYear() + '-' + app.pad2(d0.getUTCMonth() + 1) + '-01';
+        const reqs = [sb.rpc('report_revenue', { p_shop: shopId, p_from: ST.statsFrom, p_to: todayYmd })];
+        if (app.hasPlan('proplus')) {
+          reqs.push(sb.rpc('report_pnl', { p_shop: shopId, p_from: ST.statsFrom, p_to: todayYmd }));
+          reqs.push(sb.rpc('report_customers', { p_shop: shopId, p_from: thisMonthStart, p_to: todayYmd }));
+        }
+        const res = await Promise.all(reqs);
+        for (const r of res) if (r.error) throw r.error;
+        ST.statsRev = res[0].data;
+        if (res[1]) ST.statsPnl = res[1].data;
+        if (res[2]) ST.statsCust = res[2].data;
       } else if (ST.tab === 'orders') {
         await loadOrdersPage(false);
       } else if (ST.tab === 'goal' && app.hasPlan('pro')) {
@@ -562,14 +587,12 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
     const map = {
       overview: renderOverviewTab,
       payment: renderPaymentTab,
+      bctc: renderBctcTab,
+      stats: renderStatsTab,
       orders: renderOrdersTab,
       goal: renderGoalTab,
-      cashflow: renderCashflowTab,
-      costing: renderCostingTab,
       inventory: renderInventoryTab,
       debt: renderDebtTab,
-      pnl: renderPnlTab,
-      customers: renderCustomersTab,
       feedback: renderFeedbackTab
     };
     const fn = map[ST.tab];
@@ -650,14 +673,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       app.hasPlan('pro') ? buildGoalProgressCard(ST.goalData, thisMonthStart) : null,
       el('div', { className: 'card' },
         el('div', { className: 'row-between', style: 'margin-bottom:8px' },
-          el('b', { text: 'Doanh thu theo thời gian' }),
-          el('button', {
-            type: 'button', className: 'btn btn-sm',
-            onClick: () => app.downloadCsv('doanh-thu-' + ST.from + '_' + ST.to + '.csv',
-              [['Ngày/Kỳ', 'Số đơn', 'Doanh thu']].concat(chartRows.map(r => [r.label, r.orders, r.revenue]))
-            ),
-            text: 'Xuất CSV'
-          })
+          el('b', { text: 'Doanh thu theo thời gian' })
         ),
         renderSvgBarChart('Doanh thu', chartRows.map(r => r.label), [{ name: 'Doanh thu', color: 'var(--accent)', values: chartRows.map(r => r.revenue) }], app.formatMoney),
         (() => {
@@ -679,14 +695,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       ),
       el('div', { className: 'card' },
         el('div', { className: 'row-between', style: 'margin-bottom:8px' },
-          el('b', { text: 'Món bán chạy (Top 10)' }),
-          el('button', {
-            type: 'button', className: 'btn btn-sm',
-            onClick: () => app.downloadCsv('mon-ban-chay-' + ST.from + '_' + ST.to + '.csv',
-              [['Món', 'Số lượng', 'Doanh thu']].concat(topItems.map(i => [i.name, i.qty, i.revenue]))
-            ),
-            text: 'Xuất CSV'
-          })
+          el('b', { text: 'Món bán chạy (Top 10)' })
         ),
         topItems.length ? topItems.map(i => el('div', { className: 'hbar' },
           el('div', { className: 'hbar-top' },
@@ -707,16 +716,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       renderRangeBar(),
       el('div', { className: 'card' },
         el('div', { className: 'row-between', style: 'margin-bottom:8px' },
-          el('b', { text: 'Doanh thu theo phương thức thanh toán' }),
-          el('button', {
-            type: 'button', className: 'btn btn-sm',
-            onClick: () => app.downloadCsv('thanh-toan-' + ST.from + '_' + ST.to + '.csv',
-              [['Phương thức', 'Số đơn', 'Doanh thu', 'Đã thu']]
-                .concat(rows.map(r => [r.name, r.orders, r.revenue, r.paid]))
-                .concat([['Chưa thu', d.unpaid.orders, d.unpaid.amount, 0], ['Tổng cộng', d.totals.orders, d.totals.revenue, d.totals.paid]])
-            ),
-            text: 'Xuất CSV'
-          })
+          el('b', { text: 'Doanh thu theo phương thức thanh toán' })
         ),
         el('div', { className: 'table-scroll' },
           el('table', { className: 'qt-tbl' },
@@ -768,21 +768,12 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
   }
 
   function renderOrdersTab() {
-    const expProg = el('div');
-    const expBtn = el('button', {
-      type: 'button', className: 'btn btn-primary btn-sm',
-      onClick: () => exportOrdersCsv(expBtn, expProg),
-      text: 'Xuất CSV danh sách đơn'
-    });
-
     contentHost.replaceChildren(
       renderRangeBar(),
       el('div', { className: 'card' },
         el('div', { className: 'row-between' },
-          el('b', { text: 'Danh sách đơn hàng (' + ST.orders.length + (ST.ordersHasMore ? '+' : '') + ')' }),
-          expBtn
+          el('b', { text: 'Danh sách đơn hàng (' + ST.orders.length + (ST.ordersHasMore ? '+' : '') + ')' })
         ),
-        expProg,
         ST.orders.length ? el('div', { style: 'margin-top:6px' },
           ST.orders.map(o => el('button', {
             type: 'button', className: 'ord-row', onClick: e => openOrderDetailReadOnly(o, e.currentTarget)
@@ -830,50 +821,124 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
     ), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' })], opener);
   }
 
-  async function exportOrdersCsv(btn, progBox) {
+  // Một nút xuất chung: 1 sheet, mỗi dòng là một món trong đơn, dữ liệu thô để lọc và tính tiếp
+  function openExportModal(opener) {
+    const f = { from: ST.from, to: ST.to };
+    const prog = el('div');
+    const goBtn = el('button', { type: 'button', className: 'btn btn-primary', text: 'Tải file Excel' });
+    goBtn.onclick = () => exportAllXlsx(f, goBtn, prog);
+    openModal('Xuất Excel', el('div', null,
+      el('p', { style: 'margin:0 0 10px;color:var(--text-sub);font-size:14px', text: 'Một sheet dữ liệu thô: mỗi dòng là một món trong đơn, kèm ngày giờ, khách, thanh toán, giảm giá. Dùng để lọc và tính tiếp bằng Excel.' }),
+      el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:8px' },
+        el('div', { className: 'field', style: 'margin:0' }, el('label', { text: 'Từ ngày' }), el('input', { className: 'input', type: 'date', value: f.from, onChange: e => { if (e.target.value) f.from = e.target.value; } })),
+        el('div', { className: 'field', style: 'margin:0' }, el('label', { text: 'Đến ngày' }), el('input', { className: 'input', type: 'date', value: f.to, onChange: e => { if (e.target.value) f.to = e.target.value; } }))
+      ),
+      prog
+    ), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' }), goBtn], opener);
+  }
+
+  async function exportAllXlsx(f, btn, progBox) {
     btn.disabled = true; btn.textContent = 'Đang xuất…';
-    const rows = [['Mã đơn', 'Ngày giờ', 'Nguồn', 'Khách hàng', 'Điện thoại', 'Địa chỉ', 'Ghi chú', 'Trạng thái', 'Thanh toán', 'Tên món', 'Số lượng', 'Đơn giá', 'Thành tiền', 'Giảm giá', 'Tổng đơn']];
-    let offset = 0, loadedOrders = 0;
+    const rows = [['Mã đơn', 'Ngày', 'Giờ', 'Nguồn', 'Nơi bán', 'Địa chỉ', 'Khách hàng', 'Điện thoại', 'Ghi chú đơn', 'Trạng thái đơn', 'Cách thanh toán', 'Tình trạng thu tiền', 'Đã thu', 'Tên món', 'Đơn vị', 'Số lượng', 'Đơn giá', 'Thành tiền', 'Hàng tặng', 'Giảm giá đơn', 'Khuyến mãi', 'Phí giao', 'Tổng đơn']];
+    let offset = 0, loaded = 0;
     try {
       while (true) {
-        progBox.replaceChildren(
-          el('small', { style: 'display:block;margin-top:6px;color:var(--text-sub)', text: 'Đang tải đơn hàng (' + loadedOrders + ' đơn)…' }),
-          el('div', { className: 'prog-bar' }, el('div', { style: 'width:' + Math.min(95, 15 + (offset / 50)) + '%' }))
-        );
+        progBox.replaceChildren(el('small', { style: 'display:block;margin-top:8px;color:var(--text-sub)', text: 'Đang tải đơn hàng (' + loaded + ' đơn)…' }));
         const { data, error } = await sb.from('orders')
-          .select('*, order_items(name,qty,price)')
+          .select('*, order_items(name,unit,qty,price,is_gift)')
           .eq('shop_id', shopId)
-          .gte('ordered_at', ST.from + 'T00:00:00+07:00')
-          .lte('ordered_at', ST.to + 'T23:59:59+07:00')
-          .order('ordered_at', { ascending: false })
+          .gte('ordered_at', f.from + 'T00:00:00+07:00')
+          .lte('ordered_at', f.to + 'T23:59:59+07:00')
+          .order('ordered_at', { ascending: true })
           .range(offset, offset + 499);
         if (error) throw error;
         const batch = data || [];
-        loadedOrders += batch.length;
+        loaded += batch.length;
         for (const o of batch) {
-          const items = o.order_items && o.order_items.length ? o.order_items : [{ name: '', qty: 0, price: 0 }];
-          const payStr = (ST.payMethodsMap.get(o.pay_method_id) || '') + ' (' + (PAY_TXT[o.pay_status] || o.pay_status) + ')';
+          const items = o.order_items && o.order_items.length ? o.order_items : [{ name: '', unit: '', qty: 0, price: 0, is_gift: false }];
+          const dt = app.formatVnDateTime(o.ordered_at);
           for (const it of items) {
             rows.push([
-              o.code, app.formatVnDateTime(o.ordered_at), o.source === 'online' ? 'Online' : 'Tại quầy',
-              o.customer_name || 'Khách lẻ', app.csvPhoneCell(o.customer_phone || ''),
-              [o.place, o.address].filter(Boolean).join(' - '), o.note || '',
-              STATUS_TXT[o.status] || o.status, payStr.trim(),
-              it.name, it.qty, it.price, it.price * it.qty, o.discount || 0, o.total
+              o.code, dt.slice(0, 10), dt.slice(11), o.source === 'online' ? 'Online' : 'Tại quầy',
+              o.place || '', o.address || '', o.customer_name || 'Khách lẻ', o.customer_phone && o.customer_phone !== '-' ? o.customer_phone : '',
+              o.note || '', STATUS_TXT[o.status] || o.status, ST.payMethodsMap.get(o.pay_method_id) || '', PAY_TXT[o.pay_status] || o.pay_status, o.paid || 0,
+              it.name, it.unit || '', it.qty, it.price, it.price * it.qty, it.is_gift ? 'Có' : '',
+              o.discount || 0, o.promo_discount || 0, o.delivery_fee || 0, o.total
             ]);
           }
         }
         if (batch.length < 500) break;
         offset += 500;
       }
-      app.downloadCsv('don-hang-' + ST.from + '_' + ST.to + '.csv', rows);
-      app.showToast('Đã xuất ' + loadedOrders + ' đơn hàng', 'accent');
+      app.downloadXlsx('du-lieu-' + shopSlug + '-' + f.from + '_' + f.to + '.xlsx', rows, 'Du lieu');
+      app.showToast('Đã xuất ' + loaded + ' đơn hàng', 'accent');
+      closeModal();
     } catch (err) {
       showErr(err);
     } finally {
       progBox.replaceChildren();
-      btn.disabled = false; btn.textContent = 'Xuất CSV danh sách đơn';
+      btn.disabled = false; btn.textContent = 'Tải file Excel';
     }
+  }
+
+
+  /* ===== BCTC: gom Kết quả KD + Dòng tiền + Giá vốn vào một màn ===== */
+  function collectNodes(fn) {
+    const orig = contentHost.replaceChildren;
+    let nodes = [];
+    contentHost.replaceChildren = (...n) => { nodes = n; };
+    try { fn(); } finally { contentHost.replaceChildren = orig; }
+    return nodes.filter(n => n && !(n.classList && n.classList.contains('qt-range')));
+  }
+  function renderBctcTab() {
+    const parts = [];
+    if (app.hasPlan('proplus')) parts.push(...collectNodes(renderPnlTab));
+    parts.push(...collectNodes(renderCashflowTab), ...collectNodes(renderCostingTab));
+    contentHost.replaceChildren(renderRangeBar(), ...parts);
+  }
+
+  /* ===== CHỈ SỐ: so với tháng trước + biểu đồ theo tháng ===== */
+  function renderStatsTab() {
+    const rev = ST.statsRev || { days: [] };
+    const monthKeys = [];
+    const y0 = Number(ST.statsFrom.slice(0, 4)), m0 = Number(ST.statsFrom.slice(5, 7));
+    for (let i = 0; i < 6; i++) { const d = new Date(Date.UTC(y0, m0 - 1 + i, 1)); monthKeys.push(d.getUTCFullYear() + '-' + app.pad2(d.getUTCMonth() + 1)); }
+    const agg = new Map(monthKeys.map(k => [k, { orders: 0, revenue: 0 }]));
+    for (const d of (rev.days || [])) { const a = agg.get(String(d.day).slice(0, 7)); if (a) { a.orders += d.orders || 0; a.revenue += d.revenue || 0; } }
+    const labels = monthKeys.map(k => 'T' + Number(k.slice(5)) + '/' + k.slice(2, 4));
+    const pnlBy = new Map(((ST.statsPnl && ST.statsPnl.months) || []).map(m => [String(m.month).slice(0, 7), m]));
+    const cur = agg.get(monthKeys[5]), prev = agg.get(monthKeys[4]);
+    const avg = a => (a.orders ? Math.round(a.revenue / a.orders) : 0);
+    const tile = (label, c, p, fmt) => {
+      let note = 'chưa có tháng trước';
+      if (p) note = (c >= p ? '▲ +' : '▼ ') + Math.round((c - p) / Math.abs(p) * 100) + '% so với tháng trước';
+      return el('div', { className: 'kpi-card' }, el('small', { text: label }), el('b', { className: 'num', text: fmt(c) }), el('small', { text: note }));
+    };
+    const plus = app.hasPlan('proplus');
+    const curNet = plus && pnlBy.get(monthKeys[5]) ? pnlBy.get(monthKeys[5]).net : 0, prevNet = plus && pnlBy.get(monthKeys[4]) ? pnlBy.get(monthKeys[4]).net : 0;
+    const chart = (title, vals, fmt, color) => el('div', { className: 'card' },
+      el('b', { text: title }),
+      el('div', { style: 'margin-top:8px' }, renderSvgBarChart(title, labels, [{ name: title, color: color || 'var(--accent)', values: vals }], fmt)));
+    const kids = [
+      el('div', { style: 'font-weight:700;margin:2px 0 8px;color:var(--text-sub)', text: 'So với tháng trước' }),
+      el('div', { className: 'kpi-grid' },
+        tile('Doanh thu', cur.revenue, prev.revenue, app.formatMoney),
+        tile('Số đơn', cur.orders, prev.orders, v => String(v)),
+        tile('Trung bình mỗi đơn', avg(cur), avg(prev), app.formatMoney),
+        plus ? tile('Lãi ròng', curNet, prevNet, app.formatMoney) : null
+      ),
+      el('p', { style: 'margin:6px 0 12px;font-size:13px;color:var(--text-sub)', text: 'Tháng này tính đến hôm nay, tháng trước tính đủ tháng.' }),
+      chart('Doanh thu theo tháng', monthKeys.map(k => agg.get(k).revenue), app.formatMoney),
+      chart('Số đơn theo tháng', monthKeys.map(k => agg.get(k).orders), v => String(v)),
+      chart('Trung bình mỗi đơn', monthKeys.map(k => avg(agg.get(k))), app.formatMoney),
+      plus ? chart('Lãi ròng theo tháng', monthKeys.map(k => (pnlBy.get(k) ? pnlBy.get(k).net : 0)), app.formatMoney, 'var(--yellow)') : null
+    ];
+    if (plus && ST.statsCust) {
+      const saved = ST.customers; ST.customers = ST.statsCust;
+      kids.push(el('div', { style: 'font-weight:700;margin:14px 0 8px;color:var(--text-sub)', text: 'Khách hàng tháng này' }), ...collectNodes(renderCustomersTab));
+      ST.customers = saved;
+    }
+    contentHost.replaceChildren(...kids);
   }
 
   /* ===== TAB: Mục tiêu (gói tối thiểu: pro — CHỖ NHẬP DUY NHẤT CỦA APP) ===== */
@@ -963,14 +1028,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       ),
       el('div', { className: 'card' },
         el('div', { className: 'row-between', style: 'margin-bottom:8px' },
-          el('b', { text: 'Thu chi theo thời gian' }),
-          el('button', {
-            type: 'button', className: 'btn btn-sm',
-            onClick: () => app.downloadCsv('dong-tien-' + ST.from + '_' + ST.to + '.csv',
-              [['Ngày/Kỳ', 'Thu', 'Chi', 'Ròng']].concat(chartRows.map(r => [r.label, r.totalIn, r.totalOut, r.net]))
-            ),
-            text: 'Xuất CSV'
-          })
+          el('b', { text: 'Thu chi theo thời gian' })
         ),
         renderSvgBarChart('Dòng tiền', chartRows.map(r => r.label), [
           { name: 'Thu', color: 'var(--accent)', values: chartRows.map(r => r.totalIn) },
@@ -1028,15 +1086,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       renderRangeBar(),
       el('div', { className: 'card' },
         el('div', { className: 'row-between', style: 'margin-bottom:8px' },
-          el('b', { text: 'Giá vốn & lãi gộp theo món' }),
-          el('button', {
-            type: 'button', className: 'btn btn-sm',
-            onClick: () => app.downloadCsv('gia-von-' + ST.from + '_' + ST.to + '.csv',
-              [['Món', 'SL', 'Doanh thu', 'Giá vốn', 'Lãi gộp', '% Lãi gộp']]
-                .concat(sorted.map(i => [i.name, i.qty, i.revenue, i.cogs, i.gross, i.gross_pct + '%']))
-            ),
-            text: 'Xuất CSV'
-          })
+          el('b', { text: 'Giá vốn & lãi gộp theo món' })
         ),
         sorted.length ? el('div', { className: 'table-scroll' },
           el('table', { className: 'qt-tbl' },
@@ -1086,15 +1136,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
         el('div', { className: 'row-between', style: 'margin-bottom:8px' },
           el('b', { text: 'Tồn kho hiện tại (chỉ đọc)' }),
           el('div', { style: 'display:flex;gap:8px' },
-            el('button', { type: 'button', className: 'btn btn-sm', onClick: reloadCurrentTab, text: 'Tải lại' }),
-            el('button', {
-              type: 'button', className: 'btn btn-sm',
-              onClick: () => app.downloadCsv('ton-kho-' + todayYmd + '.csv',
-                [['Vật tư', 'Loại', 'Tồn', 'Đơn vị', 'Giá BQ', 'Giá trị', 'Cảnh báo']]
-                  .concat(items.map(i => [i.name, kinds[i.kind] || i.kind, i.qty, i.unit, i.avg_cost, i.value, i.low ? 'Sắp hết' : '']))
-              ),
-              text: 'Xuất CSV'
-            })
+            el('button', { type: 'button', className: 'btn btn-sm', onClick: reloadCurrentTab, text: 'Tải lại' })
           )
         ),
         items.length ? el('div', { className: 'table-scroll' },
@@ -1132,15 +1174,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
           el('b', { className: 'num', style: 'font-size:22px;color:var(--error)', text: app.formatMoney(grand) })
         ),
         el('div', { style: 'display:flex;gap:8px' },
-          el('button', { type: 'button', className: 'btn btn-sm', onClick: reloadCurrentTab, text: 'Tải lại' }),
-          el('button', {
-            type: 'button', className: 'btn btn-sm',
-            onClick: () => app.downloadCsv('no-nha-cung-cap-' + todayYmd + '.csv',
-              [['Nhà cung cấp', 'Mã phiếu', 'Tổng phiếu', 'Đã trả', 'Còn nợ', 'Hẹn trả']]
-                .concat(ST.debts.map(p => [p.place, p.code, p.total, p.paid, p.total - p.paid, p.due_date || '']))
-            ),
-            text: 'Xuất CSV'
-          })
+          el('button', { type: 'button', className: 'btn btn-sm', onClick: reloadCurrentTab, text: 'Tải lại' })
         )
       ),
       byPlace.size ? [...byPlace.entries()].map(([place, grp]) => el('div', { className: 'card' },
@@ -1187,14 +1221,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       renderRangeBar(),
       el('div', { className: 'card' },
         el('div', { className: 'row-between', style: 'margin-bottom:8px' },
-          el('b', { text: 'Báo cáo kết quả kinh doanh' }),
-          el('button', {
-            type: 'button', className: 'btn btn-sm',
-            onClick: () => app.downloadCsv('ket-qua-kd-' + ST.from + '_' + ST.to + '.csv',
-              [['Chỉ tiêu', 'Số tiền', '% Doanh thu']].concat(pnlRows.map(r => [r.label, r.val, pct(r.val, p.revenue)]))
-            ),
-            text: 'Xuất CSV'
-          })
+          el('b', { text: 'Báo cáo kết quả kinh doanh' })
         ),
         el('div', { className: 'table-scroll' },
           el('table', { className: 'qt-tbl' },
@@ -1247,15 +1274,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       ),
       el('div', { className: 'card' },
         el('div', { className: 'row-between', style: 'margin-bottom:8px' },
-          el('b', { text: 'Top 20 khách mua nhiều' }),
-          el('button', {
-            type: 'button', className: 'btn btn-sm',
-            onClick: () => app.downloadCsv('top-khach-hang-' + ST.from + '_' + ST.to + '.csv',
-              [['Tên khách', 'Căn hộ', 'Số đơn', 'Tổng chi', 'Lần mua gần nhất']]
-                .concat(top.map(x => [x.name, x.apt || '', x.orders, x.spent, app.formatVnDateTime(x.last_at)]))
-            ),
-            text: 'Xuất CSV'
-          })
+          el('b', { text: 'Top 20 khách mua nhiều' })
         ),
         top.length ? el('div', { className: 'table-scroll' },
           el('table', { className: 'qt-tbl' },
@@ -1311,6 +1330,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
     const { data: pms } = await sb.from('payment_methods').select('id,name').eq('shop_id', shopId);
     (pms || []).forEach(m => ST.payMethodsMap.set(m.id, m.name));
   } catch (e) {}
+  if (app.headerExtra) app.headerExtra.replaceChildren(el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openExportModal(e.currentTarget), text: 'Xuất Excel' }));
   renderNav();
   await reloadCurrentTab();
 })();

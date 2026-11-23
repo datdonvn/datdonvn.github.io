@@ -21,6 +21,14 @@
   }
   window.DDBrand = {
     THEMES: T,
+    // Chỉ áp màu của tiệm (dùng trong app Bán hàng, giữ nguyên icon app)
+    applyTheme: function (shop) {
+      var t = T[shop && shop.theme] || T['xanh-la'];
+      var st = document.getElementById('dd-theme');
+      if (!st) { st = document.createElement('style'); st.id = 'dd-theme'; document.head.appendChild(st); }
+      st.textContent = css(t);
+      var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', t.c);
+    },
     // Áp màu + icon cho trang khách của một tiệm
     apply: function (shop) {
       var t = T[shop && shop.theme] || T['xanh-la'];

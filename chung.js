@@ -155,7 +155,7 @@ button{cursor:pointer}a{color:var(--accent)}
 .dd-top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--border)}
 .dd-top-in{max-width:960px;margin:0 auto;padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:nowrap}
 .dd-shop{font-weight:700;font-size:17px;margin:0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dd-select{max-width:150px;min-height:40px;padding:6px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface-alt);font-weight:600}
+.dd-select{max-width:220px;min-height:40px;padding:6px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface-alt);font-weight:600}
 .dd-nav{display:inline-flex;flex-shrink:0;background:var(--accent-soft);padding:3px;border-radius:999px;gap:2px}
 .dd-nav a{flex-shrink:0;padding:6px 12px;border-radius:999px;text-decoration:none;color:var(--text-sub);font-weight:600;font-size:13.5px;min-height:34px;display:inline-flex;align-items:center}
 .dd-nav a.active{background:var(--accent);color:var(--accent-text)}
@@ -284,13 +284,6 @@ button{cursor:pointer}a{color:var(--accent)}
         }, ...app.shops.map((s) => el('option', { value: s.id, text: s.name, selected: s.id === app.shop.id })))
       : el('h1', { className: 'dd-shop', text: app.shop.name });
 
-    const links = [];
-    PAGES.forEach((p) => {
-      if ((PLAN_RANK[app.shop.plan] || 1) >= (PLAN_RANK[p.plan] || 1)) {
-        links.push(el('a', { href: p.href, text: p.label, className: p.id === pageId ? 'active' : '', 'aria-current': p.id === pageId ? 'page' : false }));
-      }
-    });
-
     const outIcon = (() => {
       const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
       svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '20'); svg.setAttribute('height', '20');
@@ -300,8 +293,7 @@ button{cursor:pointer}a{color:var(--accent)}
       svg.appendChild(pth); return svg;
     })();
     const header = el('header', { className: 'dd-top' },
-      el('div', { className: 'dd-top-in' }, shopHead,
-        el('nav', { className: 'dd-nav', 'aria-label': 'Điều hướng' }, ...links),
+      el('div', { className: 'dd-top-in', style: 'justify-content:space-between' }, shopHead,
         el('button', { className: 'btn dd-out', type: 'button', 'aria-label': 'Đăng xuất', title: 'Đăng xuất',
           onClick: async () => { try { await app.sb.auth.signOut(); } catch (_) {} window.location.reload(); } }, outIcon)));
     document.body.insertBefore(header, document.body.firstChild);
@@ -361,7 +353,8 @@ button{cursor:pointer}a{color:var(--accent)}
       storageGet, storageSet,
       hasPlan: (need) => (PLAN_RANK[shop.plan] || 1) >= (PLAN_RANK[need] || 1)
     };
-    renderHeader(app, o.page);
+    app.page = o.page;
+    if (o.header !== 'none') renderHeader(app, o.page);
     return app;
   }
 

@@ -12,7 +12,8 @@
 <style>
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
-body { overflow-x: hidden; font-family: "Be Vietnam Pro", var(--font, system-ui, sans-serif); }
+html { overflow-x: clip; }
+body { font-family: "Be Vietnam Pro", var(--font, system-ui, sans-serif); }
 .num { font-variant-numeric: tabular-nums; }
 
 /* Bố cục chung của trang Bán hàng */
@@ -115,6 +116,43 @@ body { overflow-x: hidden; font-family: "Be Vietnam Pro", var(--font, system-ui,
   .bh-nav svg { width: 20px; height: 20px; }
 }
 
+/* Đầu trang giống trang khách: banner hoặc thanh màu có logo */
+.shop-banner { background: var(--surface); border-bottom: 1px solid var(--border); padding-top: env(safe-area-inset-top); }
+.shop-banner img { display: block; width: 100%; max-width: 600px; margin: 0 auto; aspect-ratio: 1200 / 450; object-fit: cover; }
+.shop-header { background: var(--accent); color: var(--accent-text); padding: calc(14px + env(safe-area-inset-top)) 16px 16px; }
+.shop-header-in { max-width: 600px; margin: 0 auto; }
+.shop-brand { display: flex; align-items: center; gap: 12px; }
+.shop-logo { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: #fff; flex: none; }
+span.shop-logo.shop-mono { display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,.2); color: #fff; font-weight: 700; font-size: 22px; }
+.shop-name { margin: 0; font-size: 21px; font-weight: 700; line-height: 1.25; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+body .dd-wrap { max-width: none; padding: 0 0 40px; }
+.bh-wrap { max-width: 600px; }
+.sticky-bar-in { max-width: 576px; }
+.bh-foot { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--text-sub); }
+.bh-foot .sp { flex: 1; }
+.bh-foot .bh-foot-btn { flex: 1 1 0; justify-content: center; }
+.bh-foot .bh-foot-break { flex-basis: 100%; height: 0; }
+/* Chọn món kiểu trang khách */
+.cat-bar { position: sticky; top: 0; z-index: 4; background: var(--bg); padding: 10px 0 8px; display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.cat-pill { flex: none; min-height: 44px; padding: 0 15px; border-radius: 999px; background: var(--surface); border: 1.5px solid var(--border); font-size: 14.5px; font-weight: 600; color: var(--text-sub); white-space: nowrap; }
+.cat-pill[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.cat-title { margin: 16px 0 8px; font-size: 17px; font-weight: 700; scroll-margin-top: 66px; }
+.menu-item { display: flex; gap: 12px; align-items: center; }
+.item-img { width: 76px; height: 76px; border-radius: 12px; object-fit: cover; flex-shrink: 0; background: var(--accent-soft); }
+.item-info { flex: 1; min-width: 0; }
+.item-name { font-weight: 700; font-size: 16px; line-height: 1.3; word-break: break-word; }
+.item-price-row { margin-top: 6px; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.item-price { font-weight: 700; font-size: 16.5px; color: var(--accent); }
+.item-unit { font-size: 13px; color: var(--text-sub); }
+.item-act { flex-shrink: 0; }
+.btn-add { min-width: 78px; min-height: 44px; border-radius: 999px; padding: 0 16px; background: var(--accent); color: var(--accent-text); font-weight: 600; font-size: 15.5px; border: 0; }
+.stepper { display: inline-flex; align-items: center; gap: 4px; user-select: none; }
+.stepper button { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--accent-soft); color: var(--accent); font-size: 22px; font-weight: 700; display: grid; place-items: center; }
+.stepper button.plus { background: var(--accent); color: var(--accent-text); }
+.stepper output { min-width: 28px; text-align: center; font-weight: 700; font-size: 17px; }
+.back-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; color: var(--accent); font-weight: 600; font-size: 15px; background: none; border: 0; }
+
 /* Thanh phụ làm mới & thời điểm tải */
 .bh-meta-bar {
   display: flex;
@@ -149,7 +187,7 @@ body { overflow-x: hidden; font-family: "Be Vietnam Pro", var(--font, system-ui,
   white-space: nowrap;
 }
 .bh-seg.tight { display: flex; width: 100%; }
-.bh-seg.tight button { flex: 1; padding: 6px 4px; font-size: 13.5px; }
+.bh-seg.tight button { flex: 1; padding: 6px 2px; font-size: 13px; white-space: nowrap; }
 .bh-seg button[aria-pressed="true"] {
   background: var(--surface);
   color: var(--accent);
@@ -414,7 +452,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 'use strict';
 
 (async function () {
-  const app = await DatdonApp.start({ page: 'ban-hang' });
+  const app = await DatdonApp.start({ page: 'ban-hang', header: 'none' });
   const sb = app.sb;
   const shopId = app.shop.id;
   const el = app.el;
@@ -550,6 +588,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     batch: 'M8 3h8M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3M8 15h8',
     cust: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21a7 7 0 0 1 14 0M17 4a4 4 0 0 1 0 7M22 21a7 7 0 0 0-4-6',
     promo: 'M20 12l-8 8-9-9V3h8zM7.5 7.5h.01',
+    eod: 'M5 3h14v18H5zM9 8h6M9 12h6M9 16h3',
     feedback: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
     more: 'M5 12h.01M12 12h.01M19 12h.01'
   };
@@ -565,7 +604,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   /* ===== DANH SÁCH TAB THEO GÓI ===== */
   const ALL_TABS = [
     { id: 'sale', label: 'Bán', minPlan: 'standard' },
-    { id: 'online', label: 'Đơn online', minPlan: 'standard' },
+    { id: 'online', label: 'Đơn', minPlan: 'standard' },
+    { id: 'eod', label: 'Cuối ngày', minPlan: 'standard' },
     { id: 'menu', label: 'Menu', minPlan: 'standard' },
     { id: 'settings', label: 'Cài đặt', minPlan: 'standard' },
     { id: 'buy', label: 'Mua', minPlan: 'pro' },
@@ -593,7 +633,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     promos: [],
     soundOn: true,
     // Bán (Standard)
-    saleSub: 'pos', // 'pos' | 'eod'
+    saleView: 'pick', // 'pick' chọn món | 'order' chi tiết đơn
     saleSearch: '',
     salePlaces: app.storageGet('dd_sale_places_' + shopId, ['Tại quầy', 'Zalo', 'Giao hàng']),
     sale: savedDraft || {
@@ -688,39 +728,70 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   const navHost = el('div');
   const contentHost = el('div', { className: 'bh-wrap' });
   const stickyHost = el('div');
-  const wrapOuter = el('div', { className: 'dd-wrap' }, navHost, contentHost, stickyHost);
+  const headerHost = el('div');
+  const wrapOuter = el('div', { className: 'dd-wrap' }, headerHost, navHost, contentHost, stickyHost);
   root.replaceChildren(wrapOuter);
 
+  function renderShopHeader() {
+    const sh = ST.shop || app.shop;
+    if (window.DDBrand && DDBrand.applyTheme) DDBrand.applyTheme(sh);
+    headerHost.replaceChildren(sh.banner_url && String(sh.banner_url).startsWith('https://')
+      ? el('header', { className: 'shop-banner' }, el('img', { src: sh.banner_url, alt: sh.name }), el('h1', { className: 'sr-only', text: sh.name }))
+      : el('header', { className: 'shop-header' }, el('div', { className: 'shop-header-in' }, el('div', { className: 'shop-brand' },
+          sh.logo_url ? el('img', { className: 'shop-logo', src: sh.logo_url, alt: '', width: 44, height: 44 })
+                      : el('span', { className: 'shop-logo shop-mono', 'aria-hidden': 'true', text: (String(sh.name || '?').trim().charAt(0) || '?').toUpperCase() }),
+          el('h1', { className: 'shop-name', text: sh.name })))));
+  }
   function markLoaded(tab) { ST.loadedAt[tab] = new Date(); }
+  function openMoreModal(opener) {
+    const rest = TABS.filter(t => !NAV_MAIN.includes(t.id) && t.id !== 'settings');
+    openModal('Thêm', el('div', {}, [['Tiệm', ['menu']], ['Kho và sản xuất', ['buy', 'inv', 'recipe', 'batch']], ['Tiền', ['cash']], ['Khách hàng', ['cust', 'promo', 'feedback']]].map(([gt, ids]) => {
+      const ts = rest.filter(t => ids.includes(t.id));
+      return ts.length ? el('div', { style: 'margin-bottom:12px' },
+        el('div', { style: 'font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:6px', text: gt }),
+        el('div', { style: 'display:grid;gap:8px' }, ts.map(t => el('button', {
+          type: 'button', className: 'btn' + (ST.tab === t.id ? ' btn-primary' : ''), style: 'width:100%;justify-content:flex-start;gap:12px',
+          onClick: () => { closeModal(); switchTab(t.id); }
+        }, navIcon(t.id), el('span', { text: t.label }))))
+      ) : null;
+    })), null, opener);
+  }
   function renderMetaBar(tab, onRefresh, extraRight) {
     const t = ST.loadedAt[tab];
     const txt = t ? 'Cập nhật lúc ' + app.pad2(t.getHours()) + ':' + app.pad2(t.getMinutes()) : 'Chưa tải';
-    return el('div', { className: 'bh-meta-bar' },
+    const icon = (d) => {
+      const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '20'); svg.setAttribute('height', '20');
+      svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2.2');
+      svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
+      const pth = document.createElementNS(ns, 'path'); pth.setAttribute('d', d); svg.appendChild(pth); return svg;
+    };
+    return el('div', { className: 'bh-foot bh-meta-bar' },
       el('span', { text: txt }),
-      el('div', { style: 'display:flex;gap:8px;align-items:center' },
-        extraRight || null,
-        el('button', { type: 'button', className: 'btn btn-sm', 'aria-label': 'Làm mới', title: 'Làm mới', style: 'min-width:44px;padding:8px 10px;display:inline-flex;align-items:center;justify-content:center', onClick: onRefresh },
-          (() => {
-            const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
-            svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '20'); svg.setAttribute('height', '20');
-            svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2.2');
-            svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
-            const pth = document.createElementNS(ns, 'path'); pth.setAttribute('d', 'M20 11a8 8 0 0 0-14.9-3M4 5v4h4M4 13a8 8 0 0 0 14.9 3M20 19v-4h-4');
-            svg.appendChild(pth); return svg;
-          })())
-      )
+      el('button', { type: 'button', className: 'btn btn-sm', 'aria-label': 'Làm mới', title: 'Làm mới', style: 'min-width:44px;padding:8px 10px;display:inline-flex;align-items:center;justify-content:center', onClick: onRefresh },
+        icon('M20 11a8 8 0 0 0-14.9-3M4 5v4h4M4 13a8 8 0 0 0 14.9 3M20 19v-4h-4')),
+      el('span', { className: 'sp' }),
+      extraRight || null,
+      el('span', { className: 'bh-foot-break' }),
+      el('button', { type: 'button', className: 'btn btn-sm bh-foot-btn', style: 'min-height:44px;gap:6px', onClick: () => switchTab('settings') }, navIcon('settings'), el('span', { text: 'Cài đặt' })),
+      el('button', { type: 'button', className: 'btn btn-sm bh-foot-btn', style: 'min-height:44px;gap:6px', onClick: e => openMoreModal(e.currentTarget) }, navIcon('more'), el('span', { text: 'Thêm' })),
+      app.shops.length > 1 ? el('select', { className: 'select', style: 'flex:1 1 100%;margin-top:4px', 'aria-label': 'Chọn tiệm',
+        onChange: ev => { app.storageSet('datdon_selected_shop_id', ev.target.value); window.location.reload(); } },
+        app.shops.map(sh => el('option', { value: sh.id, text: sh.name, selected: sh.id === shopId }))) : null
     );
   }
+  // Hàng làm mới / Cài đặt / Thêm luôn nằm cuối trang
+  const _rc = contentHost.replaceChildren.bind(contentHost);
+  contentHost.replaceChildren = (...nodes) => {
+    const foot = nodes.filter(n => n && n.classList && n.classList.contains('bh-meta-bar'));
+    _rc(...nodes.filter(n => !foot.includes(n)), ...foot);
+  };
 
+  const NAV_MAIN = ['sale', 'online', 'eod'];
   function renderNav() {
     const newOnlineCount = ST.onlineOrders.filter(o => o.status === 'new').length;
     document.title = newOnlineCount > 0 ? '(' + newOnlineCount + ') Đơn mới – ' + ST.shop.name : 'Bán hàng – ' + ST.shop.name;
-
-    const isWide = window.innerWidth >= 900;
-    const visible = (!isWide && TABS.length > 5) ? TABS.slice(0, 4) : TABS;
-    const overflow = (!isWide && TABS.length > 5) ? TABS.slice(4) : [];
-
-    const makeBtn = t => el('button', {
+    const navBtns = TABS.filter(t => NAV_MAIN.includes(t.id)).map(t => el('button', {
       type: 'button',
       'aria-current': ST.tab === t.id ? 'page' : null,
       onClick: () => switchTab(t.id)
@@ -728,30 +799,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       navIcon(t.id),
       el('span', { text: t.label }),
       t.id === 'online' && newOnlineCount > 0 ? el('span', { className: 'bh-badge num', text: String(newOnlineCount) }) : null
-    );
-
-    const navBtns = visible.map(makeBtn);
-    if (overflow.length) {
-      const inOverflow = overflow.some(t => t.id === ST.tab);
-      navBtns.push(el('button', {
-        type: 'button',
-        'aria-current': inOverflow ? 'page' : null,
-        onClick: e => openModal('Chức năng khác',
-          el('div', {}, [['Kho và sản xuất', ['buy', 'inv', 'recipe', 'batch']], ['Tiền', ['cash']], ['Khách hàng', ['cust', 'promo', 'feedback']]].map(([gt, ids]) => {
-            const ts = overflow.filter(t => ids.includes(t.id));
-            return ts.length ? el('div', { style: 'margin-bottom:12px' },
-              el('div', { style: 'font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:6px', text: gt }),
-              el('div', { style: 'display:grid;gap:8px' }, ts.map(t => el('button', {
-                type: 'button',
-                className: 'btn' + (ST.tab === t.id ? ' btn-primary' : ''),
-                style: 'width:100%;justify-content:flex-start;gap:12px',
-                onClick: () => { closeModal(); switchTab(t.id); }
-              }, navIcon(t.id), el('span', { text: t.label }))))
-            ) : null;
-          })
-          ), null, e.currentTarget),
-      }, navIcon('more'), el('span', { text: 'Thêm' })));
-    }
+    ));
     navHost.replaceChildren(el('nav', { className: 'bh-nav', 'aria-label': 'Chức năng bán hàng' },
       el('div', { className: 'bh-nav-in' }, navBtns)
     ));
@@ -771,8 +819,10 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     try {
       if (id === 'sale') {
         await Promise.all([loadMenu(), loadManualOrders(), app.hasPlan('proplus') ? loadCustomersBase() : Promise.resolve()]);
-        if (ST.saleSub === 'eod') await loadEod();
         markLoaded('sale');
+      } else if (id === 'eod') {
+        await loadEod();
+        markLoaded('eod');
       } else if (id === 'online') {
         await loadOnlineOrders(false);
         markLoaded('online');
@@ -817,6 +867,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const map = {
       sale: renderSaleTab,
       online: renderOnlineTab,
+      eod: () => renderEodView(null),
       menu: renderMenuTab,
       settings: renderSettingsTab,
       buy: renderBuyTab,
@@ -957,15 +1008,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
 
   function renderSaleTab() {
-    const subSeg = el('div', { className: 'bh-seg', role: 'group', 'aria-label': 'Chế độ bán hàng' },
-      el('button', { type: 'button', 'aria-pressed': String(ST.saleSub === 'pos'), onClick: () => { ST.saleSub = 'pos'; renderSaleTab(); }, text: 'Bán tại quầy' }),
-      el('button', { type: 'button', 'aria-pressed': String(ST.saleSub === 'eod'), onClick: async () => { ST.saleSub = 'eod'; await loadEod(); renderSaleTab(); }, text: 'Cuối ngày' })
-    );
-    if (ST.saleSub === 'eod') {
-      renderEodView(subSeg);
-      return;
-    }
-
+    const keepY = window.scrollY;
     const s = ST.sale;
     const tot = saleTotals();
     const q = fold(ST.saleSearch.trim());
@@ -977,27 +1020,48 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       cats.get(c).push(m);
     }
 
-    const menuBox = el('div', { className: 'card' },
+    const stepOf = (mi) => {
+      const it = s.items.find(x => x.item_id === mi.id);
+      return it;
+    };
+    const changeQty = (mi, d) => {
+      const it = stepOf(mi);
+      if (!it) { if (d > 0) addSaleItem(mi); return; }
+      it.qty = Math.min(999, it.qty + d);
+      if (it.qty <= 0) s.items.splice(s.items.indexOf(it), 1);
+      s.paidCustom = null; saveDraft(); renderSaleTab();
+    };
+    const catEntries = [...cats.entries()];
+    const pickNodes = [
       el('input', {
-        className: 'input', type: 'search', placeholder: 'Tìm món nhanh…', value: ST.saleSearch,
+        className: 'input', type: 'search', placeholder: 'Tìm món nhanh…', value: ST.saleSearch, style: 'margin-bottom:4px',
         onInput: e => { ST.saleSearch = e.target.value; renderSaleTab(); }
       }),
-      activeMenu.length ? [...cats.entries()].map(([cat, list]) => el('div', { style: 'margin-top:12px' },
-        el('div', { style: 'font-size:13px;font-weight:700;color:var(--text-sub);text-transform:uppercase', text: cat }),
-        el('div', { className: 'pos-grid' }, list.map(mi => {
-          const inCart = s.items.find(x => x.item_id === mi.id);
-          return el('button', {
-            type: 'button',
-            className: 'pos-tile' + (inCart ? ' in-cart' : ''),
-            onClick: () => addSaleItem(mi)
-          },
-            el('b', { text: mi.name }),
-            el('span', { className: 'num', text: app.formatMoney(mi.price) }),
-            inCart ? el('span', { className: 'qty-pill num', text: String(inCart.qty) }) : null
+      catEntries.length > 1 ? el('div', { className: 'cat-bar', role: 'group', 'aria-label': 'Nhóm món' }, catEntries.map(([cat]) => el('button', {
+        type: 'button', className: 'cat-pill', 'aria-pressed': 'false',
+        onClick: () => { const t = document.getElementById('cat-' + fold(cat).replace(/[^a-z0-9]+/g, '-')); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
+        text: cat
+      }))) : null,
+      ...(catEntries.length ? catEntries.map(([cat, list]) => el('div', {},
+        el('h2', { className: 'cat-title', id: 'cat-' + fold(cat).replace(/[^a-z0-9]+/g, '-'), text: cat }),
+        list.map(mi => {
+          const it = stepOf(mi);
+          return el('div', { className: 'card menu-item' },
+            mi.image_url && String(mi.image_url).startsWith('https://') ? el('img', { className: 'item-img', src: mi.image_url, alt: '', loading: 'lazy' }) : null,
+            el('div', { className: 'item-info' },
+              el('div', { className: 'item-name', text: mi.name }),
+              el('div', { className: 'item-price-row' }, el('span', { className: 'item-price num', text: app.formatMoney(mi.price) }), el('span', { className: 'item-unit', text: '/ ' + (mi.unit || 'phần') }))
+            ),
+            el('div', { className: 'item-act' }, it
+              ? el('div', { className: 'stepper' },
+                  el('button', { type: 'button', 'aria-label': 'Giảm ' + mi.name, onClick: () => changeQty(mi, -1), text: '−' }),
+                  el('output', { className: 'num', text: String(it.qty) }),
+                  el('button', { type: 'button', className: 'plus', 'aria-label': 'Tăng ' + mi.name, onClick: () => changeQty(mi, 1), text: '+' }))
+              : el('button', { type: 'button', className: 'btn-add', onClick: () => addSaleItem(mi), text: 'Thêm' }))
           );
-        }))
-      )) : el('div', { className: 'empty-state', text: ST.menuItems.length ? 'Không tìm thấy món phù hợp.' : 'Chưa có món nào. Hãy thêm món ở tab Menu trước.' })
-    );
+        })
+      )) : [el('div', { className: 'empty-state', text: ST.menuItems.length ? 'Không tìm thấy món phù hợp.' : 'Chưa có món nào. Hãy thêm món ở Thêm → Menu trước.' })])
+    ];
 
     // Các dòng trong đơn
     const linesCard = el('div', { className: 'card' },
@@ -1028,7 +1092,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             it.qty = Math.min(999, it.qty + 1); s.paidCustom = null; saveDraft(); renderSaleTab();
           }, text: '+' })
         )
-      )) : el('div', { className: 'empty-state', text: 'Chạm vào món phía trên để thêm vào đơn.' }),
+      )) : el('div', { className: 'empty-state', text: 'Chưa có món nào trong đơn.' }),
       (ST.salePromoHost = el('div'))
     );
 
@@ -1122,17 +1186,23 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       text: 'Xem đơn gần đây (' + ST.manualOrders.length + ')'
     });
 
-    contentHost.replaceChildren(
-      renderMetaBar('sale', async () => { await loadTabData('sale'); renderSaleTab(); }),
-      subSeg,
-      menuBox,
-      linesCard,
-      infoCard,
-      recentCard
-    );
+    if (ST.saleView === 'order') {
+      contentHost.replaceChildren(
+        el('button', { type: 'button', className: 'back-link', onClick: () => { ST.saleView = 'pick'; renderSaleTab(); window.scrollTo(0, 0); } }, el('span', { text: '←' }), el('span', { text: 'Chọn thêm món' })),
+        linesCard,
+        infoCard
+      );
+    } else {
+      contentHost.replaceChildren(
+        ...pickNodes,
+        recentCard,
+        renderMetaBar('sale', async () => { await loadTabData('sale'); renderSaleTab(); })
+      );
+    }
     drawSalePromo();
     updateSaleSticky();
     if (app.hasPlan('proplus')) { if (!saleQuoteNow()) scheduleSaleQuote(); fetchSaleVouchers(); }
+    window.scrollTo(0, keepY);
   }
 
   function renderSaleCustomerPicker() {
@@ -1176,12 +1246,13 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
 
   function updateSaleSticky() {
-    if (ST.tab !== 'sale' || ST.saleSub !== 'pos') { stickyHost.replaceChildren(); return; }
+    if (ST.tab !== 'sale') { stickyHost.replaceChildren(); return; }
     const tot = saleTotals();
-    const saveBtn = el('button', {
+    const inOrder = ST.saleView === 'order';
+    const btn = el('button', {
       type: 'button', className: 'btn-save', disabled: !tot.count,
-      onClick: () => submitSaleOrder(saveBtn),
-      text: ST.sale.editId ? 'Cập nhật đơn' : 'Lưu đơn'
+      onClick: () => { if (inOrder) submitSaleOrder(btn); else { ST.saleView = 'order'; renderSaleTab(); window.scrollTo(0, 0); } },
+      text: inOrder ? (ST.sale.editId ? 'Cập nhật đơn' : 'Lưu đơn') : 'Xem đơn'
     });
     stickyHost.replaceChildren(el('div', { className: 'sticky-bar' },
       el('div', { className: 'sticky-bar-in' },
@@ -1189,7 +1260,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           el('small', { text: tot.count + ' món' + (tot.disc ? ' · giảm ' + app.formatMoney(tot.disc) : '') }),
           el('b', { className: 'num', text: app.formatMoney(tot.total) })
         ),
-        saveBtn
+        btn
       )
     ));
   }
@@ -1203,6 +1274,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       at: '', discount: 0, voucher_id: null, pay_method_id: keepPay, unpaid: false, paidCustom: null
     };
     ST.saleQuote = null; ST.saleVouchers = [];
+    ST.saleView = 'pick';
     app.storageSet(DRAFT_KEY, null);
   }
 
@@ -1224,6 +1296,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       paidCustom: o.paid
     };
     ST.saleQuote = null; ST.saleVouchers = [];
+    ST.saleView = 'order';
     if (app.hasPlan('proplus')) {
       sb.from('customer_vouchers').select('id,promo_id').eq('shop_id', shopId).eq('used_order_id', o.id).limit(1).then(r => {
         const cv = r && r.data && r.data[0];
@@ -1279,54 +1352,40 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     }
   }
 
-  function renderEodView(subSeg) {
+  function renderEodView() {
     stickyHost.replaceChildren();
     const d = ST.eodData;
     const dateInput = el('input', {
       className: 'input', type: 'date', value: ST.eodDate,
-      onChange: async e => { ST.eodDate = e.target.value || app.toVnYmd(new Date()); await loadEod(); renderSaleTab(); }
+      onChange: async e => { ST.eodDate = e.target.value || app.toVnYmd(new Date()); await loadEod(); renderEodView(null); }
     });
     const rows = (d && d.by_method) || [];
     const unpaid = (d && d.unpaid) || { orders: 0, amount: 0 };
     const totals = (d && d.totals) || { orders: 0, revenue: 0, paid: 0, discount: 0 };
 
     contentHost.replaceChildren(
-      renderMetaBar('sale', async () => { await loadEod(); renderSaleTab(); }),
-      subSeg,
+      renderMetaBar('eod', async () => { await loadEod(); markLoaded('eod'); renderEodView(null); }),
       el('div', { className: 'card' },
-        el('div', { className: 'field', style: 'max-width:220px;margin-top:0' },
-          el('label', { text: 'Ngày đối chiếu' }), dateInput
-        ),
-        el('div', { className: 'table-scroll', style: 'margin-top:12px' },
-          el('table', { className: 'bh-tbl' },
-            el('thead', null, el('tr', null,
-              el('th', { text: 'Phương thức' }),
-              el('th', { className: 'r', text: 'Số đơn' }),
-              el('th', { className: 'r', text: 'Doanh thu' }),
-              el('th', { className: 'r', text: 'Đã thu' })
-            )),
-            el('tbody', null,
-              rows.map(r => el('tr', null,
-                el('td', { text: r.name }),
-                el('td', { className: 'r num', text: String(r.orders) }),
-                el('td', { className: 'r num', text: app.formatMoney(r.revenue) }),
-                el('td', { className: 'r num', text: app.formatMoney(r.paid) })
-              )),
-              el('tr', { className: unpaid.orders > 0 ? 'low-row' : '' },
-                el('td', { style: 'font-weight:700', text: 'Chưa thu' }),
-                el('td', { className: 'r num', text: String(unpaid.orders) }),
-                el('td', { className: 'r num', text: app.formatMoney(unpaid.amount) }),
-                el('td', { className: 'r num', text: '0đ' })
-              ),
-              el('tr', { style: 'font-weight:700' },
-                el('td', { text: 'Tổng cộng' }),
-                el('td', { className: 'r num', text: String(totals.orders) }),
-                el('td', { className: 'r num', text: app.formatMoney(totals.revenue) }),
-                el('td', { className: 'r num', text: app.formatMoney(totals.paid) })
-              )
-            )
-          )
-        )
+        el('div', { className: 'hscroll', style: 'margin-bottom:8px' }, [['Hôm nay', app.toVnYmd(new Date())], ['Hôm qua', app.shiftYmd(app.toVnYmd(new Date()), -1)]].map(([lb, ymd]) => el('button', {
+          type: 'button', className: 'chip', 'aria-pressed': String(ST.eodDate === ymd),
+          onClick: async () => { ST.eodDate = ymd; await loadEod(); renderEodView(null); }, text: lb
+        }))),
+        el('div', { className: 'field', style: 'margin:0' }, el('label', { text: 'Ngày đối chiếu' }), dateInput)
+      ),
+      el('div', { className: 'kpi-row2', style: 'margin-bottom:12px' },
+        el('div', { className: 'kpi-box' }, el('small', { text: 'Doanh thu' }), el('b', { className: 'num', text: app.formatMoney(totals.revenue) }), el('small', { text: totals.orders + ' đơn' })),
+        el('div', { className: 'kpi-box' }, el('small', { text: 'Đã thu' }), el('b', { className: 'num', text: app.formatMoney(totals.paid) }), el('small', { text: unpaid.orders > 0 ? 'Còn ' + app.formatMoney(unpaid.amount) + ' chưa thu' : 'Đã thu đủ' }))
+      ),
+      el('div', { className: 'card' },
+        el('div', { style: 'font-weight:700;margin-bottom:6px', text: 'Theo cách thanh toán' }),
+        rows.length ? rows.map(r => el('div', { className: 'line-row' },
+          el('div', { className: 'line-main' }, el('b', { text: r.name }), el('small', { className: 'num', text: r.orders + ' đơn · doanh thu ' + app.formatMoney(r.revenue) })),
+          el('b', { className: 'num', text: app.formatMoney(r.paid) })
+        )) : el('div', { className: 'empty-state', text: 'Chưa có đơn nào trong ngày này.' }),
+        unpaid.orders > 0 ? el('div', { className: 'line-row' },
+          el('div', { className: 'line-main' }, el('b', { style: 'color:var(--error)', text: 'Chưa thu' }), el('small', { className: 'num', text: unpaid.orders + ' đơn' })),
+          el('b', { className: 'num', style: 'color:var(--error)', text: app.formatMoney(unpaid.amount) })
+        ) : null
       ),
       el('div', { className: 'card' },
         el('div', { style: 'font-weight:700;margin-bottom:8px', text: 'Đơn chưa thu trong ngày (' + ST.eodUnpaid.length + ')' }),
@@ -1337,7 +1396,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           ),
           el('button', {
             type: 'button', className: 'btn btn-primary btn-sm',
-            onClick: e => openConfirmPaymentModal(o, async () => { await loadEod(); renderSaleTab(); }, e.currentTarget),
+            onClick: e => openConfirmPaymentModal(o, async () => { await loadEod(); renderEodView(); }, e.currentTarget),
             text: 'Xác nhận thu tiền'
           })
         )) : el('div', { className: 'empty-state', text: 'Tất cả đơn trong ngày đã được thu đủ.' })
@@ -3611,6 +3670,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   /* ===== KHỞI CHẠY BAN ĐẦU ===== */
   try {
     await Promise.all([loadShopFull(), loadPayMethods(), loadOnlineOrders(false)]);
+    renderShopHeader();
     await loadTabData('sale');
     renderCurrentTab();
   } catch (err) {

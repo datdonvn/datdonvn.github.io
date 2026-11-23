@@ -1307,7 +1307,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       }
       app.storageSet('dd_last_place_' + shopId, place);
       const paidAmt = s.unpaid ? 0 : (s.paidCustom != null ? s.paidCustom : tot.total);
-      const { data, error } = await sb.rpc('save_order', {
+      const args = {
         p_shop: shopId,
         p_order: s.editId || null,
         p_at: localDtToIso(s.at),
@@ -1325,17 +1325,88 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         p_pay_status: s.unpaid ? 'unpaid' : 'paid',
         p_paid: paidAmt,
         p_status: 'done'
-      });
+      };
+      ST.saleLastArgs = args;
+      let data, error;
+      if (s.editId) ({ data, error } = await sb.rpc('save_order', args));
+      else {
+        // Đơn mới gửi kèm mã chống trùng: gửi lại nhiều lần vẫn chỉ ra một đơn
+        if (!s.key) s.key = newKey();
+        ({ data, error } = await sb.rpc('save_order_once', onceArgs(s.key, args)));
+      }
       if (error) throw error;
       app.showToast((s.editId ? 'Đã cập nhật đơn ' : 'Đã lưu đơn ') + data.code + ' · ' + app.formatMoney(data.total), 'accent');
       resetSaleForm();
       await loadManualOrders();
       renderSaleTab();
     } catch (err) {
+      if (!s.editId && isNetErr(err) && s.key && ST.saleLastArgs) {
+        outboxAdd({ key: s.key, args: onceArgs(s.key, ST.saleLastArgs), at: Date.now() });
+        app.showToast('Mất mạng. Đơn đã lưu trên máy, sẽ tự gửi khi có mạng.', 'accent');
+        resetSaleForm();
+        renderSaleTab();
+        return;
+      }
       showErr(err);
       btn.disabled = false; btn.textContent = ST.sale.editId ? 'Cập nhật đơn' : 'Lưu đơn';
     }
   }
+
+  /* ===== HÀNG ĐỢI OFFLINE (như v1): mất mạng thì lưu đơn bán tại quầy trên máy, có mạng tự gửi ===== */
+  const OUTBOX_KEY = 'dd_outbox_' + shopId;
+  const newKey = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'k' + Date.now() + Math.random().toString(16).slice(2);
+  const isNetErr = err => {
+    const m = String((err && (err.message || err.details)) || err || '');
+    return !navigator.onLine || /failed to fetch|networkerror|load failed|network request failed|timeout/i.test(m);
+  };
+  function onceArgs(key, a) {
+    return {
+      p_key: key, p_shop: a.p_shop, p_items: a.p_items, p_at: a.p_at, p_customer_name: a.p_customer_name, p_customer_phone: a.p_customer_phone,
+      p_note: a.p_note, p_customer_id: a.p_customer_id, p_place: a.p_place, p_discount: a.p_discount, p_pay_method: a.p_pay_method,
+      p_pay_status: a.p_pay_status, p_paid: a.p_paid, p_promo: a.p_promo, p_voucher: a.p_voucher
+    };
+  }
+  const outboxGet = () => { const v = app.storageGet(OUTBOX_KEY, []); return Array.isArray(v) ? v : []; };
+  function outboxAdd(item) { app.storageSet(OUTBOX_KEY, outboxGet().concat(item)); drawOutboxBar(); }
+  let outboxBusy = false;
+  async function flushOutbox(manual) {
+    if (outboxBusy || (!navigator.onLine && !manual)) return;
+    const list = outboxGet();
+    if (!list.length) { drawOutboxBar(); return; }
+    outboxBusy = true; drawOutboxBar();
+    let sent = 0;
+    try {
+      for (const it of list) {
+        if (it.err && !manual) continue;
+        const { error } = await sb.rpc('save_order_once', it.args);
+        if (!error) { sent++; app.storageSet(OUTBOX_KEY, outboxGet().filter(x => x.key !== it.key)); continue; }
+        if (isNetErr(error)) break;
+        app.storageSet(OUTBOX_KEY, outboxGet().map(x => x.key === it.key ? Object.assign({}, x, { err: app.translateServerError(error) }) : x));
+      }
+    } finally { outboxBusy = false; drawOutboxBar(); }
+    if (sent) {
+      app.showToast('Đã gửi ' + sent + ' đơn lưu khi mất mạng', 'accent');
+      try { await loadManualOrders(); if (ST.tab === 'sale') renderSaleTab(); } catch (e) {}
+    }
+  }
+  function drawOutboxBar() {
+    let bar = document.getElementById('outbox-bar');
+    const list = outboxGet();
+    if (!list.length) { if (bar) bar.remove(); return; }
+    if (!bar) { bar = el('div', { id: 'outbox-bar', role: 'status', style: 'position:fixed;left:12px;right:12px;bottom:calc(152px + env(safe-area-inset-bottom));z-index:60;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;box-shadow:0 4px 18px rgba(0,0,0,.18);display:flex;gap:10px;align-items:center;justify-content:space-between' }); document.body.append(bar); }
+    const bad = list.filter(x => x.err);
+    bar.replaceChildren(
+      el('div', { style: 'font-size:14px;line-height:1.35' },
+        el('b', { text: list.length + ' đơn chờ gửi' }),
+        el('div', { style: 'color:var(--text-sub);font-size:13px', text: bad.length ? 'Có ' + bad.length + ' đơn bị từ chối: ' + bad[0].err : (navigator.onLine ? 'Đang chờ gửi…' : 'Chưa có mạng, có mạng sẽ tự gửi.') })),
+      el('div', { style: 'display:flex;gap:6px' },
+        el('button', { type: 'button', className: 'btn btn-sm', disabled: outboxBusy, text: 'Gửi ngay', onClick: () => flushOutbox(true) }),
+        bad.length ? el('button', { type: 'button', className: 'btn btn-sm btn-danger', text: 'Bỏ', onClick: () => { app.storageSet(OUTBOX_KEY, outboxGet().filter(x => !x.err)); drawOutboxBar(); } }) : null)
+    );
+  }
+  window.addEventListener('online', () => flushOutbox());
+  setInterval(() => flushOutbox(), 20000);
+  setTimeout(() => { drawOutboxBar(); flushOutbox(); }, 2500);
 
   function renderEodView() {
     stickyHost.replaceChildren();

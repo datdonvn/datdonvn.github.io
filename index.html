@@ -10,6 +10,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="config.js"></script>
 <script src="thuonghieu.js"></script>
+<script src="qrcode.js"></script>
+<script src="vietqr.js"></script>
 <style>
 :root {
   --bg: #EDF2EA;
@@ -1592,10 +1594,14 @@ function openSuccessModal(res, phone, itemsSnapshot, createdIso) {
         el('span', { text: 'Tổng thanh toán' }), el('span', { className: 'num', text: formatMoney(res.total) })
       )
     ),
-    shop.payment_note && !window.__lastPayCash ? el('div', { className: 'card' },
+    (!window.__lastPayCash && window.DDQR && DDQR.canShow(shop) && res.total > 0) ? el('div', { className: 'card' },
+      el('div', { style: 'font-weight:700;margin-bottom:10px;text-align:center', text: 'Quét mã để chuyển khoản' }),
+      DDQR.block(shop, res.total, res.code),
+      shop.payment_note ? el('div', { className: 'pay-note', style: 'margin-top:12px', text: shop.payment_note }) : null
+    ) : (shop.payment_note && !window.__lastPayCash ? el('div', { className: 'card' },
       el('div', { style: 'font-weight:700;margin-bottom:6px', text: 'Hướng dẫn chuyển khoản' }),
       el('div', { className: 'pay-note', style: 'margin-top:0', text: shop.payment_note })
-    ) : null,
+    ) : null),
     cancelBox
   );
 

@@ -117,26 +117,27 @@ body { font-family: "Be Vietnam Pro", var(--font, system-ui, sans-serif); }
   .bh-nav svg { width: 20px; height: 20px; }
 }
 
-/* Đầu trang giống trang khách: banner hoặc thanh màu có logo */
-.shop-banner { background: var(--surface); border-bottom: 1px solid var(--border); padding-top: env(safe-area-inset-top); }
-.shop-banner img { display: block; width: 100%; max-width: 600px; margin: 0 auto; aspect-ratio: 1200 / 450; object-fit: cover; }
-.shop-header { background: var(--accent); color: var(--accent-text); padding: calc(14px + env(safe-area-inset-top)) 16px 16px; }
-.shop-header-in { max-width: 600px; margin: 0 auto; }
-.shop-brand { display: flex; align-items: center; gap: 12px; }
-.shop-logo { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: #fff; flex: none; }
-span.shop-logo.shop-mono { display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,.2); color: #fff; font-weight: 700; font-size: 22px; }
-.shop-name { margin: 0; font-size: 21px; font-weight: 700; line-height: 1.25; }
+/* Thanh đầu kiểu Sâmila v1 */
+.top { position: sticky; top: 0; z-index: 13; background: var(--accent); color: var(--accent-text); padding: calc(10px + env(safe-area-inset-top)) 16px 10px; display: flex; align-items: center; gap: 10px; }
+.top h1 { margin: 0; flex: 1; min-width: 0; font-size: 19px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top .pill { min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: rgba(255,255,255,.16); color: inherit; font: inherit; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.top .gear { width: 40px; height: 40px; border: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.16); color: inherit; cursor: pointer; flex: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (min-width: 900px) { .bh-nav { top: 60px; } }
 body .dd-wrap { max-width: none; padding: 0 0 40px; }
 .bh-wrap { max-width: 600px; }
 .sticky-bar-in { max-width: 576px; }
-.bh-foot { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--text-sub); }
-.bh-foot .sp { flex: 1; }
-.bh-foot .bh-foot-btn { flex: 1 1 0; justify-content: center; }
-.bh-foot .bh-foot-half { flex: 1 1 0; min-width: 0; display: flex; align-items: center; }
-.bh-foot .bh-foot-time { justify-content: space-between; gap: 8px; }
-.bh-foot .bh-foot-sel { width: 100%; min-height: 44px; }
-.bh-foot .bh-foot-break { flex-basis: 100%; height: 0; }
+/* Chọn món kiểu v1 */
+.v1-h { margin: 18px 0 8px; font-size: 15px; font-weight: 600; color: var(--text-sub); }
+.v1-group { background: var(--surface); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
+.v1-group h3 { margin: 0; padding: 12px 14px 2px; font-size: 16px; font-weight: 700; }
+.v1-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--border); }
+.v1-group h3 + .v1-item { border-top: 0; }
+.v1-item.on { background: var(--accent-soft); }
+.v1-item .nm { font-weight: 600; min-width: 0; word-break: break-word; }
+.v1-item .pr { color: var(--text-sub); font-size: 14px; }
+.v1-item .stepper button:disabled { opacity: .35; }
+.v1-item .stepper output { min-width: 34px; font-size: 19px; }
 /* Chọn món kiểu trang khách */
 .cat-bar { position: sticky; top: 0; z-index: 4; background: var(--bg); padding: 10px 0 8px; display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .cat-pill { flex: none; min-height: 44px; padding: 0 15px; border-radius: 999px; background: var(--surface); border: 1.5px solid var(--border); font-size: 14.5px; font-weight: 600; color: var(--text-sub); white-space: nowrap; }
@@ -157,17 +158,9 @@ body .dd-wrap { max-width: none; padding: 0 0 40px; }
 .stepper output { min-width: 28px; text-align: center; font-weight: 700; font-size: 17px; }
 .back-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; color: var(--accent); font-weight: 600; font-size: 15px; background: none; border: 0; }
 
-/* Thanh phụ làm mới & thời điểm tải */
-.bh-meta-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
-  font-size: 13px;
-  color: var(--text-sub);
-  flex-wrap: wrap;
-}
+/* Thanh phụ: cập nhật lúc + Tải lại (như v1) */
+.bh-meta-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; font-size: 14px; color: var(--text-sub); }
+.bh-meta-bar .reload { background: none; border: 0; color: var(--accent); font: inherit; font-weight: 700; padding: 10px 4px; cursor: pointer; }
 .bh-seg {
   display: inline-flex;
   background: var(--accent-soft);
@@ -617,7 +610,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     { id: 'recipe', label: 'Định mức', minPlan: 'pro' },
     { id: 'cash', label: 'Thu chi', minPlan: 'pro' },
     { id: 'batch', label: 'Làm', minPlan: 'pro' },
-    { id: 'cust', label: 'Khách', minPlan: 'proplus' },
+    { id: 'cust', label: 'Khách', minPlan: 'standard' },
     { id: 'promo', label: 'Khuyến mãi', minPlan: 'proplus' },
     { id: 'feedback', label: 'Đánh giá', minPlan: 'proplus' }
   ];
@@ -638,6 +631,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     soundOn: true,
     // Bán (Standard)
     saleView: 'pick', // 'pick' chọn món | 'order' chi tiết đơn
+    saleList: 'new', // 'new' nhập mới | 'saved' đã lưu
     saleSearch: '',
     salePlaces: app.storageGet('dd_sale_places_' + shopId, ['Tại quầy', 'Zalo', 'Giao hàng']),
     sale: savedDraft || {
@@ -653,7 +647,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     eodData: null,
     eodUnpaid: [],
     // Đơn online (Standard)
-    onlineFilter: 'active',
+    onlineFilter: 'new',
     onlineOrders: [],
     onlineOffset: 0,
     onlineHasMore: false,
@@ -722,7 +716,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     ST.invItems = data || [];
   }
   async function loadCustomersBase() {
-    if (!app.hasPlan('proplus')) return;
     const { data, error } = await sb.from('customers').select('*').eq('shop_id', shopId).order('created_at', { ascending: false });
     if (error) throw error;
     ST.customers = data || [];
@@ -736,20 +729,31 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   const wrapOuter = el('div', { className: 'dd-wrap' }, headerHost, navHost, contentHost, stickyHost);
   root.replaceChildren(wrapOuter);
 
+  const TAB_TITLES = { sale: 'Bán hàng', online: 'Đơn hàng', promo: 'Khuyến mãi', cust: 'Khách', eod: 'Cuối ngày', menu: 'Menu', settings: 'Cài đặt' };
   function renderShopHeader() {
     const sh = ST.shop || app.shop;
     if (window.DDBrand && DDBrand.applyTheme) DDBrand.applyTheme(sh);
-    headerHost.replaceChildren(sh.banner_url && String(sh.banner_url).startsWith('https://')
-      ? el('header', { className: 'shop-banner' }, el('img', { src: sh.banner_url, alt: sh.name }), el('h1', { className: 'sr-only', text: sh.name }))
-      : el('header', { className: 'shop-header' }, el('div', { className: 'shop-header-in' }, el('div', { className: 'shop-brand' },
-          sh.logo_url ? el('img', { className: 'shop-logo', src: sh.logo_url, alt: '', width: 44, height: 44 })
-                      : el('span', { className: 'shop-logo shop-mono', 'aria-hidden': 'true', text: (String(sh.name || '?').trim().charAt(0) || '?').toUpperCase() }),
-          el('h1', { className: 'shop-name', text: sh.name })))));
+    const tab = TABS.find(t => t.id === ST.tab);
+    const title = TAB_TITLES[ST.tab] || (tab ? tab.label : sh.name);
+    const whenTxt = ST.sale.at ? app.formatVnDateTime(new Date(ST.sale.at).toISOString()).slice(11) + ' ' + app.formatVnDateTime(new Date(ST.sale.at).toISOString()).slice(0, 5) : 'Bây giờ';
+    headerHost.replaceChildren(el('header', { className: 'top' },
+      el('h1', { text: title }),
+      ST.tab === 'sale' && ST.saleView === 'pick' ? el('button', { type: 'button', className: 'pill', onClick: e => openSaleWhenModal(e.currentTarget), text: whenTxt }) : null,
+      el('button', { type: 'button', className: 'pill', onClick: e => openMoreModal(e.currentTarget) }, navIcon('more'), el('span', { text: 'Thêm' })),
+      el('button', { type: 'button', className: 'gear', 'aria-label': 'Cài đặt', onClick: () => switchTab('settings') }, navIcon('settings'))
+    ));
+  }
+  function openSaleWhenModal(opener) {
+    const inp = el('input', { className: 'input', type: 'datetime-local', value: ST.sale.at || '' });
+    openModal('Giờ bán', el('div', {}, el('p', { style: 'margin:0 0 8px;color:var(--text-sub);font-size:14px', text: 'Để trống nếu bán ngay bây giờ. Chọn giờ khác để ghi bù đơn đã bán.' }), inp), [
+      el('button', { type: 'button', className: 'btn', onClick: () => { ST.sale.at = ''; saveDraft(); closeModal(); renderShopHeader(); }, text: 'Bây giờ' }),
+      el('button', { type: 'button', className: 'btn btn-primary', onClick: () => { ST.sale.at = inp.value || ''; saveDraft(); closeModal(); renderShopHeader(); }, text: 'Chọn' })
+    ], opener);
   }
   function markLoaded(tab) { ST.loadedAt[tab] = new Date(); }
   function openMoreModal(opener) {
     const rest = TABS.filter(t => !NAV_MAIN.includes(t.id) && t.id !== 'settings');
-    openModal('Thêm', el('div', {}, [['Tiệm', ['menu']], ['Kho và sản xuất', ['buy', 'inv', 'recipe', 'batch']], ['Tiền', ['cash']], ['Khách hàng', ['cust', 'promo', 'feedback']]].map(([gt, ids]) => {
+    openModal('Thêm', el('div', {}, [['Bán hàng', ['eod', 'menu']], ['Kho và sản xuất', ['buy', 'inv', 'recipe', 'batch']], ['Tiền', ['cash']]].map(([gt, ids]) => {
       const ts = rest.filter(t => ids.includes(t.id));
       return ts.length ? el('div', { style: 'margin-bottom:12px' },
         el('div', { style: 'font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:6px', text: gt }),
@@ -760,45 +764,22 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       ) : null;
     })), null, opener);
   }
-  function renderMetaBar(tab, onRefresh, extraRight) {
+  function renderMetaBar(tab, onRefresh) {
     const t = ST.loadedAt[tab];
     const txt = t ? 'Cập nhật lúc ' + app.pad2(t.getHours()) + ':' + app.pad2(t.getMinutes()) : 'Chưa tải';
-    const icon = (d) => {
-      const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
-      svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '20'); svg.setAttribute('height', '20');
-      svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2.2');
-      svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
-      const pth = document.createElementNS(ns, 'path'); pth.setAttribute('d', d); svg.appendChild(pth); return svg;
-    };
-    const sel = app.shops.length > 1 ? el('select', { className: 'select bh-foot-sel', 'aria-label': 'Chọn tiệm',
-        onChange: ev => { app.storageSet('datdon_selected_shop_id', ev.target.value); window.location.reload(); } },
-        app.shops.map(sh => el('option', { value: sh.id, text: sh.name, selected: sh.id === shopId }))) : null;
-    return el('div', { className: 'bh-foot bh-meta-bar' },
-      el('div', { className: 'bh-foot-half bh-foot-time' },
-        el('span', { text: txt }),
-        el('button', { type: 'button', className: 'btn btn-sm', 'aria-label': 'Làm mới', title: 'Làm mới', style: 'min-width:44px;min-height:44px;padding:8px 10px;display:inline-flex;align-items:center;justify-content:center', onClick: onRefresh },
-          icon('M20 11a8 8 0 0 0-14.9-3M4 5v4h4M4 13a8 8 0 0 0 14.9 3M20 19v-4h-4'))),
-      sel ? el('div', { className: 'bh-foot-half' }, sel) : null,
-      extraRight || null,
-      el('span', { className: 'bh-foot-break' }),
-      el('button', { type: 'button', className: 'btn btn-sm bh-foot-btn', style: 'min-height:44px;gap:6px', onClick: () => switchTab('settings') }, navIcon('settings'), el('span', { text: 'Cài đặt' })),
-      el('button', { type: 'button', className: 'btn btn-sm bh-foot-btn', style: 'min-height:44px;gap:6px', onClick: e => openMoreModal(e.currentTarget) }, navIcon('more'), el('span', { text: 'Thêm' }))
+    return el('div', { className: 'bh-meta-bar' },
+      el('span', { text: txt }),
+      el('button', { type: 'button', className: 'reload', onClick: onRefresh, text: 'Tải lại' })
     );
   }
-  // Hàng làm mới / Cài đặt / Thêm luôn nằm cuối trang
-  const _rc = contentHost.replaceChildren.bind(contentHost);
-  contentHost.replaceChildren = (...nodes) => {
-    const foot = nodes.filter(n => n && n.classList && n.classList.contains('bh-meta-bar'));
-    _rc(...nodes.filter(n => !foot.includes(n)), ...foot);
-  };
 
-  const NAV_MAIN = ['sale', 'online', 'eod'];
+  const NAV_MAIN = ['sale', 'online', 'promo', 'cust'];
   function renderNav() {
     const newOnlineCount = ST.onlineOrders.filter(o => o.status === 'new').length;
     document.title = newOnlineCount > 0 ? '(' + newOnlineCount + ') Đơn mới – ' + ST.shop.name : 'Bán hàng – ' + ST.shop.name;
-    const navBtns = TABS.filter(t => NAV_MAIN.includes(t.id)).map(t => el('button', {
+    const navBtns = NAV_MAIN.map(id => TABS.find(t => t.id === id)).filter(Boolean).map(t => el('button', {
       type: 'button',
-      'aria-current': ST.tab === t.id ? 'page' : null,
+      'aria-current': (ST.tab === t.id || (t.id === 'online' && ST.tab === 'feedback')) ? 'page' : null,
       onClick: () => switchTab(t.id)
     },
       navIcon(t.id),
@@ -814,6 +795,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   async function switchTab(id) {
     ST.tab = id;
     stickyHost.replaceChildren();
+    renderShopHeader();
     renderNav();
     await loadTabData(id);
     renderCurrentTab();
@@ -823,7 +805,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   async function loadTabData(id) {
     try {
       if (id === 'sale') {
-        await Promise.all([loadMenu(), loadManualOrders(), app.hasPlan('proplus') ? loadCustomersBase() : Promise.resolve()]);
+        await Promise.all([loadMenu(), loadManualOrders(), loadCustomersBase()]);
         markLoaded('sale');
       } else if (id === 'eod') {
         await loadEod();
@@ -854,8 +836,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       } else if (id === 'cash' && app.hasPlan('pro')) {
         await loadCashEntries();
         markLoaded('cash');
-      } else if (id === 'cust' && app.hasPlan('proplus')) {
-        await Promise.all([loadCustomersWithStats(), loadPromos()]);
+      } else if (id === 'cust') {
+        await Promise.all([loadCustomersWithStats(), app.hasPlan('proplus') ? loadPromos() : Promise.resolve()]);
         markLoaded('cust');
       } else if (id === 'promo' && app.hasPlan('proplus')) {
         await Promise.all([loadPromos(), loadMenu()]);
@@ -885,6 +867,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       feedback: renderFeedbackTab
     };
     const fn = map[ST.tab];
+    renderShopHeader();
     if (fn) fn();
     renderNav();
   }
@@ -1037,33 +1020,28 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       s.paidCustom = null; saveDraft(); renderSaleTab();
     };
     const catEntries = [...cats.entries()];
+    const seg = el('div', { className: 'bh-seg tight' },
+      el('button', { type: 'button', 'aria-pressed': String(ST.saleList !== 'saved'), onClick: () => { ST.saleList = 'new'; renderSaleTab(); }, text: 'Nhập mới' }),
+      el('button', { type: 'button', 'aria-pressed': String(ST.saleList === 'saved'), onClick: () => { ST.saleList = 'saved'; renderSaleTab(); }, text: 'Đã lưu' }));
+    const placeChips = el('div', { className: 'chips', style: 'margin-bottom:4px' }, ST.salePlaces.map(p => el('button', {
+      type: 'button', className: 'chip', 'aria-pressed': String((s.place || ST.salePlaces[0]) === p),
+      onClick: () => { s.place = p; app.storageSet('dd_last_place_' + shopId, p); saveDraft(); renderSaleTab(); }, text: p })));
     const pickNodes = [
-      el('input', {
-        className: 'input', type: 'search', placeholder: 'Tìm món nhanh…', value: ST.saleSearch, style: 'margin-bottom:4px',
-        onInput: e => { ST.saleSearch = e.target.value; renderSaleTab(); }
-      }),
-      catEntries.length > 1 ? el('div', { className: 'cat-bar', role: 'group', 'aria-label': 'Nhóm món' }, catEntries.map(([cat]) => el('button', {
-        type: 'button', className: 'cat-pill', 'aria-pressed': 'false',
-        onClick: () => { const t = document.getElementById('cat-' + fold(cat).replace(/[^a-z0-9]+/g, '-')); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
-        text: cat
-      }))) : null,
-      ...(catEntries.length ? catEntries.map(([cat, list]) => el('div', {},
-        el('h2', { className: 'cat-title', id: 'cat-' + fold(cat).replace(/[^a-z0-9]+/g, '-'), text: cat }),
+      seg,
+      placeChips,
+      el('h2', { className: 'v1-h', text: 'Chọn món' }),
+      ...(catEntries.length ? catEntries.map(([cat, list]) => el('div', { className: 'v1-group' },
+        el('h3', { text: cat }),
         list.map(mi => {
-          const it = stepOf(mi);
-          return el('div', { className: 'card menu-item' },
-            mi.image_url && String(mi.image_url).startsWith('https://') ? el('img', { className: 'item-img', src: mi.image_url, alt: '', loading: 'lazy' }) : null,
-            el('div', { className: 'item-info' },
-              el('div', { className: 'item-name', text: mi.name }),
-              el('div', { className: 'item-price-row' }, el('span', { className: 'item-price num', text: app.formatMoney(mi.price) }), el('span', { className: 'item-unit', text: '/ ' + (mi.unit || 'phần') }))
-            ),
-            el('div', { className: 'item-act' }, it
-              ? el('div', { className: 'stepper' },
-                  el('button', { type: 'button', 'aria-label': 'Giảm ' + mi.name, onClick: () => changeQty(mi, -1), text: '−' }),
-                  el('output', { className: 'num', text: String(it.qty) }),
-                  el('button', { type: 'button', className: 'plus', 'aria-label': 'Tăng ' + mi.name, onClick: () => changeQty(mi, 1), text: '+' }))
-              : el('button', { type: 'button', className: 'btn-add', onClick: () => addSaleItem(mi), text: 'Thêm' }))
-          );
+          const it = stepOf(mi), qty = it ? it.qty : 0;
+          return el('div', { className: 'v1-item' + (qty ? ' on' : '') },
+            el('div', { style: 'min-width:0' },
+              el('div', { className: 'nm', text: mi.name }),
+              el('div', { className: 'pr num', text: app.formatMoney(mi.price) + (mi.unit ? ' / ' + mi.unit : '') })),
+            el('div', { className: 'stepper' },
+              el('button', { type: 'button', disabled: !qty, 'aria-label': 'Giảm ' + mi.name, onClick: () => changeQty(mi, -1), text: '−' }),
+              el('output', { className: 'num', text: String(qty) }),
+              el('button', { type: 'button', className: 'plus', 'aria-label': 'Tăng ' + mi.name, onClick: () => changeQty(mi, 1), text: '+' })));
         })
       )) : [el('div', { className: 'empty-state', text: ST.menuItems.length ? 'Không tìm thấy món phù hợp.' : 'Chưa có món nào. Hãy thêm món ở Thêm → Menu trước.' })])
     ];
@@ -1103,16 +1081,13 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
     // Thông tin đơn & thanh toán
     const placeListId = 'dl-sale-places';
-    const custPickerProPlus = app.hasPlan('proplus') ? renderSaleCustomerPicker() : null;
+    const custPickerProPlus = renderSaleCustomerPicker();
     const paidVal = s.unpaid ? 0 : (s.paidCustom != null ? s.paidCustom : tot.total);
 
     const fPlace = el('div', { className: 'field' },
       el('label', { for: 'sl-place', text: 'Nơi bán' }),
       el('input', { id: 'sl-place', className: 'input', list: placeListId, value: s.place || '', placeholder: 'Tại quầy', onInput: e => { s.place = e.target.value; saveDraft(); } }),
       el('datalist', { id: placeListId }, ST.salePlaces.map(p => el('option', { value: p }))));
-    const fAt = el('div', { className: 'field' },
-      el('label', { for: 'sl-at', text: 'Giờ bán (để trống = bây giờ)' }),
-      el('input', { id: 'sl-at', className: 'input', type: 'datetime-local', value: s.at || '', onChange: e => { s.at = e.target.value; saveDraft(); } }));
     const fName = el('div', { className: 'field' },
       el('label', { for: 'sl-cname', text: 'Tên khách' }),
       el('input', { id: 'sl-cname', className: 'input', value: s.customer_name || '', placeholder: 'Khách lẻ', onInput: e => { s.customer_name = e.target.value; saveDraft(); } }));
@@ -1141,10 +1116,10 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const fNote = el('div', { className: 'field' },
       el('label', { for: 'sl-note', text: 'Ghi chú' }),
       el('input', { id: 'sl-note', className: 'input', value: s.note || '', placeholder: 'Ghi chú đơn hàng…', onInput: e => { s.note = e.target.value; saveDraft(); } }));
-    const moreFilled = !!(s.editId || s.place || s.at || s.customer_name || s.note);
+    const moreFilled = !!(s.editId || s.customer_name || s.note);
     const moreBox = el('details', { className: 'more-info' },
-      el('summary', { text: 'Thêm thông tin đơn (nơi bán, giờ, tên khách, ghi chú)' }),
-      el('div', { style: 'padding-top:10px' }, el('div', { className: 'grid-2' }, fPlace, fAt), el('div', { className: 'grid-2' }, fName, fNote))
+      el('summary', { text: 'Thêm thông tin đơn (nơi bán, tên khách, ghi chú)' }),
+      el('div', { style: 'padding-top:10px' }, el('div', { className: 'grid-2' }, fPlace, fName), fNote)
     );
     if (ST.saleMoreOpen || moreFilled) moreBox.open = true;
     moreBox.addEventListener('toggle', () => { ST.saleMoreOpen = moreBox.open; });
@@ -1185,23 +1160,22 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         ))
       )) : el('div', { className: 'empty-state', text: 'Chưa có đơn bán tại quầy nào.' })
     );
-    const recentCard = el('button', {
-      type: 'button', className: 'btn', style: 'width:100%;margin-bottom:14px',
-      onClick: e => openModal('Đơn gần đây (' + ST.manualOrders.length + ')', buildRecent(), null, e.currentTarget),
-      text: 'Xem đơn gần đây (' + ST.manualOrders.length + ')'
-    });
-
     if (ST.saleView === 'order') {
       contentHost.replaceChildren(
         el('button', { type: 'button', className: 'back-link', onClick: () => { ST.saleView = 'pick'; renderSaleTab(); window.scrollTo(0, 0); } }, el('span', { text: '←' }), el('span', { text: 'Chọn thêm món' })),
         linesCard,
         infoCard
       );
+    } else if (ST.saleList === 'saved') {
+      contentHost.replaceChildren(
+        renderMetaBar('sale', async () => { await loadTabData('sale'); renderSaleTab(); }),
+        seg,
+        el('div', { className: 'card' }, buildRecent())
+      );
     } else {
       contentHost.replaceChildren(
-        ...pickNodes,
-        recentCard,
-        renderMetaBar('sale', async () => { await loadTabData('sale'); renderSaleTab(); })
+        renderMetaBar('sale', async () => { await loadTabData('sale'); renderSaleTab(); }),
+        ...pickNodes
       );
     }
     drawSalePromo();
@@ -1251,13 +1225,13 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
 
   function updateSaleSticky() {
-    if (ST.tab !== 'sale') { stickyHost.replaceChildren(); return; }
+    if (ST.tab !== 'sale' || (ST.saleList === 'saved' && ST.saleView !== 'order')) { stickyHost.replaceChildren(); return; }
     const tot = saleTotals();
     const inOrder = ST.saleView === 'order';
     const btn = el('button', {
       type: 'button', className: 'btn-save', disabled: !tot.count,
       onClick: () => { if (inOrder) submitSaleOrder(btn); else { ST.saleView = 'order'; renderSaleTab(); window.scrollTo(0, 0); } },
-      text: inOrder ? (ST.sale.editId ? 'Cập nhật đơn' : 'Lưu đơn') : 'Xem đơn'
+      text: inOrder ? (ST.sale.editId ? 'Cập nhật đơn' : 'Lưu đơn') : 'Đặt hàng'
     });
     stickyHost.replaceChildren(el('div', { className: 'sticky-bar' },
       el('div', { className: 'sticky-bar-in' },
@@ -1455,7 +1429,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     { id: 'cancelled', label: 'Đã hủy' },
     { id: 'all', label: 'Tất cả' }
   ];
-  const ONLINE_TABS = [{ id: 'active', label: 'Đang xử lý' }, { id: 'closed', label: 'Đã xong' }];
   const ACTIVE_ST = ['new', 'preparing', 'delivering'];
   const NEXT_ACTION = {
     new: { next: 'preparing', label: 'Nhận đơn' },
@@ -1485,24 +1458,25 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
 
   function renderOnlineTab() {
-    const counts = { all: ST.onlineOrders.length };
-    for (const o of ST.onlineOrders) counts[o.status] = (counts[o.status] || 0) + 1;
-    if (ST.onlineFilter !== 'active' && ST.onlineFilter !== 'closed') ST.onlineFilter = 'active';
-    const nActive = ST.onlineOrders.filter(o => ACTIVE_ST.indexOf(o.status) >= 0).length;
-    const shown = ST.onlineFilter === 'active'
-      ? ST.onlineOrders.filter(o => ACTIVE_ST.indexOf(o.status) >= 0).sort((a, b) => (ACTIVE_ST.indexOf(a.status) - ACTIVE_ST.indexOf(b.status)) || (new Date(a.created_at) - new Date(b.created_at)))
-      : ST.onlineOrders.filter(o => ACTIVE_ST.indexOf(o.status) < 0);
-
-    const filterRow = el('div', { className: 'chips even', style: 'margin-bottom:12px' },
-      ONLINE_TABS.map(st => el('button', {
-        type: 'button', className: 'chip', 'aria-pressed': String(ST.onlineFilter === st.id),
-        onClick: () => { ST.onlineFilter = st.id; renderOnlineTab(); },
-        text: st.label + (st.id === 'active' && nActive ? ' (' + nActive + ')' : '')
-      }))
+    const OFILTERS = [
+      ['new', 'Mới', o => o.status === 'new'],
+      ['doing', 'Đang làm', o => o.status === 'preparing' || o.status === 'delivering'],
+      ['money', 'Chờ tiền', o => o.status === 'done' && o.pay_status !== 'paid'],
+      ['recent', 'Gần đây', () => true]
+    ];
+    if (!OFILTERS.some(x => x[0] === ST.onlineFilter) && ST.onlineFilter !== 'rate') ST.onlineFilter = 'new';
+    const cur = OFILTERS.find(x => x[0] === ST.onlineFilter) || OFILTERS[3];
+    const shown = ST.onlineOrders.filter(cur[2]).sort((a, b) => ST.onlineFilter === 'recent' ? (new Date(b.created_at) - new Date(a.created_at)) : (new Date(a.created_at) - new Date(b.created_at)));
+    const chipRow = (k, label, n, onClick) => el('button', {
+      type: 'button', className: 'chip', 'aria-pressed': String(ST.onlineFilter === k),
+      onClick: onClick || (() => { ST.onlineFilter = k; renderOnlineTab(); }),
+      text: label + (n ? ' · ' + n : '')
+    });
+    const filterRow = el('div', { className: 'chips', style: 'margin-bottom:12px', role: 'group', 'aria-label': 'Lọc đơn' },
+      OFILTERS.map(([k, label, fn]) => chipRow(k, label, k !== 'recent' ? ST.onlineOrders.filter(fn).length : 0)),
+      app.hasPlan('proplus') ? chipRow('rate', 'Đánh giá', 0, () => switchTab('feedback')) : null
     );
-    const legend = ST.onlineFilter === 'active' ? el('div', { className: 'st-legend' },
-      [['new', 'Mới'], ['preparing', 'Đang làm'], ['delivering', 'Đang giao']].map(x => el('span', null, el('i', { style: 'background:var(--st-' + (x[0] === 'preparing' ? 'prep' : x[0] === 'delivering' ? 'deliv' : x[0]) + ')' }), x[1]))
-    ) : null;
+    const legend = null;
 
     const cards = shown.length ? shown.map(o => {
       const next = NEXT_ACTION[o.status];
@@ -1564,7 +1538,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           o.status !== 'done' && o.status !== 'cancelled' ? kebab({ text: 'Hủy đơn', danger: true, fn: e => confirmModal('Hủy đơn ' + o.code + '?', 'Đơn sẽ chuyển sang trạng thái Đã hủy.', 'Xác nhận hủy', () => updateOnlineStatus(o, 'cancelled'), e.currentTarget) }) : null
         )
       );
-    }) : [el('div', { className: 'card empty-state', text: 'Không có đơn online nào trong mục này.' })];
+    }) : [el('div', { className: 'card empty-state', text: ST.onlineFilter === 'new' ? 'Chưa có đơn mới.' : 'Không có đơn nào.' })];
 
     const moreBtn = ST.onlineHasMore ? el('button', {
       type: 'button', className: 'btn', style: 'width:100%',
@@ -1574,9 +1548,10 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
     contentHost.replaceChildren(
       renderMetaBar('online', async () => { await loadOnlineOrders(false); markLoaded('online'); renderOnlineTab(); }),
-      filterRow, legend,
+      filterRow,
       ...cards,
-      moreBtn
+      moreBtn,
+      el('div', { style: 'text-align:center;margin-top:16px;color:var(--text-sub);font-size:13px', text: 'Tự tải lại mỗi 25 giây' })
     );
   }
 
@@ -1618,7 +1593,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       renderNav();
       if (ST.tab === 'online') renderOnlineTab();
     } catch (e) {}
-  }, 30000);
+  }, 25000);
   window.addEventListener('beforeunload', () => {
     clearInterval(pollOnlineTimer);
     try { sb.removeChannel(onlineChannel); } catch (e) {}
@@ -1938,7 +1913,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       bkBtn
     );
 
-    // 1b. Logo & màu riêng của tiệm
+    // 1b. Logo & màu riêng của quán
     const SUPA = (window.DATDON && window.DATDON.SUPABASE_URL) || '';
     const br = { theme: sh.theme || 'xanh-la', logo: sh.logo_url || null, blob: null, preview: sh.logo_url || null, removed: false,
       banner: sh.banner_url || null, bBlob: null, bPreview: sh.banner_url || null, bRemoved: false, tagline: sh.tagline || '' };
@@ -2057,7 +2032,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     });
     drawLogo(); drawBanner(); drawThemes();
     const brandCard = el('div', { className: 'card' },
-      el('div', { style: 'font-weight:700', text: 'Logo, banner và màu của tiệm' }),
+      el('div', { style: 'font-weight:700', text: 'Logo, banner và màu của quán' }),
       el('div', { style: 'display:flex;gap:12px;align-items:center;margin-top:10px' },
         logoImg,
         el('div', { style: 'display:flex;flex-direction:column;gap:6px' },
@@ -2086,11 +2061,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       brBtn
     );
 
-    // 2. Hồ sơ tiệm
+    // 2. Hồ sơ quán
     const pfBtn = el('button', {
       type: 'button', className: 'btn btn-primary', style: 'margin-top:10px',
       onClick: async () => {
-        if (!pf.name.trim()) { app.showToast('Tên tiệm không được trống', 'error'); return; }
+        if (!pf.name.trim()) { app.showToast('Tên quán không được trống', 'error'); return; }
         pfBtn.disabled = true; pfBtn.textContent = 'Đang lưu…';
         try {
           const { error } = await sb.rpc('update_shop_profile', {
@@ -2099,14 +2074,14 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           });
           if (error) throw error;
           await loadShopFull();
-          app.showToast('Đã lưu hồ sơ tiệm', 'accent');
+          app.showToast('Đã lưu hồ sơ quán', 'accent');
         } catch (err) { showErr(err); } finally { pfBtn.disabled = false; pfBtn.textContent = 'Lưu hồ sơ'; }
       },
       text: 'Lưu hồ sơ'
     });
     const profileCard = el('div', { className: 'card' },
-      el('div', { style: 'font-weight:700', text: 'Hồ sơ tiệm' }),
-      el('div', { className: 'field' }, el('label', { text: 'Tên tiệm' }), el('input', { className: 'input', maxlength: 80, value: pf.name, onInput: e => { pf.name = e.target.value; } })),
+      el('div', { style: 'font-weight:700', text: 'Hồ sơ quán' }),
+      el('div', { className: 'field' }, el('label', { text: 'Tên quán' }), el('input', { className: 'input', maxlength: 80, value: pf.name, onInput: e => { pf.name = e.target.value; } })),
       el('div', { className: 'grid-2' },
         el('div', { className: 'field' }, el('label', { text: 'Số điện thoại' }), el('input', { className: 'input', type: 'tel', value: pf.phone, onInput: e => { pf.phone = e.target.value; } })),
         el('div', { className: 'field' }, el('label', { text: 'Địa chỉ' }), el('input', { className: 'input', value: pf.address, onInput: e => { pf.address = e.target.value; } }))
@@ -2261,12 +2236,18 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       el('button', { type: 'button', className: 'btn btn-danger', style: 'width:100%;margin-top:16px', onClick: async () => { try { await sb.auth.signOut(); } catch (_) {} location.reload(); }, text: 'Đăng xuất' })
     );
 
+    const shopPickCard = app.shops.length > 1 ? el('div', { className: 'card' },
+      el('div', { style: 'font-weight:700;margin-bottom:6px', text: 'Chọn quán' }),
+      el('select', { className: 'select', 'aria-label': 'Chọn quán', onChange: ev => { app.storageSet('datdon_selected_shop_id', ev.target.value); window.location.reload(); } },
+        app.shops.map(sh2 => el('option', { value: sh2.id, text: sh2.name, selected: sh2.id === shopId })))
+    ) : null;
+
     contentHost.replaceChildren(
       renderMetaBar('settings', async () => { await loadTabData('settings'); renderSettingsTab(); }),
-      el('div', { className: 'bh-seg tight', role: 'group', 'aria-label': 'Nhóm cài đặt' }, [['shop', 'Tiệm'], ['order', 'Nhận đơn'], ['pay', 'Thanh toán'], ['acc', 'Tài khoản']].map(([id, lb]) => el('button', {
+      el('div', { className: 'bh-seg tight', role: 'group', 'aria-label': 'Nhóm cài đặt' }, [['shop', 'Quán'], ['order', 'Nhận đơn'], ['pay', 'Thanh toán'], ['acc', 'Tài khoản']].map(([id, lb]) => el('button', {
         type: 'button', 'aria-pressed': String(ST.settingsSub === id), onClick: () => { ST.settingsSub = id; renderSettingsTab(); window.scrollTo({ top: 0 }); }, text: lb
       }))),
-      ...(ST.settingsSub === 'order' ? [settingsCard] : ST.settingsSub === 'pay' ? [bankCard, pmCard] : ST.settingsSub === 'acc' ? [accCard] : [linkCard, profileCard, brandCard])
+      ...(ST.settingsSub === 'order' ? [settingsCard] : ST.settingsSub === 'pay' ? [bankCard, pmCard] : ST.settingsSub === 'acc' ? [accCard] : [shopPickCard, linkCard, profileCard, brandCard])
     );
   }
 
@@ -3235,42 +3216,39 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       return true;
     });
 
+    const plus = app.hasPlan('proplus');
     const toolbar = el('div', { className: 'toolbar', style: 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px' },
       el('button', { type: 'button', className: 'btn btn-primary', onClick: e => openCustomerModal(null, async () => { await loadCustomersWithStats(); renderCustTab(); }, e.currentTarget), text: '+ Thêm khách' }),
-      el('button', { type: 'button', className: 'btn', onClick: e => openCustCsvImportModal(e.currentTarget), text: 'Nhập CSV' }),
-      el('button', { type: 'button', className: 'btn', onClick: () => {
-        const rows = [['Mã', 'Tên', 'Nhóm', 'Căn hộ', 'Số điện thoại', 'Thành viên', 'Số đơn', 'Tổng mua']]
-          .concat(ST.customers.map(c => {
-            const st = ST.custStats.get(c.id) || { orders: 0, spent: 0 };
-            return [c.code, c.name, c.grp || '', c.apt || '', app.csvPhoneCell(c.phone || ''), c.member ? 'Có' : 'Không', st.orders, st.spent];
-          }));
-        app.downloadCsv('khach-hang-' + ST.shop.slug + '.csv', rows);
-      }, text: 'Xuất CSV' })
+      plus ? el('button', { type: 'button', className: 'btn', onClick: e => openCustCsvImportModal(e.currentTarget), text: 'Nhập CSV' }) : null
     );
 
     contentHost.replaceChildren(
       renderMetaBar('cust', async () => { await loadTabData('cust'); renderCustTab(); }),
       toolbar,
       el('div', { className: 'card' },
-        el('input', { className: 'input', type: 'search', placeholder: 'Tìm tên, SĐT, căn hộ…', value: ST.custSearch, onInput: e => { ST.custSearch = e.target.value; renderCustTab(); } }),
-        el('div', { className: 'chips', style: 'margin-top:8px' },
+        el('input', { className: 'input', type: 'search', placeholder: plus ? 'Tìm tên, SĐT, căn hộ…' : 'Tìm tên hoặc căn hộ…', value: ST.custSearch, onInput: e => { ST.custSearch = e.target.value; renderCustTab(); } }),
+        plus ? el('div', { className: 'chips', style: 'margin-top:8px' },
           el('button', { type: 'button', className: 'chip', 'aria-pressed': String(!ST.custGrp), onClick: () => { ST.custGrp = ''; renderCustTab(); }, text: 'Tất cả nhóm' }),
           grps.map(g => el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.custGrp === g), onClick: () => { ST.custGrp = g; renderCustTab(); }, text: g })),
           el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.custMemberOnly), onClick: () => { ST.custMemberOnly = !ST.custMemberOnly; renderCustTab(); }, text: 'Chỉ thành viên' })
-        ),
+        ) : null,
         el('div', { style: 'margin-top:10px' },
+          el('div', { className: 'count', style: 'font-size:13px;color:var(--text-sub);margin-bottom:4px', text: list.length + ' khách' }),
           list.length ? list.map(c => {
             const st = ST.custStats.get(c.id) || { orders: 0, spent: 0, last: '' };
+            const editFn = e => openCustomerModal(c, async () => { await loadCustomersWithStats(); renderCustTab(); }, e.currentTarget);
             return el('div', { className: 'line-row' },
               el('div', { className: 'line-main' },
                 el('b', { text: c.name + (c.apt ? ' · ' + c.apt : '') }),
-                el('small', { className: 'num', text: (c.phone || 'Chưa có SĐT') + ' · ' + st.orders + ' đơn · ' + app.formatMoney(st.spent) + (st.last ? ' · Gần nhất ' + app.formatVnDateTime(st.last).slice(0, 10) : '') })
+                el('small', { className: 'num', text: plus
+                  ? (c.phone || 'Chưa có SĐT') + ' · ' + st.orders + ' đơn · ' + app.formatMoney(st.spent) + (st.last ? ' · Gần nhất ' + app.formatVnDateTime(st.last).slice(0, 10) : '')
+                  : (c.phone || 'Chưa có SĐT') })
               ),
-              c.member ? el('span', { className: 'badge', text: 'Thành viên' }) : null,
-              el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openCustomerDetailModal(c, e.currentTarget), text: 'Chi tiết' }),
-              kebab({ text: 'Sửa thông tin khách', fn: e => openCustomerModal(c, async () => { await loadCustomersWithStats(); renderCustTab(); }, e.currentTarget) })
+              plus && c.member ? el('span', { className: 'badge', text: 'Thành viên' }) : null,
+              plus ? el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openCustomerDetailModal(c, e.currentTarget), text: 'Chi tiết' }) : null,
+              plus ? kebab({ text: 'Sửa thông tin khách', fn: editFn }) : el('button', { type: 'button', className: 'btn btn-sm', onClick: editFn, text: 'Sửa' })
             );
-          }) : el('div', { className: 'empty-state', text: 'Chưa có khách hàng khớp tìm kiếm.' })
+          }) : el('div', { className: 'empty-state', text: 'Chưa có khách nào. Bấm + Thêm khách để lưu thông tin khách.' })
         )
       )
     );
@@ -3283,24 +3261,25 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       member: c ? !!c.member : false
     };
     const grps = [...new Set(ST.customers.map(x => (x.grp || '').trim()).filter(Boolean))];
+    const plus = app.hasPlan('proplus');
     const body = el('div', null,
       el('div', { className: 'field' }, el('label', { text: 'Tên khách' }), el('input', { className: 'input', value: f.name, onInput: e => { f.name = e.target.value; } })),
       el('div', { className: 'grid-2' },
-        el('div', { className: 'field' },
+        plus ? el('div', { className: 'field' },
           el('label', { text: 'Nhóm' }),
           el('input', { className: 'input', list: 'dl-cgrps', value: f.grp, onInput: e => { f.grp = e.target.value; } }),
           el('datalist', { id: 'dl-cgrps' }, grps.map(g => el('option', { value: g })))
-        ),
+        ) : null,
         el('div', { className: 'field' }, el('label', { text: 'Căn hộ / Phòng' }), el('input', { className: 'input', value: f.apt, onInput: e => { f.apt = e.target.value; } }))
       ),
       el('div', { className: 'grid-2' },
         el('div', { className: 'field' }, el('label', { text: 'Số điện thoại' }), el('input', { className: 'input', type: 'tel', value: f.phone, onInput: e => { f.phone = e.target.value; } })),
-        el('div', { className: 'field' }, el('label', { text: 'Địa chỉ' }), el('input', { className: 'input', value: f.address, onInput: e => { f.address = e.target.value; } }))
+        plus ? el('div', { className: 'field' }, el('label', { text: 'Địa chỉ' }), el('input', { className: 'input', value: f.address, onInput: e => { f.address = e.target.value; } })) : null
       ),
-      el('div', { className: 'field' }, el('label', { text: 'Ghi chú' }), el('input', { className: 'input', value: f.note, onInput: e => { f.note = e.target.value; } })),
-      el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:600' },
+      plus ? el('div', { className: 'field' }, el('label', { text: 'Ghi chú' }), el('input', { className: 'input', value: f.note, onInput: e => { f.note = e.target.value; } })) : null,
+      plus ? el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:600' },
         el('input', { type: 'checkbox', checked: f.member, style: 'width:20px;height:20px', onChange: e => { f.member = e.target.checked; } }), 'Là thành viên'
-      )
+      ) : null
     );
     const saveBtn = el('button', {
       type: 'button', className: 'btn btn-primary',
@@ -3602,7 +3581,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
 
   /* ===== TAB: Đánh giá (gói tối thiểu: proplus) ===== */
-  const WANT_LABELS = { exchange: 'Đổi món', refund: 'Hoàn tiền', notify: 'Chỉ báo để tiệm biết' };
+  const WANT_LABELS = { exchange: 'Đổi món', refund: 'Hoàn tiền', notify: 'Chỉ báo để quán biết' };
   const FIX_OPTIONS = ['Đổi món', 'Hoàn tiền', 'Giảm giá đơn sau', 'Xin lỗi, ghi nhận', 'Không xác nhận được lỗi'];
 
   async function loadFeedbacks() {

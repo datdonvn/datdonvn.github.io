@@ -1580,7 +1580,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             onClick: e => openChangePaymentModal(o, e.currentTarget),
             text: 'Đổi cách thanh toán'
           }) : null,
-          o.status !== 'done' && o.status !== 'cancelled' ? kebab({ text: 'Hủy đơn', danger: true, fn: e => confirmModal('Hủy đơn ' + o.code + '?', 'Đơn sẽ chuyển sang trạng thái Đã hủy.', 'Xác nhận hủy', () => updateOnlineStatus(o, 'cancelled'), e.currentTarget) }) : null
+          o.status !== 'done' && o.status !== 'cancelled' ? kebab({ text: 'Hủy đơn', danger: true, fn: e => openCancelOrderModal(o, e.currentTarget) }) : null
         )
       );
     }) : [el('div', { className: 'card empty-state', text: ST.onlineFilter === 'new' ? 'Chưa có đơn mới.' : 'Không có đơn nào.' })];
@@ -1600,12 +1600,30 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     );
   }
 
-  async function updateOnlineStatus(order, newStatus) {
+  // Hủy / từ chối đơn kèm lý do (như v1: khách thấy lý do trên đơn của họ)
+  function openCancelOrderModal(order, opener) {
+    const chips = ['Hết hàng', 'Ngoài khu vực giao', 'Quán nghỉ', 'Khách yêu cầu hủy'];
+    let reason = '';
+    const inp = el('input', { className: 'input', placeholder: 'Lý do (khách sẽ thấy). Có thể để trống', maxlength: 200, onInput: e => { reason = e.target.value; draw(); } });
+    const row = el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin:10px 0' });
+    const draw = () => row.replaceChildren(...chips.map(c => el('button', {
+      type: 'button', className: 'btn btn-sm' + (reason === c ? ' btn-primary' : ''),
+      onClick: () => { reason = c; inp.value = c; draw(); }, text: c
+    })));
+    draw();
+    const okBtn = el('button', { type: 'button', className: 'btn btn-danger', text: 'Xác nhận hủy', onClick: () => { closeModal(); updateOnlineStatus(order, 'cancelled', reason.trim()); } });
+    openModal('Hủy đơn ' + order.code + '?', el('div', null, el('div', { text: 'Đơn sẽ chuyển sang Đã hủy. Chọn hoặc ghi lý do để khách biết.' }), row, inp),
+      [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Quay lại' }), okBtn], opener);
+  }
+
+  async function updateOnlineStatus(order, newStatus, reason) {
     const prev = order.status;
     order.status = newStatus; // Cập nhật lạc quan
     renderOnlineTab();
     try {
-      const res = await sb.from('orders').update({ status: newStatus }).eq('id', order.id).eq('shop_id', shopId).select('id');
+      const patch = { status: newStatus };
+      if (newStatus === 'cancelled') patch.cancel_reason = reason || null;
+      const res = await sb.from('orders').update(patch).eq('id', order.id).eq('shop_id', shopId).select('id');
       checkMutated(res);
       app.showToast('Đã chuyển đơn ' + order.code + ' sang ' + ((ONLINE_STATES.find(x => x.id === newStatus) || {}).label || newStatus), 'accent');
       renderNav();

@@ -1823,6 +1823,7 @@ function renderOrderCard(info, phone) {
     el('div', { className: 'row-kv total' },
       el('span', { text: 'Tổng cộng' }), el('span', { className: 'num', text: formatMoney(info.total) })
     ),
+    (info.status === 'cancelled' && info.cancel_reason) ? el('div', { className: 'msg msg-err', style: 'margin-top:10px', text: 'Quán đã hủy đơn này: ' + info.cancel_reason }) : null,
     (info.pay_status === 'checking' && info.status !== 'cancelled') ? el('div', { className: 'msg msg-ok', style: 'margin-top:10px', role: 'status', text: 'Bạn đã báo chuyển khoản. Quán đang kiểm tra.' }) : null,
     (info.can_change_pay && info.pay_method_id) ? el('div', { style: 'margin-top:10px' }, makePayBlock(info.code, phone, info.total, info.pay_method_id, true, () => refreshSavedOrders())) : null,
     orderEditButtons(info, phone),

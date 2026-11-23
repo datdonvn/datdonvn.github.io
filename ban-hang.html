@@ -3457,7 +3457,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         return el('div', { className: 'line-row promo-row' },
           el('div', { className: 'line-main' },
             el('b', { text: p.name }),
-            el('small', { text: [valText, p.min_qty > 0 ? 'từ ' + p.min_qty + ' phần' : '', p.min_money > 0 ? 'đơn từ ' + app.formatMoney(p.min_money) : '', (p.item_ids && p.item_ids.length) ? 'áp dụng ' + p.item_ids.length + ' món' : '', (p.description && p.description !== valText) ? p.description : '', p.show_banner === false ? 'ẩn khỏi banner' : 'hiện ở banner'].filter(Boolean).join(' · ') })
+            el('small', { text: [valText, p.min_qty > 0 ? 'từ ' + p.min_qty + ' phần' : '', p.min_money > 0 ? 'đơn từ ' + app.formatMoney(p.min_money) : '', (p.item_ids && p.item_ids.length) ? 'áp dụng ' + p.item_ids.length + ' món' : '', (p.description && p.description !== valText) ? p.description : '', (p.active && p.show_banner !== false) ? 'hiện ở banner' : ''].filter(Boolean).join(' · ') })
           ),
           (st.text === 'Đang chạy' || st.text === 'Tắt') ? null : el('span', { className: 'badge ' + st.cls, text: st.text }),
           app.toggle(p.active, async (on) => {
@@ -3467,7 +3467,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
               p.active = on;
             } catch (err) { showErr(err); }
             renderPromoTab();
-          }),
+          }, p.active ? 'Đang chạy' : 'Đã tắt'),
           kebab({ text: 'Sửa chương trình', fn: e => openPromoModal(p, e.currentTarget) }, { text: 'Xóa', danger: true, fn: e => confirmModal('Xóa "' + p.name + '"?', 'Chương trình sẽ bị xóa hẳn.', 'Xóa', async () => {
             const res = await sb.from('promotions').delete().eq('id', p.id).eq('shop_id', shopId).select('id');
             checkMutated(res);

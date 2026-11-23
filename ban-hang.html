@@ -28,6 +28,10 @@ body { overflow-x: hidden; font-family: "Be Vietnam Pro", var(--font, system-ui,
 /* Thanh thẻ chức năng: điện thoại ở đáy, màn rộng ≥ 900px ở đầu trang */
 .bh-nav {
   position: fixed;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  will-change: transform;
+
   left: 0;
   right: 0;
   bottom: 0;
@@ -240,6 +244,8 @@ body { overflow-x: hidden; font-family: "Be Vietnam Pro", var(--font, system-ui,
 /* Thanh tổng cố định đáy */
 .sticky-bar {
   position: fixed;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
   left: 0;
   right: 0;
   bottom: calc(58px + env(safe-area-inset-bottom));

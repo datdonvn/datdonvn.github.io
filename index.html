@@ -52,13 +52,12 @@
   }
 }
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
+html { -webkit-text-size-adjust: 100%; touch-action: manipulation; overflow-x: clip; }
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
   font: 400 16px/1.5 "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
-  overflow-x: hidden;
 }
 button, input, select, textarea { font: inherit; color: inherit; }
 button {
@@ -286,6 +285,8 @@ span.shop-logo.shop-mono { display: inline-flex; align-items: center; justify-co
 /* Thanh giỏ hàng nổi */
 .cart-bar {
   position: fixed;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
   left: 0;
   right: 0;
   bottom: calc(60px + env(safe-area-inset-bottom));
@@ -324,6 +325,10 @@ span.shop-logo.shop-mono { display: inline-flex; align-items: center; justify-co
 /* Thanh điều hướng đáy */
 .bottom-nav {
   position: fixed;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  will-change: transform;
+
   left: 0;
   right: 0;
   bottom: 0;

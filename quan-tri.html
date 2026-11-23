@@ -538,11 +538,15 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
           reqs.push(sb.rpc('report_pnl', { p_shop: shopId, p_from: ST.statsFrom, p_to: todayYmd }));
           reqs.push(sb.rpc('report_customers', { p_shop: shopId, p_from: thisMonthStart, p_to: todayYmd }));
         }
+        const iCf = app.hasPlan('pro') ? reqs.push(sb.rpc('report_cashflow', { p_shop: shopId, p_from: ST.statsFrom, p_to: todayYmd })) - 1 : -1;
+        const iNew = app.hasPlan('proplus') ? reqs.push(sb.from('customers').select('created_at').eq('shop_id', shopId).gte('created_at', ST.statsFrom + 'T00:00:00+07:00').limit(5000)) - 1 : -1;
         const res = await Promise.all(reqs);
         for (const r of res) if (r.error) throw r.error;
         ST.statsRev = res[0].data;
-        if (res[1]) ST.statsPnl = res[1].data;
-        if (res[2]) ST.statsCust = res[2].data;
+        if (res[1] && app.hasPlan('proplus')) ST.statsPnl = res[1].data;
+        if (res[2] && app.hasPlan('proplus')) ST.statsCust = res[2].data;
+        ST.statsCash = iCf >= 0 ? res[iCf].data : null;
+        ST.statsNew = iNew >= 0 ? (res[iNew].data || []) : null;
       } else if (ST.tab === 'cashflow' && app.hasPlan('pro')) {
         const { data, error } = await sb.rpc('report_cashflow', { p_shop: shopId, p_from: ST.from, p_to: ST.to });
         if (error) throw error;
@@ -917,7 +921,12 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       el('div', { className: 'kpi-grid' },
         kpi('Doanh thu', app.formatMoney(rev)),
         kpi('Lãi gộp', app.formatMoney(gross), rev ? pct(gross, rev) + ' doanh thu' : 'chưa có doanh thu'),
-        plus ? kpi('Lãi thuần', app.formatMoney(p.net), rev ? pct(p.net, rev) + ' doanh thu' : 'chưa có doanh thu') : null
+        plus ? kpi('Lãi thuần', app.formatMoney(p.net), rev ? pct(p.net, rev) + ' doanh thu' : 'chưa có doanh thu') : null,
+        (() => {
+          const qty = (c.items || []).reduce((t, i) => t + (Number(i.qty) || 0), 0);
+          const per = plus ? p.net : gross;
+          return kpi(plus ? 'Lãi thuần mỗi sp' : 'Lãi gộp mỗi sp', qty ? app.formatMoney(Math.round(per / qty)) : '—', 'bán ' + qty + ' sản phẩm, thu ' + (qty ? app.formatMoney(Math.round(rev / qty)) : '—') + '/sp');
+        })()
       ),
       ...parts
     );
@@ -959,6 +968,24 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       chart('Trung bình mỗi đơn', monthKeys.map(k => avg(agg.get(k))), app.formatMoney),
       plus ? chart('Lãi ròng theo tháng', monthKeys.map(k => (pnlBy.get(k) ? pnlBy.get(k).net : 0)), app.formatMoney, 'var(--yellow)') : null
     ];
+    if (ST.statsCash) {   // Thực thu và thực chi theo tháng (như v1)
+      const cin = new Map(monthKeys.map(k => [k, 0])), cout = new Map(monthKeys.map(k => [k, 0]));
+      for (const d of (ST.statsCash.days || [])) {
+        const k = String(d.day).slice(0, 7);
+        if (cin.has(k)) { cin.set(k, cin.get(k) + (d.in_orders || 0) + (d.in_manual || 0)); cout.set(k, cout.get(k) + (d.out_purchases || 0) + (d.out_debt || 0) + (d.out_manual || 0)); }
+      }
+      kids.push(el('div', { className: 'card' }, el('b', { text: 'Thực thu và thực chi theo tháng' }),
+        el('div', { style: 'margin-top:8px' }, renderSvgBarChart('Thực thu và thực chi theo tháng', labels, [
+          { name: 'Thực thu', color: 'var(--accent)', values: monthKeys.map(k => cin.get(k)) },
+          { name: 'Thực chi', color: 'var(--yellow)', values: monthKeys.map(k => cout.get(k)) }
+        ], app.formatMoney))));
+    }
+    if (ST.statsNew) {    // Khách mới theo tháng (như v1)
+      const cnt = new Map(monthKeys.map(k => [k, 0]));
+      for (const r of ST.statsNew) { const k = app.toVnYmd(new Date(r.created_at)).slice(0, 7); if (cnt.has(k)) cnt.set(k, cnt.get(k) + 1); }
+      kids.push(el('div', { className: 'card' }, el('b', { text: 'Khách mới theo tháng' }),
+        el('div', { style: 'margin-top:8px' }, renderSvgBarChart('Khách mới theo tháng', labels, [{ name: 'Khách mới', color: 'var(--accent)', values: monthKeys.map(k => cnt.get(k)) }], v => String(v)))));
+    }
     if (plus && ST.statsCust) {
       const saved = ST.customers; ST.customers = ST.statsCust;
       kids.push(el('div', { style: 'font-weight:700;margin:14px 0 8px;color:var(--text-sub)', text: 'Khách hàng tháng này' }), ...collectNodes(renderCustomersTab));
@@ -989,7 +1016,8 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       ),
       el('div', { className: 'kpi-grid' },
         el('div', { className: 'kpi-card' }, el('small', { text: 'Vốn đầu tư (thu / rút)' }), el('b', { className: 'num', text: app.formatMoney(cf.totals.capital_in) + ' / ' + app.formatMoney(cf.totals.capital_out) })),
-        el('div', { className: 'kpi-card' }, el('small', { text: 'Nợ nhà cung cấp còn lại' }), el('b', { className: 'num', style: cf.debt_total > 0 ? 'color:var(--error)' : '', text: app.formatMoney(cf.debt_total) }))
+        el('div', { className: 'kpi-card' }, el('small', { text: 'Nợ nhà cung cấp còn lại' }), el('b', { className: 'num', style: cf.debt_total > 0 ? 'color:var(--error)' : '', text: app.formatMoney(cf.debt_total) })),
+        el('div', { className: 'kpi-card' }, el('small', { text: 'Tiền thực còn sau khi trả hết nợ' }), el('b', { className: 'num', text: app.formatMoney(closing - (cf.debt_total || 0)) }))
       ),
       el('div', { className: 'card' },
         el('div', { className: 'row-between', style: 'margin-bottom:8px' },

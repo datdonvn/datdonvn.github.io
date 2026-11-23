@@ -1,0 +1,14 @@
+{
+  "id": "/ban-hang.html",
+  "name": "Bán hàng",
+  "short_name": "Bán hàng",
+  "start_url": "/ban-hang.html",
+  "scope": "/ban-hang.html",
+  "display": "standalone",
+  "background_color": "#EDF2EA",
+  "theme_color": "#1E4D3A",
+  "icons": [
+    { "src": "icon-banhang-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-banhang-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

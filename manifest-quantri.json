@@ -1,0 +1,14 @@
+{
+  "id": "/quan-tri.html",
+  "name": "Quản trị",
+  "short_name": "Quản trị",
+  "start_url": "/quan-tri.html",
+  "scope": "/quan-tri.html",
+  "display": "standalone",
+  "background_color": "#EDF2EA",
+  "theme_color": "#1E4D3A",
+  "icons": [
+    { "src": "icon-quantri-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-quantri-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

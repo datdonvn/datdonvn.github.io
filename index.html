@@ -86,6 +86,13 @@ button {
   max-width: 600px;
   margin: 0 auto;
 }
+.shop-banner { background: var(--surface); border-bottom: 1px solid var(--border); padding-top: env(safe-area-inset-top); }
+.shop-banner img { display: block; width: 100%; max-width: 600px; margin: 0 auto; aspect-ratio: 1200 / 450; object-fit: cover; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.shop-foot { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 13.5px; color: var(--text-sub); }
+.shop-tagline { text-align: center; margin-bottom: 12px; }
+.shop-contact { text-align: left; display: flex; flex-direction: column; gap: 3px; }
+.shop-contact a { color: var(--accent); font-weight: 600; text-decoration: none; }
 .shop-brand { display: flex; align-items: center; gap: 12px; }
 .shop-logo { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: #fff; flex: none; }
 .shop-name {
@@ -909,24 +916,33 @@ function renderApp() {
   if (!shop) return;
   const st = getShopStatus(shop);
 
-  const header = el('header', { className: 'shop-header' },
-    el('div', { className: 'shop-header-in' },
-      el('div', { className: 'shop-brand' },
-        shop.logo_url ? el('img', { className: 'shop-logo', src: shop.logo_url, alt: '', width: 44, height: 44 }) : null,
-        el('h1', { className: 'shop-name', text: shop.name })
-      ),
-      (shop.phone || shop.address) ? el('div', { className: 'shop-meta' },
-        shop.phone ? el('a', { href: 'tel:' + shop.phone, text: 'Gọi: ' + shop.phone }) : null,
-        shop.address ? el('span', { text: shop.address }) : null
-      ) : null
-    )
-  );
+  const header = shop.banner_url
+    ? el('header', { className: 'shop-banner' },
+        el('img', { src: shop.banner_url, alt: shop.name }),
+        el('h1', { className: 'sr-only', text: shop.name }))
+    : el('header', { className: 'shop-header' },
+        el('div', { className: 'shop-header-in' },
+          el('div', { className: 'shop-brand' },
+            shop.logo_url ? el('img', { className: 'shop-logo', src: shop.logo_url, alt: '', width: 44, height: 44 }) : null,
+            el('h1', { className: 'shop-name', text: shop.name })
+          )
+        )
+      );
+
+  const foot = (shop.tagline || shop.phone || shop.address) ? el('footer', { className: 'shop-foot' },
+    shop.tagline ? el('div', { className: 'shop-tagline', text: shop.tagline }) : null,
+    (shop.phone || shop.address) ? el('div', { className: 'shop-contact' },
+      shop.phone ? el('a', { href: 'tel:' + shop.phone, text: 'Gọi: ' + shop.phone }) : null,
+      shop.address ? el('span', { text: shop.address }) : null
+    ) : null
+  ) : null;
 
   const main = el('main', { className: 'wrap' },
     el('div', { className: 'status-banner ' + st.cls, role: 'status', text: st.text }),
     ST.tab === 'menu' ? renderMenuView() :
     ST.tab === 'orders' ? renderOrdersView() :
-    renderMemberView()
+    renderMemberView(),
+    foot
   );
 
   const cartBar = ST.tab === 'menu' && cartCount() > 0 ? renderCartBar() : null;

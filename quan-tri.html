@@ -39,19 +39,21 @@ body { overflow-x: hidden; font-family: "Be Vietnam Pro", var(--font, system-ui,
 .qt-nav-in { max-width: 960px; margin: 0 auto; display: flex; }
 .qt-nav button {
   flex: 1;
-  min-height: 56px;
-  padding: 6px 4px;
+  min-height: 58px;
+  padding: 6px 2px;
   border: 0;
   background: transparent;
   color: var(--text-sub);
-  font-family: inherit; font-size: 12.5px; font-weight: 600; line-height: 1.2; white-space: nowrap;
+  font-family: inherit; font-size: 11.5px; font-weight: 600; line-height: 1.2; white-space: nowrap;
   cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
 }
 .qt-nav button[aria-current="page"] { color: var(--accent); font-weight: 700; }
 @media (min-width: 900px) {
   .qt-nav { position: sticky; top: 0; bottom: auto; border-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 0; }
   .qt-nav-in { flex-wrap: wrap; gap: 4px; padding: 6px 14px; }
-  .qt-nav button { flex: 0 0 auto; min-height: 44px; padding: 8px 14px; border-radius: 999px; font-size: 14px; }
+  .qt-nav button { flex: 0 0 auto; min-height: 44px; padding: 8px 14px; border-radius: 999px; font-size: 14px; flex-direction: row; gap: 6px; }
+  .qt-nav svg { width: 20px; height: 20px; }
   .qt-nav button[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
 }
 
@@ -90,6 +92,10 @@ body { overflow-x: hidden; font-family: "Be Vietnam Pro", var(--font, system-ui,
   border-radius: var(--radius-sm);
   padding: 12px 14px;
 }
+.kpi-grid > .kpi-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.qt-more { margin-top: 8px; }
+.hscroll .chip { padding: 8px 12px; min-height: 40px; font-size: 13.5px; }
+.qt-more summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--accent); min-height: 36px; display: flex; align-items: center; }
 .kpi-card small { display: block; color: var(--text-sub); font-size: 13px; }
 .kpi-card b { display: block; font-size: 20px; margin-top: 3px; word-break: break-word; }
 .kpi-card .sub { display: block; font-size: 12.5px; color: var(--text-sub); margin-top: 2px; }
@@ -109,6 +115,9 @@ table.qt-tbl tr.sum-row td { font-weight: 700; border-top: 2px solid var(--borde
 table.qt-tbl tr.warn-row { background: var(--warn-bg); }
 table.qt-tbl tr.clickable { cursor: pointer; }
 table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
+
+.ord-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 10px 2px; border: 0; border-bottom: 1px solid var(--border); background: transparent; font: inherit; color: inherit; cursor: pointer; }
+.ord-row:hover { background: var(--accent-soft); }
 
 /* Biểu đồ SVG thuần */
 .chart-cap { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
@@ -274,7 +283,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
     if (!labels.length) return el('div', { className: 'empty-state', text: 'Chưa có dữ liệu trong khoảng thời gian này.' });
     const n = labels.length;
     const k = series.length;
-    const W = 560, H = 190, pl = 8, pr = 8, pt = 14, pb = 26;
+    const W = 560, H = 200, pl = 8, pr = 8, pt = 14, pb = 32;
     const allVals = series.flatMap(s => s.values);
     const maxV = Math.max(1, ...allVals);
     const minV = Math.min(0, ...allVals);
@@ -295,7 +304,8 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       hits.forEach((r, idx) => r.setAttribute('fill', idx === sel ? 'rgba(30,77,58,0.12)' : 'transparent'));
     };
 
-    const step = n <= 10 ? 1 : Math.ceil(n / 8);
+    const step = n <= 7 ? 1 : Math.ceil(n / 5);
+    let lastShown = -99;
     labels.forEach((lb, i) => {
       const gx = pl + gw * i;
       const cx = gx + gw / 2;
@@ -313,9 +323,10 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
           fill: v === 0 ? 'var(--border)' : s.color
         }));
       });
-      if (i % step === 0 || i === n - 1) {
+      if (i % step === 0 || (i === n - 1 && i - lastShown >= step * 0.7)) {
+        lastShown = i;
         gi.append(sv('text', {
-          x: cx, y: H - 6, 'text-anchor': 'middle', 'font-size': 11, fill: 'var(--text-sub)'
+          x: cx, y: H - 8, 'text-anchor': i === n - 1 && n > 7 ? 'end' : 'middle', 'font-size': 17, fill: 'var(--text-sub)'
         }, lb));
       }
       gi.addEventListener('click', () => updateSel(i));
@@ -381,6 +392,29 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
   const contentHost = el('div', { className: 'qt-wrap' });
   root.replaceChildren(el('div', { className: 'dd-wrap' }, navHost, contentHost));
 
+  const NAV_ICONS = {
+    overview: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+    payment: 'M3 6h18v12H3zM3 10h18M7 15h4',
+    orders: 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6',
+    goal: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01',
+    cashflow: 'M3 17l6-6 4 4 8-8M15 7h6v6',
+    costing: 'M12 3v18M16 7H10a3 3 0 0 0 0 6h4a3 3 0 0 1 0 6H8',
+    inventory: 'M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8',
+    debt: 'M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2zM9 8h6M9 12h4',
+    pnl: 'M5 19V9M12 19V5M19 19v-7',
+    customers: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21a7 7 0 0 1 14 0M17 4a4 4 0 0 1 0 7M22 21a7 7 0 0 0-4-6',
+    feedback: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
+    more: 'M5 12h.01M12 12h.01M19 12h.01'
+  };
+  function navIcon(id) {
+    const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '22'); svg.setAttribute('height', '22');
+    svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', id === 'more' ? '3' : '1.9');
+    svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round'); svg.setAttribute('aria-hidden', 'true');
+    const pth = document.createElementNS(ns, 'path'); pth.setAttribute('d', NAV_ICONS[id] || NAV_ICONS.more); svg.appendChild(pth);
+    return svg;
+  }
+
   function renderNav() {
     const isWide = window.innerWidth >= 900;
     const visible = (!isWide && TABS.length > 5) ? TABS.slice(0, 4) : TABS;
@@ -388,9 +422,8 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
     const btns = visible.map(t => el('button', {
       type: 'button',
       'aria-current': ST.tab === t.id ? 'page' : null,
-      onClick: () => switchTab(t.id),
-      text: t.label
-    }));
+      onClick: () => switchTab(t.id)
+    }, navIcon(t.id), el('span', { text: t.label })));
     if (overflow.length) {
       const activeMore = overflow.some(t => t.id === ST.tab);
       btns.push(el('button', {
@@ -400,13 +433,11 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
           overflow.map(t => el('button', {
             type: 'button',
             className: 'btn' + (ST.tab === t.id ? ' btn-primary' : ''),
-            style: 'width:100%;justify-content:flex-start',
-            onClick: () => { closeModal(); switchTab(t.id); },
-            text: t.label
-          }))
-        ), null, e.currentTarget),
-        text: 'Thêm'
-      }));
+            style: 'width:100%;justify-content:flex-start;gap:12px',
+            onClick: () => { closeModal(); switchTab(t.id); }
+          }, navIcon(t.id), el('span', { text: t.label })))
+        ), null, e.currentTarget)
+      }, navIcon('more'), el('span', { text: 'Thêm' })));
     }
     navHost.replaceChildren(el('nav', { className: 'qt-nav', 'aria-label': 'Mục báo cáo' },
       el('div', { className: 'qt-nav-in' }, btns)
@@ -421,32 +452,29 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
       { id: 'month', label: 'Tháng này', calc: () => ({ from: thisMonthStart, to: todayYmd }) },
       { id: 'prev_month', label: 'Tháng trước', calc: prevMonthRange }
     ];
-    return el('div', { className: 'card', style: 'padding:12px' },
-      el('div', { className: 'range-bar' },
-        el('div', { className: 'chips' },
-          presets.map(p => el('button', {
-            type: 'button', className: 'chip', 'aria-pressed': String(ST.preset === p.id),
-            onClick: async () => {
-              const r = p.calc();
-              ST.preset = p.id; ST.from = r.from; ST.to = r.to;
-              await reloadCurrentTab();
-            },
-            text: p.label
-          }))
-        ),
-        el('div', { style: 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto' },
-          el('input', {
-            className: 'input', type: 'date', 'aria-label': 'Từ ngày', value: ST.from, style: 'width:auto',
-            onChange: async e => { if (!e.target.value) return; ST.preset = 'custom'; ST.from = e.target.value; await reloadCurrentTab(); }
-          }),
-          el('span', { text: '–' }),
-          el('input', {
-            className: 'input', type: 'date', 'aria-label': 'Đến ngày', value: ST.to, style: 'width:auto',
-            onChange: async e => { if (!e.target.value) return; ST.preset = 'custom'; ST.to = e.target.value; await reloadCurrentTab(); }
-          }),
-          el('button', { type: 'button', className: 'btn btn-sm', onClick: reloadCurrentTab, text: 'Tải lại' })
-        )
-      )
+    return el('div', { style: 'margin-bottom:12px' },
+      el('div', { className: 'hscroll' },
+        presets.map(p => el('button', {
+          type: 'button', className: 'chip', 'aria-pressed': String(ST.preset === p.id),
+          onClick: async () => {
+            const r = p.calc();
+            ST.preset = p.id; ST.from = r.from; ST.to = r.to; ST.customRange = false;
+            await reloadCurrentTab();
+          },
+          text: p.label
+        })),
+        el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.preset === 'custom' || !!ST.customRange), onClick: () => { ST.customRange = !ST.customRange; reloadCurrentTab(); }, text: 'Chọn ngày' })
+      ),
+      (ST.customRange || ST.preset === 'custom') ? el('div', { className: 'card', style: 'padding:10px;margin:8px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:8px' },
+        el('div', { className: 'field', style: 'margin:0' }, el('label', { text: 'Từ ngày' }), el('input', {
+          className: 'input', type: 'date', value: ST.from,
+          onChange: async e => { if (!e.target.value) return; ST.preset = 'custom'; ST.from = e.target.value; await reloadCurrentTab(); }
+        })),
+        el('div', { className: 'field', style: 'margin:0' }, el('label', { text: 'Đến ngày' }), el('input', {
+          className: 'input', type: 'date', value: ST.to,
+          onChange: async e => { if (!e.target.value) return; ST.preset = 'custom'; ST.to = e.target.value; await reloadCurrentTab(); }
+        }))
+      ) : null
     );
   }
 
@@ -628,16 +656,22 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
           })
         ),
         renderSvgBarChart('Doanh thu', chartRows.map(r => r.label), [{ name: 'Doanh thu', color: 'var(--accent)', values: chartRows.map(r => r.revenue) }], app.formatMoney),
-        el('div', { className: 'table-scroll' },
-          el('table', { className: 'qt-tbl' },
-            el('thead', null, el('tr', null, el('th', { text: 'Ngày/Kỳ' }), el('th', { className: 'r', text: 'Số đơn' }), el('th', { className: 'r', text: 'Doanh thu' }))),
-            el('tbody', null, chartRows.slice().reverse().map(r => el('tr', null,
-              el('td', { text: r.label }),
-              el('td', { className: 'r num', text: String(r.orders) }),
-              el('td', { className: 'r num', text: app.formatMoney(r.revenue) })
-            )))
-          )
-        )
+        (() => {
+          const used = chartRows.filter(r => r.orders > 0 || r.revenue > 0).reverse();
+          return el('details', { className: 'qt-more' },
+            el('summary', { text: used.length ? 'Xem bảng chi tiết (' + used.length + ' ngày có đơn)' : 'Chưa có đơn trong khoảng ngày này' }),
+            used.length ? el('div', { className: 'table-scroll' },
+              el('table', { className: 'qt-tbl' },
+                el('thead', null, el('tr', null, el('th', { text: 'Ngày/Kỳ' }), el('th', { className: 'r', text: 'Số đơn' }), el('th', { className: 'r', text: 'Doanh thu' }))),
+                el('tbody', null, used.map(r => el('tr', null,
+                  el('td', { text: r.label }),
+                  el('td', { className: 'r num', text: String(r.orders) }),
+                  el('td', { className: 'r num', text: app.formatMoney(r.revenue) })
+                )))
+              )
+            ) : null
+          );
+        })()
       ),
       el('div', { className: 'card' },
         el('div', { className: 'row-between', style: 'margin-bottom:8px' },
@@ -745,23 +779,19 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
           expBtn
         ),
         expProg,
-        ST.orders.length ? el('div', { className: 'table-scroll' },
-          el('table', { className: 'qt-tbl' },
-            el('thead', null, el('tr', null,
-              el('th', { text: 'Mã' }), el('th', { text: 'Ngày giờ' }), el('th', { text: 'Khách' }),
-              el('th', { text: 'Trạng thái' }), el('th', { className: 'r', text: 'Tổng' })
-            )),
-            el('tbody', null, ST.orders.map(o => el('tr', {
-              className: 'clickable',
-              onClick: e => openOrderDetailReadOnly(o, e.currentTarget)
-            },
-              el('td', { className: 'num', style: 'font-weight:700', text: o.code }),
-              el('td', { className: 'num', text: app.formatVnDateTime(o.ordered_at) }),
-              el('td', { text: o.customer_name || 'Khách lẻ' }),
-              el('td', null, el('span', { className: 'badge ' + (o.status === 'cancelled' ? 'badge-err' : ''), text: STATUS_TXT[o.status] || o.status })),
-              el('td', { className: 'r num', style: 'font-weight:700', text: app.formatMoney(o.total) })
-            )))
-          )
+        ST.orders.length ? el('div', { style: 'margin-top:6px' },
+          ST.orders.map(o => el('button', {
+            type: 'button', className: 'ord-row', onClick: e => openOrderDetailReadOnly(o, e.currentTarget)
+          },
+            el('div', { style: 'min-width:0;text-align:left' },
+              el('b', { className: 'num', text: o.code }),
+              el('div', { className: 'num', style: 'font-size:13px;color:var(--text-sub)', text: app.formatVnDateTime(o.ordered_at) + ' · ' + (o.customer_name || 'Khách lẻ') })
+            ),
+            el('div', { style: 'text-align:right;flex-shrink:0' },
+              el('b', { className: 'num', text: app.formatMoney(o.total) }),
+              el('div', null, el('span', { className: 'badge ' + (o.status === 'cancelled' ? 'badge-err' : ''), text: STATUS_TXT[o.status] || o.status }))
+            )
+          ))
         ) : el('div', { className: 'empty-state', text: 'Không có đơn hàng nào trong khoảng ngày này.' }),
         ST.ordersHasMore ? el('button', {
           type: 'button', className: 'btn', style: 'width:100%;margin-top:10px',
@@ -1186,7 +1216,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
           el('table', { className: 'qt-tbl' },
             el('thead', null, el('tr', null, el('th', { text: 'Tháng' }), el('th', { className: 'r', text: 'Doanh thu' }), el('th', { className: 'r', text: 'Giá vốn' }), el('th', { className: 'r', text: 'Chi phí BH' }), el('th', { className: 'r', text: 'Lãi ròng' }))),
             el('tbody', null, months.map(m => el('tr', null,
-              el('td', { text: m.month }),
+              el('td', { style: 'white-space:nowrap', text: 'T' + Number(m.month.slice(5)) + '/' + m.month.slice(2, 4) }),
               el('td', { className: 'r num', text: app.formatMoney(m.revenue) }),
               el('td', { className: 'r num', text: app.formatMoney(m.cogs) }),
               el('td', { className: 'r num', text: app.formatMoney(m.sell_costs) }),

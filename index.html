@@ -96,6 +96,10 @@ button {
 .shop-contact { text-align: left; display: flex; flex-direction: column; gap: 3px; }
 .shop-contact a { color: var(--accent); font-weight: 600; text-decoration: none; }
 .shop-brand { display: flex; align-items: center; gap: 12px; }
+span.shop-logo.shop-mono { display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,.2); color: #fff; font-weight: 700; font-size: 22px; }
+.promo-dots { display: flex; justify-content: center; gap: 6px; margin-top: 6px; }
+.promo-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--border); transition: background .15s, width .15s; }
+.promo-dots i.on { background: var(--accent); width: 18px; border-radius: 4px; }
 .shop-logo { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: #fff; flex: none; }
 .shop-name {
   margin: 0;
@@ -925,7 +929,7 @@ function renderApp() {
     : el('header', { className: 'shop-header' },
         el('div', { className: 'shop-header-in' },
           el('div', { className: 'shop-brand' },
-            shop.logo_url ? el('img', { className: 'shop-logo', src: shop.logo_url, alt: '', width: 44, height: 44 }) : null,
+            shop.logo_url ? el('img', { className: 'shop-logo', src: shop.logo_url, alt: '', width: 44, height: 44 }) : el('span', { className: 'shop-logo shop-mono', 'aria-hidden': 'true', text: (String(shop.name || '?').trim().charAt(0) || '?').toUpperCase() }),
             el('h1', { className: 'shop-name', text: shop.name })
           )
         )
@@ -1009,13 +1013,23 @@ function renderMenuView() {
   // Dải khuyến mãi đang chạy
   const promos = (shop.promos || []).filter(p => p.banner !== false);
   if (promos.length) {
-    wrap.append(el('div', { className: 'promos' + (promos.length === 1 ? ' one' : ''), 'aria-label': 'Khuyến mãi đang chạy' },
+    const strip = el('div', { className: 'promos' + (promos.length === 1 ? ' one' : ''), 'aria-label': 'Khuyến mãi đang chạy' },
       promos.map(p => el('div', { className: 'promo-card' },
         el('b', { text: p.name }),
         (p.text || p.description) ? el('span', { text: p.text || p.description }) : null,
         p.to_date ? el('span', { className: 'promo-exp', text: 'Đến hết ' + formatYmdShort(p.to_date) }) : null
       ))
-    ));
+    );
+    wrap.append(strip);
+    if (promos.length > 1) {
+      const dots = el('div', { className: 'promo-dots', 'aria-hidden': 'true' }, promos.map((_, i) => el('i', { className: i === 0 ? 'on' : '' })));
+      strip.addEventListener('scroll', () => {
+        const cw = strip.firstChild ? strip.firstChild.getBoundingClientRect().width + 10 : 1;
+        const idx = Math.min(promos.length - 1, Math.round(strip.scrollLeft / cw));
+        [...dots.children].forEach((d, i) => d.classList.toggle('on', i === idx));
+      }, { passive: true });
+      wrap.append(dots);
+    }
   }
 
   if (!items.length) {
@@ -1568,7 +1582,6 @@ function openSuccessModal(res, phone, itemsSnapshot, createdIso) {
   }
 
   const body = el('div', null,
-    el('div', { className: 'msg msg-ok', role: 'status', text: 'Đặt đơn thành công. Tiệm đã nhận được đơn của bạn.' }),
     el('div', { className: 'card', style: 'display:flex;align-items:center;justify-content:space-between;gap:10px' },
       el('div', null,
         el('div', { style: 'font-size:13px;color:var(--text-sub)', text: 'Mã đơn của bạn' }),

@@ -43,21 +43,28 @@ body { overflow-x: hidden; font-family: "Be Vietnam Pro", var(--font, system-ui,
 }
 .bh-nav button {
   flex: 1;
-  min-height: 56px;
+  min-height: 58px;
   padding: 6px 4px;
   border: 0;
   background: transparent;
   color: var(--text-sub);
-  font-family: inherit; font-size: 12.5px; font-weight: 600; line-height: 1.2; white-space: nowrap;
+  font-family: inherit; font-size: 11.5px; font-weight: 600; line-height: 1.2; white-space: nowrap;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   position: relative;
   cursor: pointer;
 }
 .bh-nav button[aria-current="page"] { color: var(--accent); font-weight: 700; }
+.bh-nav svg { flex-shrink: 0; }
+.more-info { margin-top: 4px; border-top: 1px dashed var(--border); padding-top: 10px; }
+.more-info summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--accent); min-height: 32px; display: flex; align-items: center; }
+.line-row:has(.kebab) { flex-wrap: nowrap; }
+.line-row:has(.kebab) .line-main { min-width: 0; flex: 1 1 auto; }
+.hscroll .chip { padding: 8px 12px; min-height: 40px; font-size: 13.5px; }
+.kebab { min-width: 40px; padding: 6px 10px; font-size: 18px; line-height: 1; letter-spacing: 1px; }
 .bh-nav .bh-badge {
   position: absolute;
   top: 4px;
@@ -101,6 +108,7 @@ body { overflow-x: hidden; font-family: "Be Vietnam Pro", var(--font, system-ui,
     color: var(--accent);
   }
   .bh-nav .bh-badge { position: static; margin-left: 2px; }
+  .bh-nav svg { width: 20px; height: 20px; }
 }
 
 /* Thanh phụ làm mới & thời điểm tải */
@@ -136,6 +144,8 @@ body { overflow-x: hidden; font-family: "Be Vietnam Pro", var(--font, system-ui,
   cursor: pointer;
   white-space: nowrap;
 }
+.bh-seg.tight { display: flex; width: 100%; }
+.bh-seg.tight button { flex: 1; padding: 6px 4px; font-size: 13.5px; }
 .bh-seg button[aria-pressed="true"] {
   background: var(--surface);
   color: var(--accent);
@@ -268,7 +278,7 @@ body { overflow-x: hidden; font-family: "Be Vietnam Pro", var(--font, system-ui,
   cursor: pointer;
   white-space: nowrap;
 }
-.sticky-bar-in .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+.sticky-bar-in .btn-save:disabled { background: rgba(255,255,255,.22); color: rgba(255,255,255,.75); cursor: not-allowed; }
 
 /* Thẻ & Bảng */
 .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
@@ -302,6 +312,10 @@ body { overflow-x: hidden; font-family: "Be Vietnam Pro", var(--font, system-ui,
 .st-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-sub); margin: -4px 0 12px; }
 .st-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
 
+.g2x { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.kpi-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.kpi-row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.kpi-row3 .kpi-box b { font-size: 15.5px; }
 .kpi-box {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -480,6 +494,68 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && modalRoot.children.length) closeModal(); });
 
+  // Ảnh món: cắt vuông giữa, 480px, JPEG dưới 190KB
+  function makeDishImage(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file); const im = new Image();
+      im.onload = async () => {
+        try {
+          const side = Math.min(im.naturalWidth, im.naturalHeight);
+          const sx = (im.naturalWidth - side) / 2, sy = (im.naturalHeight - side) / 2;
+          let out = Math.min(480, side), q = 0.85, blob = null;
+          for (let n = 0; n < 12; n++) {
+            const cv = document.createElement('canvas'); cv.width = out; cv.height = out;
+            const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, out, out);
+            cx.drawImage(im, sx, sy, side, side, 0, 0, out, out);
+            blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', q));
+            if (blob && blob.size <= 190 * 1024) break;
+            if (q > 0.55) q -= 0.1; else out = Math.round(out * 0.85);
+          }
+          URL.revokeObjectURL(url);
+          if (!blob || blob.size > 200 * 1024) reject(new Error('Ảnh quá nặng, chọn ảnh khác')); else resolve(blob);
+        } catch (e) { reject(e); }
+      };
+      im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Không đọc được ảnh này')); };
+      im.src = url;
+    });
+  }
+  /* Nút "⋯": gom các thao tác phụ (Sửa, Xóa…) vào một hộp chọn cho gọn dòng */
+  function kebab(...acts) {
+    const list = acts.flat().filter(Boolean);
+    const b = el('button', {
+      type: 'button', className: 'btn btn-sm kebab', 'aria-label': 'Thao tác khác', title: 'Thao tác khác', text: '⋯',
+      onClick: () => openModal('Thao tác', el('div', { style: 'display:grid;gap:8px' },
+        list.map(a => el('button', {
+          type: 'button', className: 'btn' + (a.danger ? ' btn-danger' : ''), style: 'width:100%',
+          onClick: () => { closeModal(); a.fn({ currentTarget: b }); }, text: a.text
+        }))), null, b)
+    });
+    return b;
+  }
+  const NAV_ICONS = {
+    sale: 'M3 6h18M5 6l1.5 12h11L19 6M9 10v4M15 10v4',
+    online: 'M4 4h16v12H8l-4 4zM8 9h8M8 12h5',
+    menu: 'M4 6h16M4 12h16M4 18h10',
+    settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.3-.9-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-.9a7 7 0 0 0 2 1.2l.4 2.6h4l.4-2.6a7 7 0 0 0 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z',
+    buy: 'M6 7h12l-1 12H7zM9 7a3 3 0 0 1 6 0',
+    inv: 'M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8',
+    recipe: 'M6 3h12v18H6zM9 8h6M9 12h6M9 16h4',
+    cash: 'M3 7h18v10H3zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM6 10v4M18 10v4',
+    batch: 'M8 3h8M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3M8 15h8',
+    cust: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21a7 7 0 0 1 14 0M17 4a4 4 0 0 1 0 7M22 21a7 7 0 0 0-4-6',
+    promo: 'M20 12l-8 8-9-9V3h8zM7.5 7.5h.01',
+    feedback: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
+    more: 'M5 12h.01M12 12h.01M19 12h.01'
+  };
+  function navIcon(id) {
+    const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '22'); svg.setAttribute('height', '22');
+    svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', id === 'more' ? '3' : '1.9');
+    svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round'); svg.setAttribute('aria-hidden', 'true');
+    const pth = document.createElementNS(ns, 'path'); pth.setAttribute('d', NAV_ICONS[id] || NAV_ICONS.more); svg.appendChild(pth);
+    return svg;
+  }
+
   /* ===== DANH SÁCH TAB THEO GÓI ===== */
   const ALL_TABS = [
     { id: 'sale', label: 'Bán', minPlan: 'standard' },
@@ -554,6 +630,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     batchForm: { at: '', out_item_id: '', out_qty: '', note: '', inputs: [{ inv_item_id: '', qty: '' }] },
     batches: [],
     // Thu chi (Pro)
+    settingsSub: 'shop',
     cashFrom: app.toVnYmd(new Date()).slice(0, 8) + '01',
     cashTo: app.toVnYmd(new Date()),
     cashEntries: [],
@@ -642,6 +719,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       'aria-current': ST.tab === t.id ? 'page' : null,
       onClick: () => switchTab(t.id)
     },
+      navIcon(t.id),
       el('span', { text: t.label }),
       t.id === 'online' && newOnlineCount > 0 ? el('span', { className: 'bh-badge num', text: String(newOnlineCount) }) : null
     );
@@ -653,17 +731,20 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         type: 'button',
         'aria-current': inOverflow ? 'page' : null,
         onClick: e => openModal('Chức năng khác',
-          el('div', { style: 'display:grid;gap:8px' },
-            overflow.map(t => el('button', {
-              type: 'button',
-              className: 'btn' + (ST.tab === t.id ? ' btn-primary' : ''),
-              style: 'width:100%;justify-content:flex-start',
-              onClick: () => { closeModal(); switchTab(t.id); },
-              text: t.label
-            }))
+          el('div', {}, [['Kho và sản xuất', ['buy', 'inv', 'recipe', 'batch']], ['Tiền', ['cash']], ['Khách hàng', ['cust', 'promo', 'feedback']]].map(([gt, ids]) => {
+            const ts = overflow.filter(t => ids.includes(t.id));
+            return ts.length ? el('div', { style: 'margin-bottom:12px' },
+              el('div', { style: 'font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:6px', text: gt }),
+              el('div', { style: 'display:grid;gap:8px' }, ts.map(t => el('button', {
+                type: 'button',
+                className: 'btn' + (ST.tab === t.id ? ' btn-primary' : ''),
+                style: 'width:100%;justify-content:flex-start;gap:12px',
+                onClick: () => { closeModal(); switchTab(t.id); }
+              }, navIcon(t.id), el('span', { text: t.label }))))
+            ) : null;
+          })
           ), null, e.currentTarget),
-        text: 'Thêm'
-      }));
+      }, navIcon('more'), el('span', { text: 'Thêm' })));
     }
     navHost.replaceChildren(el('nav', { className: 'bh-nav', 'aria-label': 'Chức năng bán hàng' },
       el('div', { className: 'bh-nav-in' }, navBtns)
@@ -940,8 +1021,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           el('button', { type: 'button', 'aria-label': 'Tăng', onClick: () => {
             it.qty = Math.min(999, it.qty + 1); s.paidCustom = null; saveDraft(); renderSaleTab();
           }, text: '+' })
-        ),
-        el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: () => { s.items.splice(idx, 1); s.paidCustom = null; saveDraft(); renderSaleTab(); }, text: 'Xóa' })
+        )
       )) : el('div', { className: 'empty-state', text: 'Chạm vào món phía trên để thêm vào đơn.' }),
       (ST.salePromoHost = el('div'))
     );
@@ -951,78 +1031,56 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const custPickerProPlus = app.hasPlan('proplus') ? renderSaleCustomerPicker() : null;
     const paidVal = s.unpaid ? 0 : (s.paidCustom != null ? s.paidCustom : tot.total);
 
+    const fPlace = el('div', { className: 'field' },
+      el('label', { for: 'sl-place', text: 'Nơi bán' }),
+      el('input', { id: 'sl-place', className: 'input', list: placeListId, value: s.place || '', placeholder: 'Tại quầy', onInput: e => { s.place = e.target.value; saveDraft(); } }),
+      el('datalist', { id: placeListId }, ST.salePlaces.map(p => el('option', { value: p }))));
+    const fAt = el('div', { className: 'field' },
+      el('label', { for: 'sl-at', text: 'Giờ bán (để trống = bây giờ)' }),
+      el('input', { id: 'sl-at', className: 'input', type: 'datetime-local', value: s.at || '', onChange: e => { s.at = e.target.value; saveDraft(); } }));
+    const fName = el('div', { className: 'field' },
+      el('label', { for: 'sl-cname', text: 'Tên khách' }),
+      el('input', { id: 'sl-cname', className: 'input', value: s.customer_name || '', placeholder: 'Khách lẻ', onInput: e => { s.customer_name = e.target.value; saveDraft(); } }));
+    const fPhone = el('div', { className: 'field' },
+      el('label', { for: 'sl-cphone', text: 'Số điện thoại khách' }),
+      el('input', { id: 'sl-cphone', className: 'input', type: 'tel', inputmode: 'tel', value: s.customer_phone || '', placeholder: 'Không bắt buộc',
+        onInput: e => { s.customer_phone = e.target.value; saveDraft(); scheduleSaleQuote(); fetchSaleVouchers(); } }));
+    const fDisc = el('div', { className: 'field' },
+      el('label', { for: 'sl-disc', text: 'Giảm giá tay (đ)' }),
+      el('input', { id: 'sl-disc', className: 'input num', type: 'number', min: 0, value: s.discount || 0,
+        onInput: e => { s.discount = Math.max(0, Math.round(Number(e.target.value) || 0)); s.paidCustom = null; saveDraft(); updateSaleSticky(); } }));
+    const fPaid = el('div', { className: 'field' },
+      el('label', { for: 'sl-paid', text: 'Số tiền thu (đ)' }),
+      el('input', { id: 'sl-paid', className: 'input num', type: 'number', min: 0, disabled: s.unpaid, value: paidVal,
+        onInput: e => { s.paidCustom = Math.max(0, Math.round(Number(e.target.value) || 0)); saveDraft(); } }));
+    const fPay = el('div', { className: 'field' },
+      el('label', { text: 'Cách thanh toán' }),
+      el('div', { className: 'chips' },
+        activePayMethods().map(m => el('button', {
+          type: 'button', className: 'chip', 'aria-pressed': String(!s.unpaid && s.pay_method_id === m.id),
+          onClick: () => { s.unpaid = false; s.pay_method_id = m.id; app.storageSet('dd_last_pay_' + shopId, m.id); saveDraft(); renderSaleTab(); },
+          text: m.name
+        })),
+        el('button', { type: 'button', className: 'chip', 'aria-pressed': String(s.unpaid), onClick: () => { s.unpaid = !s.unpaid; saveDraft(); renderSaleTab(); }, text: 'Chưa thu' })
+      ));
+    const fNote = el('div', { className: 'field' },
+      el('label', { for: 'sl-note', text: 'Ghi chú' }),
+      el('input', { id: 'sl-note', className: 'input', value: s.note || '', placeholder: 'Ghi chú đơn hàng…', onInput: e => { s.note = e.target.value; saveDraft(); } }));
+    const moreFilled = !!(s.editId || s.place || s.at || s.customer_name || s.note);
+    const moreBox = el('details', { className: 'more-info' },
+      el('summary', { text: 'Thêm thông tin đơn (nơi bán, giờ, tên khách, ghi chú)' }),
+      el('div', { style: 'padding-top:10px' }, el('div', { className: 'grid-2' }, fPlace, fAt), el('div', { className: 'grid-2' }, fName, fNote))
+    );
+    if (ST.saleMoreOpen || moreFilled) moreBox.open = true;
+    moreBox.addEventListener('toggle', () => { ST.saleMoreOpen = moreBox.open; });
+
     const infoCard = el('div', { className: 'card' },
-      el('div', { style: 'font-weight:700;margin-bottom:8px', text: 'Thông tin đơn & thanh toán' }),
+      el('div', { style: 'font-weight:700;margin-bottom:8px', text: 'Thanh toán' }),
       custPickerProPlus,
-      el('div', { className: 'grid-2' },
-        el('div', { className: 'field' },
-          el('label', { for: 'sl-place', text: 'Nơi bán' }),
-          el('input', {
-            id: 'sl-place', className: 'input', list: placeListId, value: s.place || '',
-            placeholder: 'Tại quầy',
-            onInput: e => { s.place = e.target.value; saveDraft(); }
-          }),
-          el('datalist', { id: placeListId }, ST.salePlaces.map(p => el('option', { value: p })))
-        ),
-        el('div', { className: 'field' },
-          el('label', { for: 'sl-at', text: 'Giờ bán (để trống = bây giờ)' }),
-          el('input', {
-            id: 'sl-at', className: 'input', type: 'datetime-local', value: s.at || '',
-            onChange: e => { s.at = e.target.value; saveDraft(); }
-          })
-        )
-      ),
-      el('div', { className: 'grid-2' },
-        el('div', { className: 'field' },
-          el('label', { for: 'sl-cname', text: 'Tên khách (không bắt buộc)' }),
-          el('input', {
-            id: 'sl-cname', className: 'input', value: s.customer_name || '', placeholder: 'Khách lẻ',
-            onInput: e => { s.customer_name = e.target.value; saveDraft(); }
-          })
-        ),
-        el('div', { className: 'field' },
-          el('label', { for: 'sl-cphone', text: 'Số điện thoại (không bắt buộc)' }),
-          el('input', {
-            id: 'sl-cphone', className: 'input', type: 'tel', inputmode: 'tel', value: s.customer_phone || '',
-            onInput: e => { s.customer_phone = e.target.value; saveDraft(); scheduleSaleQuote(); fetchSaleVouchers(); }
-          })
-        )
-      ),
-      el('div', { className: 'grid-2' },
-        el('div', { className: 'field' },
-          el('label', { for: 'sl-disc', text: 'Giảm giá tay (đ)' }),
-          el('input', {
-            id: 'sl-disc', className: 'input num', type: 'number', min: 0, value: s.discount || 0,
-            onInput: e => { s.discount = Math.max(0, Math.round(Number(e.target.value) || 0)); s.paidCustom = null; saveDraft(); updateSaleSticky(); }
-          })
-        ),
-        el('div', { className: 'field' },
-          el('label', { for: 'sl-paid', text: 'Số tiền thu (đ)' }),
-          el('input', {
-            id: 'sl-paid', className: 'input num', type: 'number', min: 0, disabled: s.unpaid, value: paidVal,
-            onInput: e => { s.paidCustom = Math.max(0, Math.round(Number(e.target.value) || 0)); saveDraft(); }
-          })
-        )
-      ),
-      el('div', { className: 'field' },
-        el('label', { text: 'Cách thanh toán' }),
-        el('div', { className: 'chips' },
-          activePayMethods().map(m => el('button', {
-            type: 'button', className: 'chip', 'aria-pressed': String(!s.unpaid && s.pay_method_id === m.id),
-            onClick: () => { s.unpaid = false; s.pay_method_id = m.id; app.storageSet('dd_last_pay_' + shopId, m.id); saveDraft(); renderSaleTab(); },
-            text: m.name
-          })),
-          el('button', {
-            type: 'button', className: 'chip', 'aria-pressed': String(s.unpaid),
-            onClick: () => { s.unpaid = !s.unpaid; saveDraft(); renderSaleTab(); },
-            text: 'Chưa thu'
-          })
-        )
-      ),
-      el('div', { className: 'field' },
-        el('label', { for: 'sl-note', text: 'Ghi chú' }),
-        el('input', { id: 'sl-note', className: 'input', value: s.note || '', placeholder: 'Ghi chú đơn hàng…', onInput: e => { s.note = e.target.value; saveDraft(); } })
-      )
+      fPhone,
+      fPay,
+      el('div', { className: 'grid-2' }, fPaid, fDisc),
+      moreBox
     );
 
     // Danh sách 40 đơn tay gần đây nhóm theo ngày
@@ -1032,8 +1090,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       if (!grouped.has(day)) grouped.set(day, []);
       grouped.get(day).push(o);
     }
-    const recentCard = el('div', { className: 'card' },
-      el('div', { style: 'font-weight:700;margin-bottom:8px', text: 'Đơn gần đây (' + ST.manualOrders.length + ')' }),
+    const buildRecent = () => el('div', {},
       ST.manualOrders.length ? [...grouped.entries()].map(([day, list]) => el('div', { style: 'margin-bottom:10px' },
         el('div', { style: 'font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:4px', text: day.split('-').reverse().join('/') }),
         list.map(o => el('div', { className: 'line-row' },
@@ -1042,17 +1099,22 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             el('small', { text: app.formatVnDateTime(o.ordered_at).slice(11) + ' · ' + (o.customer_name || 'Khách lẻ') + (o.place ? ' · ' + o.place : '') })
           ),
           el('span', { className: 'badge ' + (o.pay_status === 'paid' ? '' : 'badge-warn'), text: o.pay_status === 'paid' ? 'Đã thu' : 'Chưa thu' }),
-          el('button', { type: 'button', className: 'btn btn-sm', onClick: () => startEditManualOrder(o), text: 'Sửa' }),
-          el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: e => confirmModal('Xóa đơn ' + o.code + '?', 'Đơn tay này sẽ bị xóa hẳn khỏi hệ thống.', 'Xóa đơn', async () => {
+          el('button', { type: 'button', className: 'btn btn-sm', onClick: () => { closeModal(); startEditManualOrder(o); }, text: 'Sửa' }),
+          kebab({ text: 'Xóa', danger: true, fn: e => confirmModal('Xóa đơn ' + o.code + '?', 'Đơn tay này sẽ bị xóa hẳn khỏi hệ thống.', 'Xóa đơn', async () => {
             const { error } = await sb.rpc('delete_order', { p_order: o.id });
             if (error) throw error;
             app.showToast('Đã xóa đơn ' + o.code, 'accent');
             await loadManualOrders();
             renderSaleTab();
-          }, e.currentTarget), text: 'Xóa' })
+          }, e.currentTarget) })
         ))
       )) : el('div', { className: 'empty-state', text: 'Chưa có đơn bán tại quầy nào.' })
     );
+    const recentCard = el('button', {
+      type: 'button', className: 'btn', style: 'width:100%;margin-bottom:14px',
+      onClick: e => openModal('Đơn gần đây (' + ST.manualOrders.length + ')', buildRecent(), null, e.currentTarget),
+      text: 'Xem đơn gần đây (' + ST.manualOrders.length + ')'
+    });
 
     contentHost.replaceChildren(
       renderMetaBar('sale', async () => { await loadTabData('sale'); renderSaleTab(); }),
@@ -1374,7 +1436,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
     const cards = shown.length ? shown.map(o => {
       const next = NEXT_ACTION[o.status];
-      const payLabel = o.pay_status === 'paid' ? 'Đã thanh toán' : (o.pay_status === 'checking' ? 'Chờ xác nhận CK' : 'Chưa thanh toán');
+      const payLabel = o.pay_status === 'paid' ? 'Đã thu' : (o.pay_status === 'checking' ? 'Chờ xác nhận' : 'Chưa thu');
       const payCls = o.pay_status === 'paid' ? '' : (o.pay_status === 'checking' ? 'badge-warn' : 'badge-err');
       return el('div', { className: 'card ocard st-' + o.status },
         el('div', { className: 'row-between' },
@@ -1400,7 +1462,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             el('span', { text: 'Giảm giá' }), el('span', { className: 'num', text: '−' + app.formatMoney(o.discount) })
           ) : null,
           el('div', { className: 'row-between', style: 'font-weight:700;font-size:16px;margin-top:4px' },
-            el('span', { text: 'Tổng (' + payMethodName(o.pay_method_id) + ')' }),
+            el('span', { text: o.pay_method_id ? 'Tổng (' + payMethodName(o.pay_method_id) + ')' : 'Tổng cộng' }),
             el('span', { className: 'num', text: app.formatMoney(o.total) })
           )
         ),
@@ -1410,34 +1472,26 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             onClick: () => updateOnlineStatus(o, next.next),
             text: next.label
           }) : null,
-          o.status !== 'done' && o.status !== 'cancelled' ? el('button', {
-            type: 'button', className: 'btn btn-danger',
-            onClick: e => confirmModal('Hủy đơn ' + o.code + '?', 'Đơn sẽ chuyển sang trạng thái Đã hủy.', 'Xác nhận hủy', () => updateOnlineStatus(o, 'cancelled'), e.currentTarget),
-            text: 'Hủy đơn'
-          }) : null,
-          (o.status !== 'cancelled' && o.pay_status !== 'paid' && window.DDQR && DDQR.canShow(ST.shop)) ? el('button', {
-            type: 'button', className: 'btn',
-            onClick: e => openModal('QR chuyển khoản ' + o.code, DDQR.block(ST.shop, o.total, o.code), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' })], e.currentTarget),
-            text: 'Hiện QR'
-          }) : null,
           o.status !== 'cancelled' && o.pay_status !== 'paid' ? el('button', {
             type: 'button', className: 'btn',
-            onClick: e => openConfirmPaymentModal(o, async () => { await loadOnlineOrders(false); renderOnlineTab(); }, e.currentTarget),
-            text: 'Đã nhận tiền'
+            onClick: e => openModal('Thu tiền đơn ' + o.code, el('div', { style: 'display:grid;gap:8px' },
+              el('div', { className: 'row-between', style: 'font-weight:700;font-size:17px;margin-bottom:4px' }, el('span', { text: 'Tổng cộng' }), el('span', { className: 'num', text: app.formatMoney(o.total) })),
+              (window.DDQR && DDQR.canShow(ST.shop)) ? el('button', { type: 'button', className: 'btn', style: 'width:100%', onClick: () => { closeModal(); openModal('QR chuyển khoản ' + o.code, DDQR.block(ST.shop, o.total, o.code), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' })]); }, text: 'Hiện mã QR chuyển khoản' }) : null,
+              el('button', { type: 'button', className: 'btn btn-primary', style: 'width:100%', onClick: () => { closeModal(); openConfirmPaymentModal(o, async () => { await loadOnlineOrders(false); renderOnlineTab(); }); }, text: 'Đã nhận tiền' }),
+              o.pay_status === 'unpaid' ? el('button', { type: 'button', className: 'btn', style: 'width:100%', onClick: async () => {
+                closeModal();
+                try {
+                  const { error } = await sb.rpc('set_order_payment', { p_order: o.id, p_pay_method: o.pay_method_id, p_pay_status: 'checking', p_paid: 0 });
+                  if (error) throw error;
+                  o.pay_status = 'checking';
+                  app.showToast('Đã đánh dấu chờ xác nhận chuyển khoản', 'accent');
+                  renderOnlineTab();
+                } catch (err) { showErr(err); }
+              }, text: 'Khách báo đã chuyển, chờ xác nhận' }) : null
+            ), null, e.currentTarget),
+            text: 'Thu tiền'
           }) : null,
-          o.status !== 'cancelled' && o.pay_status === 'unpaid' ? el('button', {
-            type: 'button', className: 'btn btn-sm',
-            onClick: async () => {
-              try {
-                const { error } = await sb.rpc('set_order_payment', { p_order: o.id, p_pay_method: o.pay_method_id, p_pay_status: 'checking', p_paid: 0 });
-                if (error) throw error;
-                o.pay_status = 'checking';
-                app.showToast('Đã đánh dấu chờ xác nhận CK', 'accent');
-                renderOnlineTab();
-              } catch (err) { showErr(err); }
-            },
-            text: 'Chờ xác nhận CK'
-          }) : null
+          o.status !== 'done' && o.status !== 'cancelled' ? kebab({ text: 'Hủy đơn', danger: true, fn: e => confirmModal('Hủy đơn ' + o.code + '?', 'Đơn sẽ chuyển sang trạng thái Đã hủy.', 'Xác nhận hủy', () => updateOnlineStatus(o, 'cancelled'), e.currentTarget) }) : null
         )
       );
     }) : [el('div', { className: 'card empty-state', text: 'Không có đơn online nào trong mục này.' })];
@@ -1509,51 +1563,49 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       cats.get(c).push(m);
     }
 
-    const toolbar = el('div', { className: 'toolbar', style: 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px' },
-      el('button', { type: 'button', className: 'btn btn-primary', onClick: e => openMenuModal(null, e.currentTarget), text: '+ Thêm món' }),
-      el('button', { type: 'button', className: 'btn', onClick: e => openMenuCsvImportModal(e.currentTarget), text: 'Nhập CSV' }),
-      el('button', { type: 'button', className: 'btn', onClick: () => {
+    const csvTools = e => openModal('Nhập / xuất thực đơn', el('div', { style: 'display:grid;gap:8px' },
+      el('button', { type: 'button', className: 'btn', style: 'width:100%', onClick: () => { closeModal(); openMenuCsvImportModal(e.currentTarget); }, text: 'Nhập từ file CSV' }),
+      el('button', { type: 'button', className: 'btn', style: 'width:100%', onClick: () => {
         const rows = [['Tên món', 'Giá', 'Đơn vị', 'Nhóm', 'Mô tả', 'Đang bán']]
           .concat(ST.menuItems.map(m => [m.name, m.price, m.unit || 'phần', m.category || '', m.description || '', m.active ? 'Có' : 'Tạm ngưng']));
-        app.downloadCsv('menu-' + ST.shop.slug + '.csv', rows);
-      }, text: 'Xuất CSV' }),
-      el('button', { type: 'button', className: 'btn', onClick: () => {
-        app.downloadCsv('mau-nhap-menu.csv', [['Tên món', 'Giá', 'Đơn vị', 'Nhóm', 'Mô tả'], ['Cà phê sữa đá', 25000, 'ly', 'Cà phê', 'Đậm vị']]);
-      }, text: 'Tải file mẫu' })
+        app.downloadCsv('menu-' + ST.shop.slug + '.csv', rows); closeModal();
+      }, text: 'Xuất thực đơn ra CSV' }),
+      el('button', { type: 'button', className: 'btn', style: 'width:100%', onClick: () => {
+        app.downloadCsv('mau-nhap-menu.csv', [['Tên món', 'Giá', 'Đơn vị', 'Nhóm', 'Mô tả'], ['Cà phê sữa đá', 25000, 'ly', 'Cà phê', 'Đậm vị']]); closeModal();
+      }, text: 'Tải file mẫu để nhập' })
+    ), null, e.currentTarget);
+    const toolbar = el('div', { className: 'toolbar', style: 'display:flex;gap:8px;margin-bottom:12px' },
+      el('button', { type: 'button', className: 'btn btn-primary', style: 'flex:1', onClick: e => openMenuModal(null, e.currentTarget), text: '+ Thêm món' }),
+      el('button', { type: 'button', className: 'btn', onClick: csvTools, text: 'Nhập / xuất' })
     );
 
     const listNodes = ST.menuItems.length ? [...cats.entries()].map(([cat, list]) => el('div', { className: 'card' },
       el('div', { style: 'font-weight:700;margin-bottom:6px', text: cat + ' (' + list.length + ')' }),
       list.map(m => el('div', { className: 'line-row' },
+        m.image_url && String(m.image_url).startsWith('https://') ? el('img', { src: m.image_url, alt: '', loading: 'lazy', style: 'width:46px;height:46px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)' }) : null,
         el('div', { className: 'line-main' },
           el('b', { text: m.name }),
           el('small', { className: 'num', text: app.formatMoney(m.price) + ' / ' + (m.unit || 'phần') + (m.active ? '' : ' · Tạm ngưng') })
         ),
-        el('button', {
-          type: 'button', className: 'chip', 'aria-pressed': String(m.active),
-          onClick: async () => {
-            try {
-              const res = await sb.from('menu_items').update({ active: !m.active }).eq('id', m.id).eq('shop_id', shopId).select('id');
-              checkMutated(res);
-              m.active = !m.active;
-              renderMenuTab();
-            } catch (err) { showErr(err); }
-          },
-          text: m.active ? 'Đang bán' : 'Tạm tắt'
+        app.toggle(m.active, async (on) => {
+          try {
+            const res = await sb.from('menu_items').update({ active: on }).eq('id', m.id).eq('shop_id', shopId).select('id');
+            checkMutated(res);
+            m.active = on;
+          } catch (err) { showErr(err); }
+          renderMenuTab();
         }),
-        app.hasPlan('pro') ? el('button', {
-          type: 'button', className: 'btn btn-sm',
-          onClick: () => { ST.recipeMenuId = m.id; switchTab('recipe'); },
-          text: 'Định mức'
-        }) : null,
         el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openMenuModal(m, e.currentTarget), text: 'Sửa' }),
-        el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: e => confirmModal('Xóa món "' + m.name + '"?', 'Món sẽ bị xóa khỏi thực đơn.', 'Xóa món', async () => {
+        kebab(
+          app.hasPlan('pro') ? { text: 'Định mức nguyên liệu', fn: () => { ST.recipeMenuId = m.id; switchTab('recipe'); } } : null,
+          { text: 'Xóa', danger: true, fn: e => confirmModal('Xóa món "' + m.name + '"?', 'Món sẽ bị xóa khỏi thực đơn.', 'Xóa món', async () => {
           const res = await sb.from('menu_items').delete().eq('id', m.id).eq('shop_id', shopId).select('id');
           checkMutated(res);
           app.showToast('Đã xóa món ' + m.name, 'accent');
           await loadMenu();
           renderMenuTab();
-        }, e.currentTarget), text: 'Xóa' })
+        }, e.currentTarget) }
+        )
       ))
     )) : [el('div', { className: 'card empty-state' }, el('b', { text: 'Chưa có món nào' }), el('span', { text: 'Bấm "+ Thêm món" hoặc "Nhập CSV" để tạo thực đơn.' }))];
 
@@ -1578,6 +1630,13 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const existingCats = [...new Set(ST.menuItems.map(m => (m.category || '').trim()).filter(Boolean))];
     const unitSuggestions = ['chai', 'ly', 'tô', 'đĩa', 'cái', 'chiếc', 'kg', 'phần'];
     const imgPrev = el('img', { className: 'img-preview' + (f.image_url.startsWith('https://') ? '' : ' hidden'), src: f.image_url.startsWith('https://') ? f.image_url : '', alt: 'Xem trước' });
+    const imgFile = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
+    imgFile.addEventListener('change', async () => {
+      const file = imgFile.files && imgFile.files[0]; imgFile.value = '';
+      if (!file) return;
+      try { f.blob = await makeDishImage(file); imgPrev.src = URL.createObjectURL(f.blob); imgPrev.classList.remove('hidden'); }
+      catch (err) { app.showToast(err.message || 'Không dùng được ảnh này', 'error'); }
+    });
 
     const body = el('div', null,
       el('div', { className: 'field' },
@@ -1611,16 +1670,14 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('textarea', { id: 'mn-desc', className: 'textarea', value: f.description, onInput: e => { f.description = e.target.value; } })
       ),
       el('div', { className: 'field' },
-        el('label', { for: 'mn-img', text: 'Link ảnh (bắt đầu bằng https://)' }),
-        el('input', {
-          id: 'mn-img', className: 'input', type: 'url', value: f.image_url, placeholder: 'https://...',
-          onInput: e => {
-            f.image_url = e.target.value.trim();
-            if (f.image_url.startsWith('https://')) { imgPrev.src = f.image_url; imgPrev.classList.remove('hidden'); }
-            else imgPrev.classList.add('hidden');
-          }
-        }),
-        imgPrev
+        el('label', { text: 'Ảnh món (không bắt buộc)' }),
+        imgPrev,
+        el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
+          el('button', { type: 'button', className: 'btn btn-sm', onClick: () => imgFile.click(), text: 'Chọn ảnh từ máy' }),
+          el('button', { type: 'button', className: 'btn btn-sm', onClick: () => { f.image_url = ''; f.blob = null; imgPrev.classList.add('hidden'); }, text: 'Bỏ ảnh' })
+        ),
+        el('small', { style: 'color:var(--text-sub)', text: 'Ảnh sẽ được tự cắt vuông và thu nhỏ. Chụp rõ món, nền sáng cho đẹp.' }),
+        imgFile
       ),
       el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:600' },
         el('input', { type: 'checkbox', checked: f.active, style: 'width:20px;height:20px', onChange: e => { f.active = e.target.checked; } }),
@@ -1635,16 +1692,20 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         const price = Math.round(Number(f.price));
         if (!name || name.length > 120) { app.showToast('Tên món từ 1–120 ký tự', 'error'); return; }
         if (Number.isNaN(price) || price < 0) { app.showToast('Giá bán phải là số ≥ 0', 'error'); return; }
-        if (f.image_url && !f.image_url.startsWith('https://')) { app.showToast('Link ảnh phải bắt đầu bằng https://', 'error'); return; }
         saveBtn.disabled = true; saveBtn.textContent = 'Đang lưu…';
         try {
+          if (f.blob) {
+            const path = shopId + '/mon-' + Date.now() + '.jpg';
+            const up = await sb.storage.from('shop-logos').upload(path, f.blob, { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' });
+            if (up.error) throw up.error;
+            f.image_url = ((window.DATDON && window.DATDON.SUPABASE_URL) || '') + '/storage/v1/object/public/shop-logos/' + path;
+          }
           const rec = {
             name, price, unit: f.unit.trim() || 'phần',
             category: f.category.trim() || null,
             description: f.description.trim() || null,
             image_url: f.image_url || null,
             sort: Math.round(Number(f.sort) || 0),
-            show_banner: f.show_banner,
             active: f.active
           };
           if (item) {
@@ -1938,7 +1999,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         ),
         fileInput
       ),
-      el('div', { style: 'font-size:12.5px;opacity:.7;margin-top:8px', text: 'Kích thước: ảnh vuông, từ 256 × 256 điểm ảnh trở lên (ảnh không vuông sẽ được cắt giữa thành hình vuông). Định dạng PNG, JPG hoặc WebP. Dung lượng tối đa 200KB sau khi app tự thu nhỏ, nên ảnh gốc to cũng không sao. Nên dùng logo nền đặc, không nền trong suốt, để icon trên điện thoại đẹp.' }),
+      el('div', { style: 'font-size:12.5px;opacity:.7;margin-top:8px', text: 'Logo: ảnh vuông từ 256 × 256, PNG/JPG/WebP. App tự cắt và thu nhỏ. Nên dùng nền đặc, không nền trong suốt.' }),
       el('div', { className: 'field', style: 'margin-top:14px' },
         el('label', { text: 'Banner ảnh đầu trang đặt hàng (không bắt buộc)' }),
         bannerImg,
@@ -1946,7 +2007,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           el('button', { type: 'button', className: 'btn btn-sm', onClick: () => bFile.click(), text: 'Chọn banner' }),
           el('button', { type: 'button', className: 'btn btn-sm', onClick: () => { br.bBlob = null; br.bRemoved = true; br.bPreview = null; drawBanner(); }, text: 'Bỏ banner' })
         ),
-        el('div', { style: 'font-size:12.5px;opacity:.7;margin-top:6px', text: 'Ảnh ngang, tỷ lệ 8:3, nên là 1200 × 450 điểm ảnh. Ảnh khác tỷ lệ sẽ được cắt giữa. Định dạng PNG, JPG hoặc WebP, app tự thu nhỏ xuống dưới 200KB. Có banner thì banner thay cho thanh màu và logo ở đầu trang, nên đặt tên tiệm vào ảnh.' }),
+        el('div', { style: 'font-size:12.5px;opacity:.7;margin-top:6px', text: 'Banner: ảnh ngang tỷ lệ 8:3 (1200 × 450). App tự cắt và thu nhỏ. Có banner thì banner thay cho thanh màu và logo ở đầu trang.' }),
         bFile
       ),
       el('div', { className: 'field', style: 'margin-top:14px' }, el('label', { text: 'Dòng khẩu hiệu (hiện ở cuối trang)' }),
@@ -1979,10 +2040,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       el('div', { className: 'grid-2' },
         el('div', { className: 'field' }, el('label', { text: 'Số điện thoại' }), el('input', { className: 'input', type: 'tel', value: pf.phone, onInput: e => { pf.phone = e.target.value; } })),
         el('div', { className: 'field' }, el('label', { text: 'Địa chỉ' }), el('input', { className: 'input', value: pf.address, onInput: e => { pf.address = e.target.value; } }))
-      ),
-      el('div', { className: 'field' },
-        el('label', { text: 'Hướng dẫn chuyển khoản (hiện cho khách sau khi đặt)' }),
-        el('textarea', { className: 'textarea', maxlength: 500, value: pf.payment_note, placeholder: 'Ngân hàng, số tài khoản, tên chủ tài khoản…', onInput: e => { pf.payment_note = e.target.value; } })
       ),
       pfBtn
     );
@@ -2078,17 +2135,13 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             },
             text: 'Lưu tên'
           }),
-          el('button', {
-            type: 'button', className: 'chip', 'aria-pressed': String(m.active),
-            onClick: async () => {
-              try {
-                const res = await sb.from('payment_methods').update({ active: !m.active }).eq('id', m.id).eq('shop_id', shopId).select('id');
-                checkMutated(res);
-                m.active = !m.active;
-                renderSettingsTab();
-              } catch (err) { showErr(err); }
-            },
-            text: m.active ? 'Đang bật' : 'Đã tắt'
+          app.toggle(m.active, async (on) => {
+            try {
+              const res = await sb.from('payment_methods').update({ active: on }).eq('id', m.id).eq('shop_id', shopId).select('id');
+              checkMutated(res);
+              m.active = on;
+            } catch (err) { showErr(err); }
+            renderSettingsTab();
           })
         );
       }),
@@ -2134,12 +2187,16 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('b', { text: 'Tài khoản & Gói dịch vụ' }),
         el('span', { className: 'badge', text: 'Gói: ' + (planNames[app.plan] || app.plan) })
       ),
-      el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, pwInp, pwBtn)
+      el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, pwInp, pwBtn),
+      el('button', { type: 'button', className: 'btn btn-danger', style: 'width:100%;margin-top:16px', onClick: async () => { try { await sb.auth.signOut(); } catch (_) {} location.reload(); }, text: 'Đăng xuất' })
     );
 
     contentHost.replaceChildren(
       renderMetaBar('settings', async () => { await loadTabData('settings'); renderSettingsTab(); }),
-      linkCard, profileCard, bankCard, brandCard, settingsCard, pmCard, accCard
+      el('div', { className: 'bh-seg tight', role: 'group', 'aria-label': 'Nhóm cài đặt' }, [['shop', 'Tiệm'], ['order', 'Nhận đơn'], ['pay', 'Thanh toán'], ['acc', 'Tài khoản']].map(([id, lb]) => el('button', {
+        type: 'button', 'aria-pressed': String(ST.settingsSub === id), onClick: () => { ST.settingsSub = id; renderSettingsTab(); window.scrollTo({ top: 0 }); }, text: lb
+      }))),
+      ...(ST.settingsSub === 'order' ? [settingsCard] : ST.settingsSub === 'pay' ? [bankCard, pmCard] : ST.settingsSub === 'acc' ? [accCard] : [linkCard, profileCard, brandCard])
     );
   }
 
@@ -2232,12 +2289,12 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         const costN = Number(ln.cost) || 0;
         const unitPrice = qtyN > 0 && costN >= 0 ? app.formatMoney(costN / qtyN) + '/' + (ln.unit || 'đv') : '';
         return el('div', { style: 'padding:10px 0;border-top:1px solid var(--border)' },
-          el('div', { className: 'grid-3' },
+          el('div', { className: 'g2x' },
             el('select', { className: 'select', onChange: e => { ln.grp = e.target.value; } },
               groups.map(g => el('option', { value: g.id, selected: ln.grp === g.id, text: g.label }))
             ),
             el('input', {
-              className: 'input', list: 'dl-inv-names', placeholder: 'Tên hàng', value: ln.name,
+              className: 'input', style: 'grid-column:1/-1;order:-1', list: 'dl-inv-names', placeholder: 'Tên hàng', value: ln.name,
               onInput: e => {
                 ln.name = e.target.value;
                 const match = ST.invItems.find(x => x.name.toLowerCase() === ln.name.trim().toLowerCase());
@@ -2253,10 +2310,10 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             }),
             el('input', { className: 'input', placeholder: 'Đơn vị', value: ln.unit, onInput: e => { ln.unit = e.target.value; } })
           ),
-          el('div', { className: 'grid-3', style: 'margin-top:6px;align-items:center' },
+          el('div', { className: 'g2x', style: 'margin-top:8px;align-items:center' },
             el('input', { className: 'input num', type: 'number', step: 'any', min: 0, placeholder: 'Số lượng', value: ln.qty, onInput: e => { ln.qty = e.target.value; updateBuySticky(); } }),
             el('input', { className: 'input num', type: 'number', min: 0, placeholder: 'Thành tiền (đ)', value: ln.cost, onInput: e => { ln.cost = e.target.value; updateBuySticky(); } }),
-            el('div', { className: 'row-between' },
+            el('div', { className: 'row-between', style: 'grid-column:1/-1' },
               el('small', { className: 'num', style: 'color:var(--text-sub)', text: unitPrice }),
               bf.lines.length > 1 ? el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: () => { bf.lines.splice(idx, 1); renderBuyTab(); }, text: 'Xóa' }) : null
             )
@@ -2279,13 +2336,13 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         ),
         p.on_credit ? el('span', { className: 'badge ' + (p.paid < p.total ? 'badge-warn' : ''), text: p.paid < p.total ? 'Trả sau' : 'Đã trả đủ' }) : null,
         el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openPurchaseDetailModal(p, e.currentTarget), text: 'Xem' }),
-        el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: e => confirmModal('Xóa phiếu ' + p.code + '?', 'Kho sẽ được hoàn lại tương ứng.', 'Xóa phiếu', async () => {
+        kebab({ text: 'Xóa', danger: true, fn: e => confirmModal('Xóa phiếu ' + p.code + '?', 'Kho sẽ được hoàn lại tương ứng.', 'Xóa phiếu', async () => {
           const { error } = await sb.rpc('delete_purchase', { p_purchase: p.id });
           if (error) throw error;
           app.showToast('Đã xóa phiếu ' + p.code, 'accent');
           await Promise.all([loadPurchases(), loadDebts(), loadInvItems()]);
           renderBuyTab();
-        }, e.currentTarget), text: 'Xóa' })
+        }, e.currentTarget) })
       )) : el('div', { className: 'empty-state', text: 'Chưa có phiếu mua nào.' })
     );
 
@@ -2517,7 +2574,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
     contentHost.replaceChildren(
       renderMetaBar('inv', async () => { await loadInventoryReport(); markLoaded('inv'); renderInvTab(); }),
-      el('div', { className: 'grid-2', style: 'margin-bottom:12px' },
+      el('div', { className: 'kpi-row2', style: 'margin-bottom:12px' },
         el('div', { className: 'kpi-box' }, el('small', { text: 'Tổng giá trị kho' }), el('b', { className: 'num', text: app.formatMoney(sum.total_value) })),
         el('div', { className: 'kpi-box' }, el('small', { text: 'Vật tư sắp hết' }), el('b', { className: 'num', style: sum.low_count > 0 ? 'color:var(--error)' : '', text: String(sum.low_count) }))
       ),
@@ -2526,7 +2583,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           el('input', { className: 'input', style: 'flex:1 1 180px', type: 'search', placeholder: 'Tìm tên vật tư…', value: ST.invSearch, onInput: e => { ST.invSearch = e.target.value; renderInvTab(); } }),
           el('button', { type: 'button', className: 'btn btn-primary', onClick: e => openInvItemModal(null, e.currentTarget), text: '+ Thêm vào kho' })
         ),
-        el('div', { className: 'chips', style: 'margin-bottom:10px' },
+        el('div', { className: 'chips hscroll', style: 'margin-bottom:10px' },
           el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.invKind === 'all'), onClick: () => { ST.invKind = 'all'; renderInvTab(); }, text: 'Tất cả' }),
           Object.entries(INV_KINDS).map(([k, lbl]) => el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.invKind === k), onClick: () => { ST.invKind = k; renderInvTab(); }, text: lbl })),
           el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.invLowOnly), onClick: () => { ST.invLowOnly = !ST.invLowOnly; renderInvTab(); }, text: 'Chỉ sắp hết' })
@@ -2540,8 +2597,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             ),
             low ? el('span', { className: 'badge badge-warn', text: 'Sắp hết' }) : null,
             el('button', { type: 'button', className: 'btn btn-sm btn-primary', onClick: e => openAdjustStockModal(it, e.currentTarget), text: 'Kiểm kho' }),
-            el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openStockMovesModal(it, e.currentTarget), text: 'Lịch sử' }),
-            el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openInvItemModal(it, e.currentTarget), text: 'Sửa' })
+            kebab({ text: 'Sửa vật tư', fn: e => openInvItemModal(it, e.currentTarget) }, { text: 'Lịch sử nhập xuất', fn: e => openStockMovesModal(it, e.currentTarget) })
           );
         }) : el('div', { className: 'empty-state', text: 'Chưa có vật tư khớp bộ lọc.' })
       )
@@ -2674,7 +2730,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
     let newInvId = ST.invItems[0] ? ST.invItems[0].id : '';
     let newQty = '';
-    const addRow = el('div', { className: 'grid-3', style: 'margin-top:12px;align-items:end' },
+    const addRow = el('div', { className: 'g2x', style: 'margin-top:12px;align-items:end' },
       el('div', { className: 'field', style: 'margin:0' },
         el('label', { text: 'Vật tư' }),
         el('select', { className: 'select', onChange: e => { newInvId = e.target.value; } },
@@ -2816,19 +2872,25 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
 
   function renderCashTab() {
+    const tdy = app.toVnYmd(new Date()), mStart = tdy.slice(0, 8) + '01', pmEnd = app.shiftYmd(mStart, -1);
+    const cashPresets = [['Hôm nay', tdy, tdy], ['7 ngày', app.shiftYmd(tdy, -6), tdy], ['Tháng này', mStart, tdy], ['Tháng trước', pmEnd.slice(0, 8) + '01', pmEnd]];
     let totalIn = 0, totalOut = 0;
     for (const c of ST.cashEntries) { if (c.dir === 'in') totalIn += c.amount; else totalOut += c.amount; }
 
     contentHost.replaceChildren(
       renderMetaBar('cash', async () => { await loadCashEntries(); markLoaded('cash'); renderCashTab(); }),
       el('div', { className: 'card' },
-        el('div', { className: 'grid-3', style: 'align-items:end' },
+        el('div', { className: 'hscroll', style: 'margin-bottom:8px' }, cashPresets.map(([lb, f, t]) => el('button', {
+          type: 'button', className: 'chip', 'aria-pressed': String(!ST.cashCustom && ST.cashFrom === f && ST.cashTo === t),
+          onClick: async () => { ST.cashCustom = false; ST.cashFrom = f; ST.cashTo = t; await loadCashEntries(); renderCashTab(); }, text: lb
+        })), el('button', { type: 'button', className: 'chip', 'aria-pressed': String(!!ST.cashCustom), onClick: () => { ST.cashCustom = !ST.cashCustom; renderCashTab(); }, text: 'Chọn ngày' })),
+        ST.cashCustom ? el('div', { className: 'grid-2', style: 'margin-bottom:8px' },
           el('div', { className: 'field', style: 'margin:0' }, el('label', { text: 'Từ ngày' }), el('input', { className: 'input', type: 'date', value: ST.cashFrom, onChange: async e => { ST.cashFrom = e.target.value; await loadCashEntries(); renderCashTab(); } })),
-          el('div', { className: 'field', style: 'margin:0' }, el('label', { text: 'Đến ngày' }), el('input', { className: 'input', type: 'date', value: ST.cashTo, onChange: async e => { ST.cashTo = e.target.value; await loadCashEntries(); renderCashTab(); } })),
-          el('button', { type: 'button', className: 'btn btn-primary', onClick: e => openCashModal(null, e.currentTarget), text: '+ Ghi thu / chi' })
-        )
+          el('div', { className: 'field', style: 'margin:0' }, el('label', { text: 'Đến ngày' }), el('input', { className: 'input', type: 'date', value: ST.cashTo, onChange: async e => { ST.cashTo = e.target.value; await loadCashEntries(); renderCashTab(); } }))
+        ) : null,
+        el('button', { type: 'button', className: 'btn btn-primary', style: 'width:100%', onClick: e => openCashModal(null, e.currentTarget), text: '+ Ghi thu / chi' })
       ),
-      el('div', { className: 'grid-3', style: 'margin-bottom:12px' },
+      el('div', { className: 'kpi-row3', style: 'margin-bottom:12px' },
         el('div', { className: 'kpi-box' }, el('small', { text: 'Tổng thu' }), el('b', { className: 'num', style: 'color:var(--accent)', text: app.formatMoney(totalIn) })),
         el('div', { className: 'kpi-box' }, el('small', { text: 'Tổng chi' }), el('b', { className: 'num', style: 'color:var(--error)', text: app.formatMoney(totalOut) })),
         el('div', { className: 'kpi-box' }, el('small', { text: 'Chênh lệch' }), el('b', { className: 'num', text: app.formatMoney(totalIn - totalOut) }))
@@ -2842,13 +2904,12 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
               el('small', { text: app.formatVnDateTime(c.at) + ' · ' + payMethodName(c.pay_method_id) })
             ),
             el('b', { className: 'num', style: 'color:' + (c.dir === 'in' ? 'var(--accent)' : 'var(--error)'), text: (c.dir === 'in' ? '+' : '−') + app.formatMoney(c.amount) }),
-            el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openCashModal(c, e.currentTarget), text: 'Sửa' }),
-            el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: e => confirmModal('Xóa khoản thu chi?', 'Khoản này sẽ bị xóa khỏi sổ.', 'Xóa', async () => {
+            kebab({ text: 'Sửa khoản này', fn: e => openCashModal(c, e.currentTarget) }, { text: 'Xóa', danger: true, fn: e => confirmModal('Xóa khoản thu chi?', 'Khoản này sẽ bị xóa khỏi sổ.', 'Xóa', async () => {
               const res = await sb.from('cash_entries').delete().eq('id', c.id).eq('shop_id', shopId).select('id');
               checkMutated(res);
               await loadCashEntries();
               renderCashTab();
-            }, e.currentTarget), text: 'Xóa' })
+            }, e.currentTarget) })
           );
         }) : el('div', { className: 'empty-state', text: 'Chưa có khoản thu chi tay nào trong khoảng ngày này.' })
       )
@@ -2965,11 +3026,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         const iv = invMap.get(inp.inv_item_id);
         const over = iv && (Number(inp.qty) || 0) > Number(iv.qty);
         return el('div', { className: 'line-row' },
-          el('select', { className: 'select', style: 'flex:2 1 160px', onChange: e => { inp.inv_item_id = e.target.value; renderBatchTab(); } },
+          el('select', { className: 'select', style: 'flex:1 1 100%;min-width:0', onChange: e => { inp.inv_item_id = e.target.value; renderBatchTab(); } },
             el('option', { value: '', text: 'Chọn nguyên liệu…' }),
             ST.invItems.map(i => el('option', { value: i.id, selected: i.id === inp.inv_item_id, text: i.name + ' (còn ' + i.qty + ' ' + i.unit + ')' }))
           ),
-          el('input', { className: 'input num', style: 'flex:1 1 100px', type: 'number', step: 'any', min: 0, placeholder: 'Lượng dùng', value: inp.qty, onInput: e => { inp.qty = e.target.value; renderBatchTab(); } }),
+          el('input', { className: 'input num', style: 'flex:1 1 120px;min-width:0', type: 'number', step: 'any', min: 0, placeholder: 'Lượng dùng', value: inp.qty, onInput: e => { inp.qty = e.target.value; renderBatchTab(); } }),
           over ? el('span', { className: 'badge badge-err', text: 'Vượt tồn' }) : null,
           bf.inputs.length > 1 ? el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: () => { bf.inputs.splice(idx, 1); renderBatchTab(); }, text: 'Xóa' }) : null
         );
@@ -2996,13 +3057,13 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             el('small', { className: 'num', text: app.formatVnDateTime(b.at) + ' · Giá vốn: ' + app.formatMoney(unitCost) + '/' + (outIv ? outIv.unit : 'đv') })
           ),
           el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openBatchDetailModal(b, e.currentTarget), text: 'Xem' }),
-          el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: e => confirmModal('Xóa mẻ sản xuất?', 'Kho nguyên liệu và thành phẩm sẽ được hoàn lại.', 'Xóa mẻ', async () => {
+          kebab({ text: 'Xóa', danger: true, fn: e => confirmModal('Xóa mẻ sản xuất?', 'Kho nguyên liệu và thành phẩm sẽ được hoàn lại.', 'Xóa mẻ', async () => {
             const { error } = await sb.rpc('delete_batch', { p_batch: b.id });
             if (error) throw error;
             app.showToast('Đã xóa mẻ', 'accent');
             await Promise.all([loadBatches(), loadInvItems()]);
             renderBatchTab();
-          }, e.currentTarget), text: 'Xóa' })
+          }, e.currentTarget) })
         );
       }) : el('div', { className: 'empty-state', text: 'Chưa có mẻ sản xuất nào.' })
     );
@@ -3137,7 +3198,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
               ),
               c.member ? el('span', { className: 'badge', text: 'Thành viên' }) : null,
               el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openCustomerDetailModal(c, e.currentTarget), text: 'Chi tiết' }),
-              el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openCustomerModal(c, async () => { await loadCustomersWithStats(); renderCustTab(); }, e.currentTarget), text: 'Sửa' })
+              kebab({ text: 'Sửa thông tin khách', fn: e => openCustomerModal(c, async () => { await loadCustomersWithStats(); renderCustTab(); }, e.currentTarget) })
             );
           }) : el('div', { className: 'empty-state', text: 'Chưa có khách hàng khớp tìm kiếm.' })
         )
@@ -3341,28 +3402,23 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         return el('div', { className: 'line-row' },
           el('div', { className: 'line-main' },
             el('b', { text: p.name }),
-            el('small', { text: valText + (p.description ? ' · ' + p.description : '') + (p.show_banner === false ? ' · Ẩn khỏi banner' : '') })
+            el('small', { text: [valText, p.min_qty > 0 ? 'từ ' + p.min_qty + ' phần' : '', p.min_money > 0 ? 'đơn từ ' + app.formatMoney(p.min_money) : '', (p.item_ids && p.item_ids.length) ? 'áp dụng ' + p.item_ids.length + ' món' : '', (p.description && p.description !== valText) ? p.description : '', p.show_banner === false ? 'ẩn khỏi banner' : 'hiện ở banner'].filter(Boolean).join(' · ') })
           ),
-          el('span', { className: 'badge ' + st.cls, text: st.text }),
-          el('button', {
-            type: 'button', className: 'btn btn-sm',
-            onClick: async () => {
-              try {
-                const res = await sb.from('promotions').update({ active: !p.active }).eq('id', p.id).eq('shop_id', shopId).select('id');
-                checkMutated(res);
-                p.active = !p.active;
-                renderPromoTab();
-              } catch (err) { showErr(err); }
-            },
-            text: p.active ? 'Tắt' : 'Bật'
+          (st.text === 'Đang chạy' || st.text === 'Tắt') ? null : el('span', { className: 'badge ' + st.cls, text: st.text }),
+          app.toggle(p.active, async (on) => {
+            try {
+              const res = await sb.from('promotions').update({ active: on }).eq('id', p.id).eq('shop_id', shopId).select('id');
+              checkMutated(res);
+              p.active = on;
+            } catch (err) { showErr(err); }
+            renderPromoTab();
           }),
-          el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openPromoModal(p, e.currentTarget), text: 'Sửa' }),
-          el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: e => confirmModal('Xóa "' + p.name + '"?', 'Chương trình sẽ bị xóa hẳn.', 'Xóa', async () => {
+          kebab({ text: 'Sửa chương trình', fn: e => openPromoModal(p, e.currentTarget) }, { text: 'Xóa', danger: true, fn: e => confirmModal('Xóa "' + p.name + '"?', 'Chương trình sẽ bị xóa hẳn.', 'Xóa', async () => {
             const res = await sb.from('promotions').delete().eq('id', p.id).eq('shop_id', shopId).select('id');
             checkMutated(res);
             await loadPromos();
             renderPromoTab();
-          }, e.currentTarget), text: 'Xóa' })
+          }, e.currentTarget) })
         );
       })) : el('div', { className: 'card empty-state', text: 'Chưa có chương trình nào trong mục này.' })
     );

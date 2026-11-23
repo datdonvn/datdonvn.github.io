@@ -989,7 +989,7 @@ function renderMenuView() {
   const wrap = el('div');
 
   // Dải khuyến mãi đang chạy
-  const promos = shop.promos || [];
+  const promos = (shop.promos || []).filter(p => p.banner !== false);
   if (promos.length) {
     wrap.append(el('div', { className: 'promos' + (promos.length === 1 ? ' one' : ''), 'aria-label': 'Khuyến mãi đang chạy' },
       promos.map(p => el('div', { className: 'promo-card' },
@@ -1808,7 +1808,7 @@ function openFeedbackModal(code, phone, opener) {
 /* ===== TAB 3: THÀNH VIÊN ===== */
 function renderMemberView() {
   const wrap = el('div');
-  const promos = ((ST.shop && ST.shop.promos) || []).filter(p => p.kind === 'loyalty' || p.kind === 'voucher');
+  const promos = ((ST.shop && ST.shop.promos) || []).filter(p => (p.kind === 'loyalty' || p.kind === 'voucher') && p.running !== false);
 
   wrap.append(el('h2', { className: 'cat-title', text: 'Thành viên & Ưu đãi' }));
 

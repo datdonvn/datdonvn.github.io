@@ -1240,7 +1240,24 @@ function openCheckoutModal(opener) {
   if (isValidPhone(ST.profile.phone)) fetchMyVouchers(ST.profile.phone);
 }
 
+// Vẽ lại form xác nhận đơn nhưng giữ con trỏ đang nhập (tránh nhảy con trỏ khi vừa gõ vừa vẽ lại)
 function renderCheckoutContent() {
+  const a = document.activeElement;
+  const id = a && a.id && /^co-/.test(a.id) ? a.id : null;
+  let s0 = null, e0 = null;
+  if (id) { try { s0 = a.selectionStart; e0 = a.selectionEnd; } catch (_) {} }
+  const st = checkoutRefs && checkoutRefs.body ? checkoutRefs.body.scrollTop : null;
+  renderCheckoutContentInner();
+  if (id) {
+    const n = document.getElementById(id);
+    if (n && n !== a) {
+      try { n.focus({ preventScroll: true }); } catch (_) { n.focus(); }
+      if (s0 !== null) { try { n.setSelectionRange(s0, e0); } catch (_) {} }
+    }
+  }
+  if (st !== null && checkoutRefs && checkoutRefs.body) checkoutRefs.body.scrollTop = st;
+}
+function renderCheckoutContentInner() {
   if (!ST.co.open || !checkoutRefs) return;
   const shop = ST.shop;
   const entries = cartEntries();

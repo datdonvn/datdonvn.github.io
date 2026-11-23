@@ -68,6 +68,11 @@ body { font-family: "Be Vietnam Pro", var(--font, system-ui, sans-serif); }
 .more-info { margin-top: 4px; border-top: 1px dashed var(--border); padding-top: 10px; }
 .more-info summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--accent); min-height: 32px; display: flex; align-items: center; }
 .line-row:has(.kebab) { flex-wrap: nowrap; }
+.line-row.promo-row { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; column-gap: 10px; row-gap: 4px; }
+.promo-row .line-main { display: contents; }
+.promo-row .line-main b { grid-column: 1; grid-row: 1; }
+.promo-row .line-main small { grid-column: 1 / -1; grid-row: 2; }
+.promo-row > :not(.line-main) { grid-row: 1; }
 .line-row:has(.kebab) .line-main { min-width: 0; flex: 1 1 auto; }
 .hscroll.even > .chip, .chips.even > .chip { flex: 1 1 0; text-align: center; justify-content: center; }
 .hscroll .chip { padding: 8px 12px; min-height: 40px; font-size: 13.5px; }
@@ -3449,7 +3454,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         const valText = p.discount_type === 'percent' ? 'Giảm ' + p.value + '%' :
           p.discount_type === 'amount' ? 'Giảm ' + app.formatMoney(p.value) :
           'Tặng ' + p.value + ' món';
-        return el('div', { className: 'line-row' },
+        return el('div', { className: 'line-row promo-row' },
           el('div', { className: 'line-main' },
             el('b', { text: p.name }),
             el('small', { text: [valText, p.min_qty > 0 ? 'từ ' + p.min_qty + ' phần' : '', p.min_money > 0 ? 'đơn từ ' + app.formatMoney(p.min_money) : '', (p.item_ids && p.item_ids.length) ? 'áp dụng ' + p.item_ids.length + ' món' : '', (p.description && p.description !== valText) ? p.description : '', p.show_banner === false ? 'ẩn khỏi banner' : 'hiện ở banner'].filter(Boolean).join(' · ') })

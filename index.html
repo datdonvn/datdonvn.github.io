@@ -1025,7 +1025,7 @@ function renderMenuView() {
   const wrap = el('div');
 
   // Dải khuyến mãi đang chạy
-  const promos = (shop.promos || []).filter(p => p.banner !== false);
+  const promos = (shop.promos || []).filter(p => p.banner !== false && p.running !== false);
   if (promos.length) {
     const strip = el('div', { className: 'promos' + (promos.length === 1 ? ' one' : ''), 'aria-label': 'Khuyến mãi đang chạy' },
       promos.map(p => el('div', { className: 'promo-card' },

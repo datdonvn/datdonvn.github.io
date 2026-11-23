@@ -1025,7 +1025,14 @@ function renderMenuView() {
   const wrap = el('div');
 
   // Dải khuyến mãi đang chạy
-  const promos = (shop.promos || []).filter(p => p.banner !== false && p.running !== false);
+  if (ST.adding) {
+    wrap.append(el('div', { className: 'card' },
+      el('b', { text: 'Thêm món vào đơn ' + ST.adding.code }),
+      el('p', { style: 'margin:4px 0 10px;font-size:13.5px;color:var(--text-sub)', text: 'Món chọn thêm sẽ gộp vào đơn này. Đơn quay lại chờ quán xác nhận.' }),
+      el('button', { type: 'button', className: 'btn btn-ghost', onClick: () => { stopAdd(); renderApp(); }, text: 'Không thêm nữa' })
+    ));
+  }
+  const promos = ST.adding ? [] : (shop.promos || []).filter(p => p.banner !== false && p.running !== false);
   if (promos.length) {
     const strip = el('div', { className: 'promos' + (promos.length === 1 ? ' one' : ''), 'aria-label': 'Khuyến mãi đang chạy' },
       promos.map(p => el('div', { className: 'promo-card' },
@@ -1132,14 +1139,66 @@ function setCartQty(itemId, qty) {
   else ST.cart[itemId] = n;
   ST.co.quote = null;
   renderApp();
-  if (cartCount() > 0 && isValidPhone(ST.profile.phone)) {
+  if (!ST.adding && cartCount() > 0 && isValidPhone(ST.profile.phone)) {
     scheduleQuote();
   }
+}
+
+/* ===== THÊM MÓN VÀO ĐƠN ĐANG CHỜ (theo v1: món gộp vào cùng đơn, đơn quay lại chờ xác nhận) ===== */
+function startAdd(code, phone) {
+  closeDialog();
+  ST.cartKeep = ST.cart;
+  ST.cart = {};
+  ST.adding = { code, phone, busy: false };
+  switchTab('menu');
+}
+function stopAdd() {
+  if (!ST.adding) return;
+  ST.adding = null;
+  ST.cart = ST.cartKeep || {};
+  ST.cartKeep = null;
+}
+async function submitAdd(btn) {
+  const a = ST.adding;
+  if (!a || a.busy) return;
+  a.busy = true;
+  btn.disabled = true; btn.textContent = 'Đang gửi…';
+  try {
+    await rpc('add_order_items', { p_slug: SLUG, p_code: a.code, p_phone: a.phone, p_items: cartEntries().map(e => ({ item_id: e.item.id, qty: e.qty })) });
+    const code = a.code;
+    stopAdd();
+    showToast('Đã thêm món vào đơn ' + code + '. Quán sẽ xác nhận lại đơn của bạn.');
+    ST.tracked = {};
+    switchTab('orders');
+  } catch (err) {
+    a.busy = false;
+    showToast(err.message || 'Không thêm được món, bạn thử lại nhé.', 'error');
+    if (/hết|không còn/i.test(err.message || '')) await loadShop(true);
+    renderApp();
+  }
+}
+
+// Nút "Thêm món" trên đơn đang chờ (đổi cách thanh toán do makePayBlock lo).
+function orderEditButtons(info, phone) {
+  if (!info.can_add) return null;
+  return el('div', { style: 'display:flex;gap:10px;margin-top:10px' },
+    el('button', { type: 'button', className: 'btn', style: 'flex:1', onClick: () => startAdd(info.code, phone), text: 'Thêm món' }));
 }
 
 function renderCartBar() {
   const count = cartCount();
   const sub = cartSubtotal();
+  if (ST.adding) {
+    return el('div', { className: 'cart-bar' },
+      el('div', { className: 'cart-bar-in' },
+        el('div', { className: 'cart-sum' },
+          el('small', { text: count + ' món thêm vào đơn ' + ST.adding.code }),
+          el('b', { className: 'num', text: formatMoney(sub) })
+        ),
+        el('button', { type: 'button', className: 'btn-view', onClick: e => submitAdd(e.currentTarget), text: 'Thêm vào đơn' })
+      )
+    );
+  }
   const displayAmt = ST.co.quote ? ST.co.quote.total : sub;
   return el('div', { className: 'cart-bar' },
     el('div', { className: 'cart-bar-in' },
@@ -1694,6 +1753,7 @@ function openSuccessModal(res, phone, itemsSnapshot, createdIso) {
       )
     ),
     makePayBlock(res.code, phone, res.total, window.__lastPayId, true),
+    orderEditButtons({ code: res.code, can_add: true }, phone),
     cancelBox
   );
 
@@ -1751,6 +1811,7 @@ function renderOrderCard(info, phone) {
       el('span', { text: 'Tổng cộng' }), el('span', { className: 'num', text: formatMoney(info.total) })
     ),
     (info.can_change_pay && info.pay_method_id) ? el('div', { style: 'margin-top:10px' }, makePayBlock(info.code, phone, info.total, info.pay_method_id, true, () => refreshSavedOrders())) : null,
+    orderEditButtons(info, phone),
     canCancel ? el('button', {
       type: 'button', className: 'btn btn-danger btn-block', style: 'margin-top:10px',
       onClick: e => confirmDialog(

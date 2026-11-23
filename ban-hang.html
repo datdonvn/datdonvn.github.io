@@ -1099,7 +1099,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       el('input', { id: 'sl-cname', className: 'input', value: s.customer_name || '', placeholder: 'Khách lẻ', onInput: e => { s.customer_name = e.target.value; saveDraft(); } }));
     const fPhone = el('div', { className: 'field' },
       el('label', { for: 'sl-cphone', text: 'Số điện thoại khách' }),
-      el('input', { id: 'sl-cphone', className: 'input', type: 'tel', inputmode: 'tel', value: s.customer_phone || '', placeholder: 'Không bắt buộc',
+      el('input', { id: 'sl-cphone', className: 'input', type: 'tel', inputmode: 'tel', value: s.customer_phone || '', placeholder: s.ship ? 'Bắt buộc, để liên hệ giao hàng' : 'Không bắt buộc',
         onInput: e => { s.customer_phone = e.target.value; saveDraft(); scheduleSaleQuote(); fetchSaleVouchers(); } }));
     const fDisc = el('div', { className: 'field' },
       el('label', { for: 'sl-disc', text: 'Giảm giá tay (đ)' }),
@@ -1130,7 +1130,24 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     if (ST.saleMoreOpen || moreFilled) moreBox.open = true;
     moreBox.addEventListener('toggle', () => { ST.saleMoreOpen = moreBox.open; });
 
-    const infoCard = el('div', { className: 'card' },
+    const modeChips = s.editId ? null : el('div', { className: 'chips', style: 'margin-bottom:12px' },
+      el('button', { type: 'button', className: 'chip', 'aria-pressed': String(!s.ship), onClick: () => { s.ship = false; saveDraft(); renderSaleTab(); }, text: 'Bán tại quầy' }),
+      el('button', { type: 'button', className: 'chip', 'aria-pressed': String(!!s.ship), onClick: () => { s.ship = true; saveDraft(); renderSaleTab(); }, text: 'Giao tận nơi, lên hàng chờ' }));
+    const shipPlaces = Array.isArray(ST.shop.places) ? ST.shop.places : [];
+    if (s.ship && shipPlaces.length && !shipPlaces.some(p => p.name === s.shipPlace)) s.shipPlace = shipPlaces[0].name;
+    const shipCard = el('div', { className: 'card' },
+      modeChips,
+      el('div', { className: 'alert', style: 'margin-bottom:10px', text: 'Đơn giao sẽ vào mục Đơn để làm và giao. Khách gọi điện hay nhắn tin thì lên đơn ở đây.' }),
+      fPhone, fName,
+      shipPlaces.length ? el('div', { className: 'field' }, el('label', { text: 'Nơi giao' }),
+        el('div', { className: 'chips' }, shipPlaces.map(p => el('button', { type: 'button', className: 'chip', 'aria-pressed': String(s.shipPlace === p.name), onClick: () => { s.shipPlace = p.name; saveDraft(); renderSaleTab(); }, text: p.name + (p.fee > 0 ? ' (+' + app.formatMoney(p.fee) + ')' : '') })))) : null,
+      el('div', { className: 'field' }, el('label', { for: 'sl-shipaddr', text: 'Căn hộ / địa chỉ giao' }),
+        el('input', { id: 'sl-shipaddr', className: 'input', value: s.shipAddr || '', placeholder: 'Ví dụ A0605', onInput: e => { s.shipAddr = e.target.value; saveDraft(); } })),
+      fPay,
+      fNote
+    );
+    const infoCard = s.ship && !s.editId ? shipCard : el('div', { className: 'card' },
+      modeChips,
       el('div', { style: 'font-weight:700;margin-bottom:8px', text: 'Thanh toán' }),
       custPickerProPlus,
       fPhone,
@@ -1237,7 +1254,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const btn = el('button', {
       type: 'button', className: 'btn-save', disabled: !tot.count,
       onClick: () => { if (inOrder) submitSaleOrder(btn); else { ST.saleView = 'order'; renderSaleTab(); window.scrollTo(0, 0); } },
-      text: inOrder ? (ST.sale.editId ? 'Cập nhật đơn' : 'Lưu đơn') : 'Đặt hàng'
+      text: inOrder ? (ST.sale.editId ? 'Cập nhật đơn' : (ST.sale.ship ? 'Lên đơn giao' : 'Lưu đơn')) : 'Đặt hàng'
     });
     stickyHost.replaceChildren(el('div', { className: 'sticky-bar' },
       el('div', { className: 'sticky-bar-in' },
@@ -1295,6 +1312,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   async function submitSaleOrder(btn) {
     const s = ST.sale;
     if (!s.items.length) return;
+    if (s.ship && !s.editId) return submitShipOrder(btn);
     btn.disabled = true; btn.textContent = 'Đang lưu…';
     try {
       clearTimeout(saleQuoteTimer);
@@ -1349,6 +1367,35 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       }
       showErr(err);
       btn.disabled = false; btn.textContent = ST.sale.editId ? 'Cập nhật đơn' : 'Lưu đơn';
+    }
+  }
+
+  // Đơn giao tận nơi (như v1 "Giao tận nơi"): lên đơn vào hàng chờ cho bếp, hiện ở mục Đơn
+  async function submitShipOrder(btn) {
+    const s = ST.sale;
+    const phone = (s.customer_phone || '').replace(/[\s.\-]/g, '');
+    if (!/^\+?[0-9]{8,15}$/.test(phone)) { app.showToast('Nhập số điện thoại khách để giao hàng.', 'error'); return; }
+    const places = Array.isArray(ST.shop.places) ? ST.shop.places : [];
+    const pl = places.find(p => p.name === s.shipPlace) || null;
+    if (!(s.shipAddr || '').trim() && (!pl || pl.needs !== 'none')) { app.showToast('Chưa nhập căn hộ hoặc địa chỉ giao.', 'error'); return; }
+    btn.disabled = true; btn.textContent = 'Đang lên đơn…';
+    try {
+      if (!s.key) s.key = newKey();
+      const { data, error } = await sb.rpc('staff_create_order', {
+        p_key: s.key, p_shop: shopId, p_name: (s.customer_name || '').trim(), p_phone: phone,
+        p_address: (s.shipAddr || '').trim(), p_note: (s.note || '').trim(),
+        p_items: s.items.map(it => ({ item_id: it.item_id, qty: it.qty })),
+        p_pay_method: s.pay_method_id || null, p_voucher: app.hasPlan('proplus') ? (s.voucher_id || null) : null,
+        p_place: pl ? pl.name : null, p_paid: !s.unpaid
+      });
+      if (error) throw error;
+      app.showToast('Đã lên đơn giao ' + data.code + ' · ' + app.formatMoney(data.total) + '. Xem ở mục Đơn.', 'accent');
+      resetSaleForm();
+      renderSaleTab();
+      try { await loadOnlineOrders(false); renderNav(); } catch (e) {}
+    } catch (err) {
+      showErr(err);
+      btn.disabled = false; btn.textContent = 'Lên đơn giao';
     }
   }
 

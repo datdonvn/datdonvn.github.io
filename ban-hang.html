@@ -1389,6 +1389,40 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     );
   }
 
+  // Đổi phương thức thanh toán của đơn (giữ nguyên trạng thái thu tiền và số đã thu)
+  function openChangePaymentModal(order, opener) {
+    let sel = order.pay_method_id || null;
+    const body = el('div');
+    const draw = () => {
+      body.replaceChildren(
+        el('p', { style: 'margin:0 0 10px', text: 'Đơn ' + order.code + ' đang thanh toán bằng: ' + (order.pay_method_id ? payMethodName(order.pay_method_id) : 'chưa chọn') + '. Chọn cách mới:' }),
+        el('div', { className: 'chips' },
+          activePayMethods().map(m => el('button', {
+            type: 'button', className: 'chip', 'aria-pressed': String(sel === m.id),
+            onClick: () => { sel = m.id; draw(); }, text: m.name
+          }))
+        ),
+        order.pay_status === 'paid' ? el('small', { style: 'display:block;margin-top:10px;color:var(--text-sub)', text: 'Đơn đã thu tiền, chỉ đổi cách thanh toán đã ghi.' }) : null
+      );
+    };
+    draw();
+    const okBtn = el('button', { type: 'button', className: 'btn btn-primary', text: 'Lưu' });
+    okBtn.onclick = async () => {
+      if (!sel || sel === order.pay_method_id) { closeModal(); return; }
+      okBtn.disabled = true; okBtn.textContent = 'Đang lưu…';
+      try {
+        const paidAmt = order.pay_status === 'paid' ? (order.paid != null && order.paid > 0 ? order.paid : order.total) : (order.paid || 0);
+        const { error } = await sb.rpc('set_order_payment', { p_order: order.id, p_pay_method: sel, p_pay_status: order.pay_status, p_paid: paidAmt });
+        if (error) throw error;
+        order.pay_method_id = sel;
+        closeModal();
+        app.showToast('Đã đổi cách thanh toán đơn ' + order.code + ' sang ' + payMethodName(sel), 'accent');
+        if (ST.tab === 'online') renderOnlineTab();
+      } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = 'Lưu'; }
+    };
+    openModal('Đổi cách thanh toán', body, [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), okBtn], opener);
+  }
+
   function openConfirmPaymentModal(order, onDone, opener) {
     let selMethod = order.pay_method_id || (activePayMethods()[0] && activePayMethods()[0].id) || null;
     const body = el('div');
@@ -1540,6 +1574,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
               }, text: 'Khách báo đã chuyển, chờ xác nhận' }) : null
             ), null, e.currentTarget),
             text: 'Thu tiền'
+          }) : null,
+          o.status !== 'cancelled' ? el('button', {
+            type: 'button', className: 'btn',
+            onClick: e => openChangePaymentModal(o, e.currentTarget),
+            text: 'Đổi cách thanh toán'
           }) : null,
           o.status !== 'done' && o.status !== 'cancelled' ? kebab({ text: 'Hủy đơn', danger: true, fn: e => confirmModal('Hủy đơn ' + o.code + '?', 'Đơn sẽ chuyển sang trạng thái Đã hủy.', 'Xác nhận hủy', () => updateOnlineStatus(o, 'cancelled'), e.currentTarget) }) : null
         )

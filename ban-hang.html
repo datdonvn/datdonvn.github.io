@@ -2033,6 +2033,27 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
 
   /* ===== TAB: Cài đặt (gói tối thiểu: standard) ===== */
+  // Mã QR để khách quét là vào đặt hàng (in dán ở quầy, gửi qua Zalo)
+  function openOrderQrModal(link, opener) {
+    const qr = qrcode(0, 'M'); qr.addData(link); qr.make();
+    const n = qr.getModuleCount(), cell = 10, pad = 4, size = (n + pad * 2) * cell;
+    const cv = document.createElement('canvas'); cv.width = size; cv.height = size;
+    const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, size, size); cx.fillStyle = '#000';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) cx.fillRect((c + pad) * cell, (r + pad) * cell, cell, cell);
+    cv.style.cssText = 'width:min(280px,100%);height:auto;display:block;margin:0 auto;border:1px solid var(--border);border-radius:8px';
+    const name = (ST.shop.name || 'quan');
+    openModal('Mã QR đặt hàng', el('div', null,
+      cv,
+      el('div', { style: 'text-align:center;margin-top:8px;font-weight:600', text: 'Quét để đặt hàng · ' + name }),
+      el('small', { style: 'display:block;text-align:center;color:var(--text-sub);word-break:break-all', text: link })
+    ), [
+      el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' }),
+      el('button', { type: 'button', className: 'btn btn-primary', text: 'Tải ảnh QR', onClick: () => {
+        const a = document.createElement('a'); a.download = 'qr-dat-hang-' + ST.shop.slug + '.png'; a.href = cv.toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove();
+      } })
+    ], opener);
+  }
+
   function renderSettingsTab() {
     const sh = ST.shop;
     const pf = { name: sh.name || '', phone: sh.phone || '', address: sh.address || '', payment_note: sh.payment_note || '' };
@@ -2060,6 +2081,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           },
           text: 'Sao chép'
         }),
+        el('button', { type: 'button', className: 'btn', onClick: e => openOrderQrModal(orderLink, e.currentTarget), text: 'Mã QR đặt hàng' }),
         el('a', { className: 'btn', href: orderLink, target: '_blank', rel: 'noopener', text: 'Xem thử' })
       )
     );

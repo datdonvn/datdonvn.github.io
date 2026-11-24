@@ -2833,7 +2833,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     );
   }
 
-  function openInvItemModal(item, opener) {
+  function openInvItemModal(item, opener, onSaved) {
     const f = { name: item ? item.name : '', unit: item ? item.unit : 'kg', kind: item ? item.kind : 'nl', min_stock: item ? item.min_stock : 0, active: item ? item.active : true };
     const body = el('div', null,
       el('div', { className: 'field' }, el('label', { text: 'Tên vật tư' }), el('input', { className: 'input', value: f.name, onInput: e => { f.name = e.target.value; } })),
@@ -2867,7 +2867,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           closeModal();
           app.showToast('Đã lưu vật tư', 'accent');
           await loadInventoryReport();
-          renderInvTab();
+          if (onSaved) onSaved(); else renderInvTab();
         } catch (err) { showErr(err); saveBtn.disabled = false; saveBtn.textContent = 'Lưu'; }
       },
       text: 'Lưu'
@@ -2962,9 +2962,12 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     let newQty = '';
     const addRow = el('div', { className: 'g2x', style: 'margin-top:12px;align-items:end' },
       el('div', { className: 'field', style: 'margin:0' },
-        el('label', { text: 'Vật tư' }),
+        el('div', { className: 'row-between', style: 'margin-bottom:4px' },
+          el('label', { style: 'margin:0', text: 'Vật tư' }),
+          el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openInvItemModal(null, e.currentTarget, () => renderRecipeTab()), text: '+ Tạo vật tư mới' })
+        ),
         el('select', { className: 'select', onChange: e => { newInvId = e.target.value; } },
-          ST.invItems.map(i => el('option', { value: i.id, text: i.name + ' (' + i.unit + ')' }))
+          ST.invItems.map(i => el('option', { value: i.id, text: i.name + ' (' + i.unit + (INV_KINDS[i.kind] ? ', ' + INV_KINDS[i.kind] : '') + ')' }))
         )
       ),
       el('div', { className: 'field', style: 'margin:0' },
@@ -3010,7 +3013,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           return el('div', { className: 'line-row' },
             el('div', { className: 'line-main' },
               el('b', { text: iv ? iv.name : r.inv_item_id }),
-              el('small', { className: 'num', text: 'Tạm tính: ' + app.formatMoney(lineCost) + ' (' + (iv ? iv.unit : '') + ')' })
+              el('small', { className: 'num', style: iv && !(Number(iv.avg_cost) > 0) ? 'color:var(--error)' : '', text: iv && !(Number(iv.avg_cost) > 0) ? 'Chưa có giá vốn, hãy nhập phiếu Mua vật tư này' : 'Tạm tính: ' + app.formatMoney(lineCost) + ' (' + (iv ? iv.unit : '') + ')' })
             ),
             qInp,
             el('button', {
@@ -3338,7 +3341,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('div', { className: 'field' },
           el('div', { className: 'row-between', style: 'margin-bottom:4px' },
             el('label', { style: 'margin:0', text: 'Vật tư làm ra' }),
-            el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openInvItemModal(null, e.currentTarget), text: '+ Tạo mới' })
+            el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openInvItemModal(null, e.currentTarget, () => renderBatchTab()), text: '+ Tạo mới' })
           ),
           el('select', { className: 'select', onChange: e => { bf.out_item_id = e.target.value; renderBatchTab(); } },
             el('option', { value: '', text: 'Chọn vật tư…' }),

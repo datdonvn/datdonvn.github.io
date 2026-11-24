@@ -1938,7 +1938,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             const res = await sb.from('menu_items').update(rec).eq('id', item.id).eq('shop_id', shopId).select('id');
             checkMutated(res);
           } else {
-            const { error } = await sb.from('menu_items').insert(Object.assign({ shop_id: shopId, kind: f.kind }, rec));
+            const { error } = await sb.from('menu_items').insert(Object.assign({ shop_id: shopId }, rec));
             if (error) throw error;
           }
           closeModal();
@@ -2864,7 +2864,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             const res = await sb.from('inv_items').update(rec).eq('id', item.id).eq('shop_id', shopId).select('id');
             checkMutated(res);
           } else {
-            const { error } = await sb.from('inv_items').insert(Object.assign({ shop_id: shopId, kind: f.kind }, rec));
+            const { error } = await sb.from('inv_items').insert(Object.assign({ shop_id: shopId }, rec));
             if (error) throw error;
           }
           closeModal();
@@ -3194,7 +3194,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             const res = await sb.from('cash_entries').update(rec).eq('id', entry.id).eq('shop_id', shopId).select('id');
             checkMutated(res);
           } else {
-            const { error } = await sb.from('cash_entries').insert(Object.assign({ shop_id: shopId, kind: f.kind }, rec));
+            const { error } = await sb.from('cash_entries').insert(Object.assign({ shop_id: shopId }, rec));
             if (error) throw error;
           }
           closeModal();
@@ -3376,21 +3376,34 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   /* ===== TAB: Khách (gói tối thiểu: proplus) ===== */
   async function loadCustomersWithStats() {
     await loadCustomersBase();
-    const { data } = await sb.from('orders').select('customer_id,total,ordered_at,status').eq('shop_id', shopId).not('customer_id', 'is', null).neq('status', 'cancelled');
-    const map = new Map();
+    const { data } = await sb.from('orders').select('customer_id,customer_name,customer_phone,address,total,ordered_at,status').eq('shop_id', shopId).neq('status', 'cancelled').order('ordered_at', { ascending: false }).limit(5000);
+    const map = new Map(), byPhone = new Map(), phoneOf = new Map();
+    const dig = v => String(v || '').replace(/\D/g, '');
+    for (const c of ST.customers) if (dig(c.phone).length >= 8) phoneOf.set(dig(c.phone), c.id);
+    const guests = new Map();
     for (const o of (data || [])) {
-      const cur = map.get(o.customer_id) || { orders: 0, spent: 0, last: '' };
-      cur.orders += 1; cur.spent += Number(o.total) || 0;
-      if (!cur.last || o.ordered_at > cur.last) cur.last = o.ordered_at;
-      map.set(o.customer_id, cur);
+      const ph = dig(o.customer_phone);
+      let cid = o.customer_id || (ph.length >= 8 ? phoneOf.get(ph) : null);
+      if (cid) {
+        const cur = map.get(cid) || { orders: 0, spent: 0, last: '' };
+        cur.orders += 1; cur.spent += Number(o.total) || 0;
+        if (!cur.last || o.ordered_at > cur.last) cur.last = o.ordered_at;
+        map.set(cid, cur);
+      } else if (ph.length >= 8) {
+        const g = guests.get(ph) || { id: 'g:' + ph, guest: true, name: o.customer_name || 'Khách', phone: o.customer_phone, apt: '', address: o.address || '', grp: '', member: false, orders: 0, spent: 0, last: '' };
+        g.orders += 1; g.spent += Number(o.total) || 0;
+        if (!g.last || o.ordered_at > g.last) g.last = o.ordered_at;
+        guests.set(ph, g);
+      }
     }
     ST.custStats = map;
+    ST.custGuests = [...guests.values()];
   }
 
   function renderCustTab() {
     const grps = [...new Set(ST.customers.map(c => (c.grp || '').trim()).filter(Boolean))];
     const q = fold(ST.custSearch.trim());
-    const list = ST.customers.filter(c => {
+    const list = ST.customers.concat(ST.custMemberOnly || ST.custGrp ? [] : (ST.custGuests || [])).filter(c => {
       if (ST.custMemberOnly && !c.member) return false;
       if (ST.custGrp && (c.grp || '') !== ST.custGrp) return false;
       if (q && !fold(c.name).includes(q) && !fold(c.phone).includes(q) && !fold(c.apt).includes(q)) return false;
@@ -3416,7 +3429,10 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('div', { style: 'margin-top:10px' },
           el('div', { className: 'count', style: 'font-size:13px;color:var(--text-sub);margin-bottom:4px', text: list.length + ' khách' }),
           list.length ? list.map(c => {
-            const st = ST.custStats.get(c.id) || { orders: 0, spent: 0, last: '' };
+            const st = c.guest ? c : (ST.custStats.get(c.id) || { orders: 0, spent: 0, last: '' });
+            if (c.guest) return el('div', { className: 'line-row' },
+              el('div', { className: 'line-main' }, el('b', { text: c.name }), el('small', { className: 'num', text: c.phone + ' · ' + st.orders + ' đơn · ' + app.formatMoney(st.spent) + (st.last ? ' · Gần nhất ' + app.formatVnDateTime(st.last).slice(0, 10) : '') + ' · chưa lưu' })),
+              el('button', { type: 'button', className: 'btn btn-sm', onClick: async e => { try { const { error } = await sb.from('customers').insert({ shop_id: shopId, name: c.name, phone: c.phone, address: c.address || null }); if (error) throw error; app.showToast('Đã lưu khách', 'accent'); await loadCustomersWithStats(); renderCustTab(); } catch (err) { showErr(err); } }, text: 'Lưu khách' }));
             const editFn = e => openCustomerModal(c, async () => { await loadCustomersWithStats(); renderCustTab(); }, e.currentTarget);
             return el('div', { className: 'line-row' },
               el('div', { className: 'line-main' },
@@ -3474,7 +3490,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             const res = await sb.from('customers').update(rec).eq('id', c.id).eq('shop_id', shopId).select('id');
             checkMutated(res);
           } else {
-            const { data, error } = await sb.from('customers').insert(Object.assign({ shop_id: shopId, kind: f.kind }, rec)).select('*').single();
+            const { data, error } = await sb.from('customers').insert(Object.assign({ shop_id: shopId }, rec)).select('*').single();
             if (error) throw error;
             saved = data;
           }

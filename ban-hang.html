@@ -573,7 +573,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       type: 'button', className: 'btn btn-sm kebab', 'aria-label': 'Thao tác khác', title: 'Thao tác khác', text: '⋯',
       onClick: () => openModal('Thao tác', el('div', { style: 'display:grid;gap:8px' },
         list.map(a => el('button', {
-          type: 'button', className: 'btn' + (a.danger ? ' btn-danger' : ''), style: 'width:100%',
+          type: 'button', className: 'btn' + (a.danger ? ' btn-danger' : '') + (a.cls ? ' ' + a.cls : ''), style: 'width:100%',
           onClick: () => { closeModal(); a.fn({ currentTarget: b }); }, text: a.text
         }))), null, b)
     });
@@ -1938,7 +1938,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             const res = await sb.from('menu_items').update(rec).eq('id', item.id).eq('shop_id', shopId).select('id');
             checkMutated(res);
           } else {
-            const { error } = await sb.from('menu_items').insert(Object.assign({ shop_id: shopId }, rec));
+            const { error } = await sb.from('menu_items').insert(Object.assign({ shop_id: shopId, kind: f.kind }, rec));
             if (error) throw error;
           }
           closeModal();
@@ -2864,7 +2864,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             const res = await sb.from('inv_items').update(rec).eq('id', item.id).eq('shop_id', shopId).select('id');
             checkMutated(res);
           } else {
-            const { error } = await sb.from('inv_items').insert(Object.assign({ shop_id: shopId }, rec));
+            const { error } = await sb.from('inv_items').insert(Object.assign({ shop_id: shopId, kind: f.kind }, rec));
             if (error) throw error;
           }
           closeModal();
@@ -3194,7 +3194,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             const res = await sb.from('cash_entries').update(rec).eq('id', entry.id).eq('shop_id', shopId).select('id');
             checkMutated(res);
           } else {
-            const { error } = await sb.from('cash_entries').insert(Object.assign({ shop_id: shopId }, rec));
+            const { error } = await sb.from('cash_entries').insert(Object.assign({ shop_id: shopId, kind: f.kind }, rec));
             if (error) throw error;
           }
           closeModal();
@@ -3474,7 +3474,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             const res = await sb.from('customers').update(rec).eq('id', c.id).eq('shop_id', shopId).select('id');
             checkMutated(res);
           } else {
-            const { data, error } = await sb.from('customers').insert(Object.assign({ shop_id: shopId }, rec)).select('*').single();
+            const { data, error } = await sb.from('customers').insert(Object.assign({ shop_id: shopId, kind: f.kind }, rec)).select('*').single();
             if (error) throw error;
             saved = data;
           }
@@ -3610,12 +3610,21 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     return { text: 'Đang chạy', cls: '' };
   }
 
+  async function patchPromo(p, patch) {
+    try {
+      const res = await sb.from('promotions').update(patch).eq('id', p.id).eq('shop_id', shopId).select('id');
+      checkMutated(res);
+      Object.assign(p, patch);
+    } catch (err) { showErr(err); }
+    renderPromoTab();
+  }
+
   function renderPromoTab() {
     const seg = el('div', { className: 'bh-seg' },
       el('button', { type: 'button', 'aria-pressed': String(ST.promoKind === 'promo'), onClick: () => { ST.promoKind = 'promo'; renderPromoTab(); }, text: 'Khuyến mãi' }),
-      el('button', { type: 'button', 'aria-pressed': String(ST.promoKind === 'voucher'), onClick: () => { ST.promoKind = 'voucher'; renderPromoTab(); }, text: 'Voucher' }),
-      el('button', { type: 'button', 'aria-pressed': String(ST.promoKind === 'loyalty'), onClick: () => { ST.promoKind = 'loyalty'; renderPromoTab(); }, text: 'Tích đơn' })
+      el('button', { type: 'button', 'aria-pressed': String(ST.promoKind === 'voucher'), onClick: () => { ST.promoKind = 'voucher'; renderPromoTab(); }, text: 'Voucher' })
     );
+    if (ST.promoKind === 'loyalty') ST.promoKind = 'promo';
     const list = ST.promos.filter(p => p.kind === ST.promoKind);
 
     contentHost.replaceChildren(
@@ -3634,16 +3643,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             el('b', { text: p.name }),
             el('small', { text: [valText, p.min_qty > 0 ? 'từ ' + p.min_qty + ' phần' : '', p.min_money > 0 ? 'đơn từ ' + app.formatMoney(p.min_money) : '', (p.item_ids && p.item_ids.length) ? 'áp dụng ' + p.item_ids.length + ' món' : '', (p.description && p.description !== valText) ? p.description : '', (p.active && p.show_banner !== false) ? 'hiện ở banner' : ''].filter(Boolean).join(' · ') })
           ),
-          (st.text === 'Đang chạy' || st.text === 'Tắt') ? null : el('span', { className: 'badge ' + st.cls, text: st.text }),
-          app.toggle(p.active, async (on) => {
-            try {
-              const res = await sb.from('promotions').update({ active: on }).eq('id', p.id).eq('shop_id', shopId).select('id');
-              checkMutated(res);
-              p.active = on;
-            } catch (err) { showErr(err); }
-            renderPromoTab();
-          }, p.active ? 'Đang chạy' : 'Đã tắt'),
-          kebab({ text: 'Sửa chương trình', fn: e => openPromoModal(p, e.currentTarget) }, { text: 'Xóa', danger: true, fn: e => confirmModal('Xóa "' + p.name + '"?', 'Chương trình sẽ bị xóa hẳn.', 'Xóa', async () => {
+          el('span', { className: 'badge ' + st.cls, text: st.text }),
+          kebab({ text: 'Sửa chương trình', fn: e => openPromoModal(p, e.currentTarget) },
+            { text: p.active ? 'Tắt chương trình (đang chạy)' : 'Bật chương trình (đang tắt)', cls: p.active ? 'btn-primary' : '', fn: () => patchPromo(p, { active: !p.active }) },
+            { text: p.show_banner !== false ? 'Ẩn khỏi banner (đang hiện)' : 'Hiện trên banner (đang ẩn)', cls: p.show_banner !== false ? 'btn-primary' : '', fn: () => patchPromo(p, { show_banner: p.show_banner === false }) },
+            { text: 'Xóa', danger: true, fn: e => confirmModal('Xóa "' + p.name + '"?', 'Chương trình sẽ bị xóa hẳn.', 'Xóa', async () => {
             const res = await sb.from('promotions').delete().eq('id', p.id).eq('shop_id', shopId).select('id');
             checkMutated(res);
             await loadPromos();
@@ -3733,7 +3737,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         okBtn.disabled = true; okBtn.textContent = 'Đang lưu…';
         try {
           const rec = {
-            kind: f.kind, name: f.name.trim(), description: f.description.trim() || null,
+            name: f.name.trim(), description: f.description.trim() || null,
             discount_type: f.discount_type, value: Math.round(Number(f.value) || 0),
             free_item_id: f.discount_type === 'free_item' ? (f.free_item_id || null) : null,
             item_ids: f.kind === 'promo' && f.item_ids.length ? f.item_ids : null,
@@ -3741,13 +3745,13 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             stack: f.stack, min_qty: Math.round(Number(f.min_qty) || 0), min_money: Math.round(Number(f.min_money) || 0),
             valid_days: f.kind === 'voucher' ? Math.round(Number(f.valid_days) || 0) : 0,
             loyalty_goal: f.kind === 'loyalty' ? Math.round(Number(f.loyalty_goal) || 0) : 0,
-            active: f.active
+            active: f.active, show_banner: f.show_banner
           };
           if (p) {
             const res = await sb.from('promotions').update(rec).eq('id', p.id).eq('shop_id', shopId).select('id');
             checkMutated(res);
           } else {
-            const { error } = await sb.from('promotions').insert(Object.assign({ shop_id: shopId }, rec));
+            const { error } = await sb.from('promotions').insert(Object.assign({ shop_id: shopId, kind: f.kind }, rec));
             if (error) throw error;
           }
           closeModal();

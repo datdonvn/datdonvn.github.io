@@ -3113,17 +3113,30 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
   /* ===== TAB: Thu chi (gói tối thiểu: pro) ===== */
   const CASH_CATS = [
-    { id: 'von', label: 'Vốn đầu tư', dir: 'in' },
+    { id: 'luong', label: 'Trả lương nhân viên', dir: 'out' },
+    { id: 'dien', label: 'Tiền điện', dir: 'out' },
+    { id: 'nuoc', label: 'Tiền nước', dir: 'out' },
+    { id: 'internet', label: 'Internet', dir: 'out' },
+    { id: 'mat_bang', label: 'Mặt bằng', dir: 'out' },
+    { id: 'tra_no_ncc', label: 'Trả nợ nhà cung cấp', dir: 'out' },
+    { id: 'chi_khac', label: 'Chi khác', dir: 'out' },
     { id: 'rut_von', label: 'Rút vốn', dir: 'out' },
-    { id: 'thu_khac', label: 'Thu khác', dir: 'in' },
-    { id: 'chi_khac', label: 'Chi khác', dir: 'out' }
+    { id: 'von', label: 'Bổ sung vốn', dir: 'in' },
+    { id: 'thu_khac', label: 'Thu khác', dir: 'in' }
   ];
+  async function loadCashCats() {
+    const { data } = await sb.from('cash_cats').select('*').eq('shop_id', shopId).order('created_at');
+    ST.cashCats = data || [];
+  }
+  const allCashCats = () => CASH_CATS.concat((ST.cashCats || []).map(c => ({ id: 'x:' + c.label, label: c.label, dir: c.dir, custom: c })));
+  const cashCatOf = id => allCashCats().find(x => x.id === id) || { id, label: String(id).replace(/^x:/, ''), dir: 'out' };
   async function loadCashEntries() {
     const { data, error } = await sb.from('cash_entries').select('*').eq('shop_id', shopId)
       .gte('at', ST.cashFrom + 'T00:00:00+07:00').lte('at', ST.cashTo + 'T23:59:59+07:00')
       .order('at', { ascending: false });
     if (error) throw error;
     ST.cashEntries = data || [];
+    await loadCashCats();
   }
 
   function renderCashTab() {
@@ -3152,10 +3165,10 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       ),
       el('div', { className: 'card' },
         ST.cashEntries.length ? ST.cashEntries.map(c => {
-          const catObj = CASH_CATS.find(x => x.id === c.cat);
+          const catObj = cashCatOf(c.cat);
           return el('div', { className: 'line-row' },
             el('div', { className: 'line-main' },
-              el('b', { text: (catObj ? catObj.label : c.cat) + (c.note ? ' · ' + c.note : '') }),
+              el('b', { text: catObj.label + (c.note ? ' · ' + c.note : '') }),
               el('small', { text: app.formatVnDateTime(c.at) + ' · ' + payMethodName(c.pay_method_id) })
             ),
             el('b', { className: 'num', style: 'color:' + (c.dir === 'in' ? 'var(--accent)' : 'var(--error)'), text: (c.dir === 'in' ? '+' : '−') + app.formatMoney(c.amount) }),
@@ -3171,10 +3184,34 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     );
   }
 
-  function openCashModal(entry, opener) {
-    const f = {
+  function openNewCashCat(defDir, done) {
+    const g = { label: '', dir: defDir === 'in' ? 'in' : 'out' };
+    const body = el('div');
+    const draw = () => body.replaceChildren(
+      el('div', { className: 'field' }, el('label', { text: 'Tên loại' }), el('input', { className: 'input', maxlength: 40, placeholder: 'Ví dụ: Bảo hiểm, Sửa chữa, Tiền thưởng', value: g.label, onInput: e => { g.label = e.target.value; } })),
+      el('div', { className: 'chips' },
+        el('button', { type: 'button', className: 'chip', 'aria-pressed': String(g.dir === 'out'), onClick: () => { g.dir = 'out'; draw(); }, text: 'Khoản chi' }),
+        el('button', { type: 'button', className: 'chip', 'aria-pressed': String(g.dir === 'in'), onClick: () => { g.dir = 'in'; draw(); }, text: 'Khoản thu' })));
+    draw();
+    const ok = el('button', { type: 'button', className: 'btn btn-primary', text: 'Thêm loại', onClick: async () => {
+      const label = g.label.trim();
+      if (!label) { app.showToast('Nhập tên loại', 'error'); return; }
+      if (allCashCats().some(c => c.label.toLowerCase() === label.toLowerCase())) { app.showToast('Loại này đã có', 'error'); return; }
+      ok.disabled = true;
+      try {
+        const { error } = await sb.from('cash_cats').insert({ shop_id: shopId, label, dir: g.dir });
+        if (error) throw error;
+        await done('x:' + label);
+      } catch (err) { showErr(err); ok.disabled = false; }
+    } });
+    openModal('Thêm loại thu chi', body, [el('button', { type: 'button', className: 'btn', text: 'Quay lại', onClick: () => done(null) }), ok]);
+  }
+
+  function openCashModal(entry, opener, saved) {
+    const reopen = () => openCashModal(entry, opener, f);
+    const f = saved || {
       at: entry ? toLocalDtValue(entry.at) : toLocalDtValue(null),
-      cat: entry ? entry.cat : 'von',
+      cat: entry ? entry.cat : 'luong',
       amount: entry ? entry.amount : '',
       pay_method_id: entry ? entry.pay_method_id : (activePayMethods()[0] ? activePayMethods()[0].id : null),
       note: entry ? (entry.note || '') : ''
@@ -3184,10 +3221,17 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       body.replaceChildren(
         el('div', { className: 'field' },
           el('label', { text: 'Loại thu / chi' }),
-          el('div', { className: 'chips' }, CASH_CATS.map(c => el('button', {
-            type: 'button', className: 'chip', 'aria-pressed': String(f.cat === c.id),
-            onClick: () => { f.cat = c.id; draw(); }, text: c.label
-          })))
+          ['out', 'in'].map(d => el('div', null,
+            el('div', { style: 'font-size:13px;font-weight:700;margin:8px 0 4px;color:' + (d === 'in' ? 'var(--accent)' : 'var(--error)'), text: d === 'in' ? 'Khoản thu' : 'Khoản chi' }),
+            el('div', { className: 'chips' }, allCashCats().filter(c => c.dir === d).map(c => el('span', { style: 'display:inline-flex;gap:2px;align-items:center' },
+              el('button', { type: 'button', className: 'chip', 'aria-pressed': String(f.cat === c.id), onClick: () => { f.cat = c.id; draw(); }, text: c.label }),
+              c.custom ? el('button', { type: 'button', className: 'btn btn-sm', 'aria-label': 'Xóa loại ' + c.label, title: 'Xóa loại này', style: 'padding:2px 8px', text: '×', onClick: () => confirmModal('Xóa loại "' + c.label + '"?', 'Các khoản đã ghi vẫn giữ nguyên.', 'Xóa loại', async () => {
+                const res = await sb.from('cash_cats').delete().eq('id', c.custom.id).eq('shop_id', shopId).select('id'); checkMutated(res);
+                await loadCashCats(); if (f.cat === c.id) f.cat = 'chi_khac'; setTimeout(reopen, 0);
+              }, null) }) : null
+            )))
+          )),
+          el('button', { type: 'button', className: 'btn btn-sm', style: 'margin-top:10px', text: '+ Thêm loại mới', onClick: () => openNewCashCat(f.cat && cashCatOf(f.cat).dir, async (id) => { await loadCashCats(); if (id) f.cat = id; reopen(); }) })
         ),
         el('div', { className: 'grid-2' },
           el('div', { className: 'field' }, el('label', { text: 'Số tiền (đ)' }), el('input', { className: 'input num', type: 'number', min: 1, value: f.amount, onInput: e => { f.amount = e.target.value; } })),
@@ -3209,7 +3253,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       onClick: async () => {
         const amt = Math.round(Number(f.amount));
         if (!(amt > 0)) { app.showToast('Số tiền phải lớn hơn 0', 'error'); return; }
-        const catObj = CASH_CATS.find(c => c.id === f.cat) || CASH_CATS[0];
+        const catObj = cashCatOf(f.cat);
         okBtn.disabled = true; okBtn.textContent = 'Đang lưu…';
         try {
           const rec = { at: localDtToIso(f.at), dir: catObj.dir, cat: catObj.id, amount: amt, pay_method_id: f.pay_method_id, note: f.note.trim() || null };

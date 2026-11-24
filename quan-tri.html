@@ -794,7 +794,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
 
   const BUY_GRP_TXT = { nl: 'Nguyên liệu', bb: 'Bao bì', dc: 'Dụng cụ', gh: 'Giao hàng', qc: 'Quảng cáo', kh: 'Chi phí khác', ht: 'Hoàn tiền' };
   const INV_KIND_TXT = { nl: 'Nguyên liệu', bb: 'Bao bì', btp: 'Bán thành phẩm' };
-  const CASH_TXT = { von: 'Vốn đầu tư', rut_von: 'Rút vốn', thu_khac: 'Thu khác', chi_khac: 'Chi khác' };
+  const CASH_TXT = { von: 'Bổ sung vốn', rut_von: 'Rút vốn', thu_khac: 'Thu khác', chi_khac: 'Chi khác', luong: 'Trả lương nhân viên', dien: 'Tiền điện', nuoc: 'Tiền nước', internet: 'Internet', mat_bang: 'Mặt bằng', tra_no_ncc: 'Trả nợ nhà cung cấp' };
 
   async function fetchAll(makeQuery) {
     const out = [];
@@ -871,7 +871,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
         const cash = await fetchAll(() => sb.from('cash_entries').select('*').eq('shop_id', shopId).order('at', { ascending: true }).order('id'));
         sheets.push({ name: 'Thu chi', rows: [['Ngày', 'Giờ', 'Thu / Chi', 'Mục', 'Số tiền', 'Cách thanh toán', 'Ghi chú']].concat(cash.map(c => {
           const [d, t] = dtParts(c.at);
-          return [d, t, c.dir === 'in' ? 'Thu' : 'Chi', CASH_TXT[c.cat] || c.cat, c.amount, ST.payMethodsMap.get(c.pay_method_id) || '', c.note || ''];
+          return [d, t, c.dir === 'in' ? 'Thu' : 'Chi', CASH_TXT[c.cat] || String(c.cat).replace(/^x:/, ''), c.amount, ST.payMethodsMap.get(c.pay_method_id) || '', c.note || ''];
         })) });
 
         sheets.push({ name: 'Tồn kho', rows: [['Tên', 'Loại', 'Đơn vị', 'Tồn hiện tại', 'Giá vốn bình quân', 'Giá trị tồn', 'Tồn tối thiểu', 'Đang dùng']].concat(inv.map(i =>

@@ -3755,7 +3755,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       ),
       list.length ? el('div', { className: 'card' }, list.map(p => {
         const st = promoStatus(p);
-        const valText = p.discount_type === 'percent' ? 'Giảm ' + p.value + '%' :
+        const rl = Array.isArray(p.rules) ? p.rules : null;
+        const valText = rl ? rl.length + ' dòng ưu đãi' : p.discount_type === 'percent' ? 'Giảm ' + p.value + '%' :
           p.discount_type === 'amount' ? 'Giảm ' + app.formatMoney(p.value) :
           'Tặng ' + p.value + ' món';
         return el('div', { className: 'line-row promo-row' },
@@ -3778,7 +3779,99 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     );
   }
 
+  // Khuyến mãi gộp: 1 chương trình, nhiều dòng ưu đãi (chung: tên, mô tả, ngày, cộng dồn, banner, bật)
+  function openPromoRulesModal(p, opener) {
+    const legacyRule = q => ({ discount_type: q.discount_type, value: q.value, free_item_id: q.free_item_id || '', min_qty: q.min_qty || 0, min_money: q.min_money || 0, item_ids: Array.isArray(q.item_ids) ? q.item_ids.slice() : [] });
+    const f = {
+      name: p ? p.name : '', description: p ? (p.description || '') : '',
+      from_date: p ? (p.from_date || '') : '', to_date: p ? (p.to_date || '') : '',
+      stack: p ? !!p.stack : false, show_banner: p ? p.show_banner !== false : true, active: p ? !!p.active : true,
+      rules: p ? (Array.isArray(p.rules) && p.rules.length ? p.rules.map(legacyRule) : [legacyRule(p)]) : [{ discount_type: 'amount', value: 2000, free_item_id: '', min_qty: 2, min_money: 0, item_ids: [] }]
+    };
+    const body = el('div');
+    const draw = () => {
+      body.replaceChildren(
+        el('div', { className: 'field' }, el('label', { text: 'Tên chương trình (dòng 1 trên banner)' }), el('input', { className: 'input', value: f.name, placeholder: 'Ví dụ: Mua nhiều, giảm nhiều', onInput: e => { f.name = e.target.value; } })),
+        el('div', { className: 'field' }, el('label', { text: 'Mô tả (dòng 2 trên banner)' }), el('input', { className: 'input', value: f.description, placeholder: 'Ví dụ: 330ml mua 2 giảm 2k, mua 3 giảm 5k…', onInput: e => { f.description = e.target.value; } })),
+        el('div', { className: 'grid-2' },
+          el('div', { className: 'field' }, el('label', { text: 'Từ ngày' }), el('input', { className: 'input', type: 'date', value: f.from_date, onChange: e => { f.from_date = e.target.value; } })),
+          el('div', { className: 'field' }, el('label', { text: 'Đến ngày' }), el('input', { className: 'input', type: 'date', value: f.to_date, onChange: e => { f.to_date = e.target.value; } }))
+        ),
+        el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:6px;font-weight:600' },
+          el('input', { type: 'checkbox', checked: f.stack, style: 'width:20px;height:20px', onChange: e => { f.stack = e.target.checked; } }), 'Cộng dồn với chương trình khác'),
+        el('div', { style: 'font-size:12.5px;opacity:.7;margin:2px 0 0 28px', text: 'Không tick: cùng nhóm món chỉ lấy dòng ưu đãi cao nhất khách đạt được. Nhóm món khác nhau thì tính riêng rồi cộng lại.' }),
+        el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:600' },
+          el('input', { type: 'checkbox', checked: f.show_banner, style: 'width:20px;height:20px', onChange: e => { f.show_banner = e.target.checked; } }), 'Hiện trên banner trang đặt hàng'),
+        el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:600' },
+          el('input', { type: 'checkbox', checked: f.active, style: 'width:20px;height:20px', onChange: e => { f.active = e.target.checked; } }), 'Đang bật'),
+        el('div', { style: 'font-weight:700;margin:16px 0 6px;padding-top:12px;border-top:1px solid var(--border)', text: 'Các dòng ưu đãi (' + f.rules.length + ')' }),
+        f.rules.map((r, i) => el('div', { className: 'card', style: 'margin-bottom:10px;padding:12px' },
+          el('div', { className: 'row-between', style: 'margin-bottom:8px' },
+            el('b', { text: 'Dòng ' + (i + 1) }),
+            f.rules.length > 1 ? el('button', { type: 'button', className: 'btn btn-sm btn-danger', text: 'Xóa dòng', onClick: () => { f.rules.splice(i, 1); draw(); } }) : null),
+          el('div', { className: 'grid-2' },
+            el('div', { className: 'field' }, el('label', { text: 'Kiểu ưu đãi' }),
+              el('select', { className: 'select', onChange: e => { r.discount_type = e.target.value; if (r.discount_type === 'free_item' && !r.free_item_id && ST.menuItems[0]) r.free_item_id = ST.menuItems[0].id; draw(); } },
+                el('option', { value: 'percent', selected: r.discount_type === 'percent', text: 'Giảm %' }),
+                el('option', { value: 'amount', selected: r.discount_type === 'amount', text: 'Giảm số tiền' }),
+                el('option', { value: 'free_item', selected: r.discount_type === 'free_item', text: 'Tặng món' }))),
+            el('div', { className: 'field' }, el('label', { text: r.discount_type === 'percent' ? 'Phần trăm giảm (1–100)' : r.discount_type === 'amount' ? 'Số tiền giảm (đ)' : 'Số lượng tặng' }),
+              el('input', { className: 'input num', type: 'number', min: 1, value: r.value, onInput: e => { r.value = e.target.value; } }))
+          ),
+          r.discount_type === 'free_item' ? el('div', { className: 'field' }, el('label', { text: 'Món tặng' }),
+            el('select', { className: 'select', onChange: e => { r.free_item_id = e.target.value; } }, ST.menuItems.map(m => el('option', { value: m.id, selected: m.id === r.free_item_id, text: m.name })))) : null,
+          el('div', { className: 'grid-2' },
+            el('div', { className: 'field' }, el('label', { text: 'Số lượng tối thiểu' }), el('input', { className: 'input num', type: 'number', min: 0, value: r.min_qty, onInput: e => { r.min_qty = e.target.value; } })),
+            el('div', { className: 'field' }, el('label', { text: 'Số tiền tối thiểu (đ)' }), el('input', { className: 'input num', type: 'number', min: 0, value: r.min_money, onInput: e => { r.min_money = e.target.value; } }))
+          ),
+          el('details', null,
+            el('summary', { style: 'font-weight:600;cursor:pointer', text: 'Áp dụng cho món: ' + (r.item_ids.length ? r.item_ids.length + ' món' : 'cả giỏ hàng') }),
+            el('div', { style: 'font-size:12.5px;opacity:.7;margin:4px 0', text: 'Không chọn món nào = áp dụng cả giỏ. Chọn món = chỉ tính số lượng và tiền của các món đã chọn.' }),
+            ST.menuItems.map(m => el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:6px;font-weight:500' },
+              el('input', { type: 'checkbox', checked: r.item_ids.indexOf(m.id) >= 0, style: 'width:20px;height:20px', onChange: e => { r.item_ids = r.item_ids.filter(x => x !== m.id); if (e.target.checked) r.item_ids.push(m.id); } }), m.name))
+          )
+        )),
+        el('button', { type: 'button', className: 'btn', style: 'width:100%', text: '+ Thêm dòng ưu đãi', onClick: () => { const last = f.rules[f.rules.length - 1]; f.rules.push(last ? Object.assign({}, last, { item_ids: last.item_ids.slice(), min_qty: (Number(last.min_qty) || 0) + 1 }) : { discount_type: 'amount', value: 2000, free_item_id: '', min_qty: 2, min_money: 0, item_ids: [] }); draw(); } })
+      );
+    };
+    draw();
+    const okBtn = el('button', {
+      type: 'button', className: 'btn btn-primary', text: 'Lưu',
+      onClick: async () => {
+        if (!f.name.trim()) { app.showToast('Nhập tên chương trình', 'error'); return; }
+        const rules = f.rules.map(r => {
+          const o = { discount_type: r.discount_type, value: Math.round(Number(r.value) || 0), min_qty: Math.round(Number(r.min_qty) || 0), min_money: Math.round(Number(r.min_money) || 0), item_ids: r.item_ids.length ? r.item_ids : null };
+          if (r.discount_type === 'free_item') o.free_item_id = r.free_item_id || null;
+          return o;
+        });
+        okBtn.disabled = true; okBtn.textContent = 'Đang lưu…';
+        try {
+          const rec = {
+            name: f.name.trim(), description: f.description.trim() || null,
+            from_date: f.from_date || null, to_date: f.to_date || null,
+            stack: f.stack, show_banner: f.show_banner, active: f.active,
+            discount_type: 'amount', value: 1, free_item_id: null, item_ids: null, min_qty: 0, min_money: 0,
+            rules
+          };
+          if (p) {
+            const res = await sb.from('promotions').update(rec).eq('id', p.id).eq('shop_id', shopId).select('id');
+            checkMutated(res);
+          } else {
+            const { error } = await sb.from('promotions').insert(Object.assign({ shop_id: shopId, kind: 'promo' }, rec));
+            if (error) throw error;
+          }
+          closeModal();
+          app.showToast('Đã lưu chương trình', 'accent');
+          await loadPromos();
+          renderPromoTab();
+        } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = 'Lưu'; }
+      }
+    });
+    openModal(p ? 'Sửa chương trình' : 'Thêm chương trình', body, [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), okBtn], opener);
+  }
+
   function openPromoModal(p, opener) {
+    if ((p ? p.kind : ST.promoKind) === 'promo') return openPromoRulesModal(p, opener);
     const f = {
       kind: p ? p.kind : ST.promoKind,
       name: p ? p.name : '',

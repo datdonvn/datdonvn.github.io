@@ -1029,12 +1029,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const seg = el('div', { className: 'bh-seg tight' },
       el('button', { type: 'button', 'aria-pressed': String(ST.saleList !== 'saved'), onClick: () => { ST.saleList = 'new'; renderSaleTab(); }, text: 'Nhập mới' }),
       el('button', { type: 'button', 'aria-pressed': String(ST.saleList === 'saved'), onClick: () => { ST.saleList = 'saved'; renderSaleTab(); }, text: 'Đơn gần đây' }));
-    const placeChips = el('div', { className: 'chips', style: 'margin-bottom:4px' }, ST.salePlaces.map(p => el('button', {
-      type: 'button', className: 'chip', 'aria-pressed': String((s.place || ST.salePlaces[0]) === p),
-      onClick: () => { s.place = p; app.storageSet('dd_last_place_' + shopId, p); saveDraft(); renderSaleTab(); }, text: p })));
     const pickNodes = [
       seg,
-      placeChips,
       el('h2', { className: 'v1-h', text: 'Chọn món' }),
       ...(catEntries.length ? catEntries.map(([cat, list]) => el('div', { className: 'v1-group' },
         el('h3', { text: cat }),

@@ -198,6 +198,7 @@ body .dd-wrap { max-width: none; padding: 0 0 40px; }
 
 /* Lưới nút chọn nhanh (chips) */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips.ofilters > .chip { padding: 9px 2px; font-size: 14px; text-align: center; justify-content: center; white-space: nowrap; min-width: 0; }
 .chip {
   min-height: 44px;
   padding: 8px 14px;
@@ -637,7 +638,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     soundOn: true,
     // Bán (Standard)
     saleView: 'pick', // 'pick' chọn món | 'order' chi tiết đơn
-    saleList: 'new', // 'new' nhập mới | 'saved' đã lưu
+    saleList: 'new',
     saleSearch: '',
     salePlaces: app.storageGet('dd_sale_places_' + shopId, ['Tại quầy', 'Zalo', 'Giao hàng']),
     sale: savedDraft || {
@@ -1030,7 +1031,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       el('button', { type: 'button', 'aria-pressed': String(ST.saleList !== 'saved'), onClick: () => { ST.saleList = 'new'; renderSaleTab(); }, text: 'Nhập mới' }),
       el('button', { type: 'button', 'aria-pressed': String(ST.saleList === 'saved'), onClick: () => { ST.saleList = 'saved'; renderSaleTab(); }, text: 'Đơn gần đây' }));
     const pickNodes = [
-      seg,
       el('h2', { className: 'v1-h', text: 'Chọn món' }),
       ...(catEntries.length ? catEntries.map(([cat, list]) => el('div', { className: 'v1-group' },
         el('h3', { text: cat }),
@@ -1245,7 +1245,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
 
   function updateSaleSticky() {
-    if (ST.tab !== 'sale' || (ST.saleList === 'saved' && ST.saleView !== 'order')) { stickyHost.replaceChildren(); return; }
+    if (ST.tab !== 'sale' || (false && ST.saleList === 'saved' && ST.saleView !== 'order')) { stickyHost.replaceChildren(); return; }
     const tot = saleTotals();
     const inOrder = ST.saleView === 'order';
     const btn = el('button', {
@@ -1604,7 +1604,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const { data, error } = await sb.from('orders')
       .select('*, order_items(id,item_id,name,unit,price,qty)')
       .eq('shop_id', shopId)
-      .eq('source', 'online')
+      .in('source', ['online', 'manual'])
       .order('created_at', { ascending: false })
       .range(from, to);
     if (error) throw error;
@@ -1621,24 +1621,26 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
   function renderOnlineTab() {
     const OFILTERS = [
-      ['new', 'Mới', o => o.status === 'new'],
+      ['new', 'Đơn mới', o => o.status === 'new'],
       ['doing', 'Đang làm', o => o.status === 'preparing' || o.status === 'delivering'],
-      ['money', 'Chờ tiền', o => o.status === 'done' && o.pay_status !== 'paid'],
       ['recent', 'Gần đây', () => true]
     ];
+    const waitingPay = o => o.status === 'done' && o.pay_status !== 'paid';
     if (!OFILTERS.some(x => x[0] === ST.onlineFilter) && ST.onlineFilter !== 'rate') ST.onlineFilter = 'new';
-    const cur = OFILTERS.find(x => x[0] === ST.onlineFilter) || OFILTERS[3];
-    const shown = ST.onlineOrders.filter(cur[2]).sort((a, b) => ST.onlineFilter === 'recent' ? (new Date(b.created_at) - new Date(a.created_at)) : (new Date(a.created_at) - new Date(b.created_at)));
+    const cur = OFILTERS.find(x => x[0] === ST.onlineFilter) || OFILTERS[2];
+    const shown = ST.onlineOrders.filter(cur[2]).sort((a, b) => ST.onlineFilter === 'recent' ? ((waitingPay(b) - waitingPay(a)) || (new Date(b.created_at) - new Date(a.created_at))) : (new Date(a.created_at) - new Date(b.created_at)));
     const chipRow = (k, label, n, onClick) => el('button', {
       type: 'button', className: 'chip', 'aria-pressed': String(ST.onlineFilter === k),
       onClick: onClick || (() => { ST.onlineFilter = k; renderOnlineTab(); }),
       text: label + (n ? ' · ' + n : '')
     });
-    const filterRow = el('div', { className: 'chips', style: 'margin-bottom:12px', role: 'group', 'aria-label': 'Lọc đơn' },
-      OFILTERS.map(([k, label, fn]) => chipRow(k, label, k !== 'recent' ? ST.onlineOrders.filter(fn).length : 0)),
+    const nCols = OFILTERS.length + (app.hasPlan('proplus') ? 1 : 0);
+    const filterRow = el('div', { className: 'chips ofilters', style: 'margin-bottom:12px;display:grid;grid-template-columns:repeat(' + nCols + ',1fr);gap:6px', role: 'group', 'aria-label': 'Lọc đơn' },
+      OFILTERS.map(([k, label, fn]) => chipRow(k, label, k === 'recent' ? 0 : ST.onlineOrders.filter(fn).length)),
       app.hasPlan('proplus') ? chipRow('rate', 'Đánh giá', 0, () => switchTab('feedback')) : null
     );
-    const legend = null;
+    const nWait = ST.onlineOrders.filter(waitingPay).length;
+    const legend = (ST.onlineFilter === 'recent' && nWait) ? el('div', { className: 'alert', style: 'margin-bottom:10px', text: nWait + ' đơn đã giao đang chờ thu tiền, xếp lên đầu.' }) : null;
 
     const cards = shown.length ? shown.map(o => {
       const next = NEXT_ACTION[o.status];
@@ -1724,6 +1726,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     contentHost.replaceChildren(
       renderMetaBar('online', async () => { await loadOnlineOrders(false); markLoaded('online'); renderOnlineTab(); }),
       filterRow,
+      legend,
       ...cards,
       moreBtn,
       el('div', { style: 'text-align:center;margin-top:16px;color:var(--text-sub);font-size:13px', text: 'Tự tải lại mỗi 25 giây' })

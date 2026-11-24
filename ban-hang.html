@@ -2717,6 +2717,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     contentHost.replaceChildren(
       renderMetaBar('buy', async () => { await loadDebts(); renderBuyTab(); }),
       seg,
+      el('div', { className: 'alert', text: 'Phiếu mua chỉ ghi lại lúc mua. Mọi khoản trả nợ ghi ở tab Thu chi, hệ thống tự trừ vào các phiếu nợ cũ trước.' }),
       el('div', { className: 'card row-between' },
         el('span', { style: 'font-weight:700', text: 'Tổng nợ nhà cung cấp' }),
         el('b', { className: 'num', style: 'font-size:20px;color:var(--error)', text: app.formatMoney(grandTotal) })
@@ -2726,6 +2727,10 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           el('b', { text: place }),
           el('b', { className: 'num', style: 'color:var(--error)', text: app.formatMoney(grp.total) })
         ),
+        el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px' },
+          el('button', { type: 'button', className: 'btn btn-primary btn-sm', text: 'Trả nợ (ghi ở Thu chi)', onClick: e => openCashModal(null, e.currentTarget, { cat: 'tra_no_ncc', supplier: place, amount: grp.total }) }),
+          el('button', { type: 'button', className: 'btn btn-sm', text: 'Lịch sử trả', onClick: e => openSupplierPaysModal(place, e.currentTarget) })
+        ),
         grp.list.map(p => {
           const left = p.total - p.paid;
           const overdue = p.due_date && p.due_date < today;
@@ -2734,65 +2739,19 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
               el('b', { className: 'num', text: p.code + ' · Còn nợ ' + app.formatMoney(left) }),
               el('small', { text: 'Tổng ' + app.formatMoney(p.total) + ' · Đã trả ' + app.formatMoney(p.paid) + (p.due_date ? ' · Hẹn ' + p.due_date.split('-').reverse().join('/') : '') })
             ),
-            overdue ? el('span', { className: 'badge badge-err', text: 'Quá hạn' }) : null,
-            el('button', { type: 'button', className: 'btn btn-primary btn-sm', onClick: e => openPayDebtModal(p, e.currentTarget), text: 'Trả nợ' }),
-            el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openDebtHistoryModal(p, e.currentTarget), text: 'Lịch sử' })
+            overdue ? el('span', { className: 'badge badge-err', text: 'Quá hạn' }) : null
           );
         })
       )) : el('div', { className: 'card empty-state', text: 'Không còn khoản nợ nhà cung cấp nào.' })
     );
   }
 
-  function openPayDebtModal(p, opener) {
-    const left = p.total - p.paid;
-    let amount = left;
-    let methodId = activePayMethods()[0] ? activePayMethods()[0].id : null;
-    let note = '';
-    const body = el('div');
-    const draw = () => {
-      body.replaceChildren(
-        el('div', { className: 'field' },
-          el('label', { text: 'Số tiền trả (tối đa ' + app.formatMoney(left) + ')' }),
-          el('input', { className: 'input num', type: 'number', min: 1, max: left, value: amount, onInput: e => { amount = Math.round(Number(e.target.value) || 0); } })
-        ),
-        el('div', { className: 'field' },
-          el('label', { text: 'Phương thức trả' }),
-          el('div', { className: 'chips' }, activePayMethods().map(m => el('button', {
-            type: 'button', className: 'chip', 'aria-pressed': String(methodId === m.id),
-            onClick: () => { methodId = m.id; draw(); }, text: m.name
-          })))
-        ),
-        el('div', { className: 'field' },
-          el('label', { text: 'Ghi chú' }),
-          el('input', { className: 'input', value: note, onInput: e => { note = e.target.value; } })
-        )
-      );
-    };
-    draw();
-    const okBtn = el('button', {
-      type: 'button', className: 'btn btn-primary',
-      onClick: async () => {
-        if (!(amount > 0) || amount > left) { app.showToast('Số tiền không hợp lệ', 'error'); return; }
-        okBtn.disabled = true; okBtn.textContent = 'Đang lưu…';
-        try {
-          const { error } = await sb.rpc('pay_debt', { p_purchase: p.id, p_amount: amount, p_pay_method: methodId, p_at: null, p_note: note.trim() });
-          if (error) throw error;
-          closeModal();
-          app.showToast('Đã ghi nhận trả nợ ' + app.formatMoney(amount), 'accent');
-          await Promise.all([loadDebts(), loadPurchases()]);
-          renderBuyTab();
-        } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = 'Xác nhận trả'; }
-      },
-      text: 'Xác nhận trả'
-    });
-    openModal('Trả nợ phiếu ' + p.code, body, [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), okBtn], opener);
-  }
-
-  async function openDebtHistoryModal(p, opener) {
-    const { data, error } = await sb.from('debt_payments').select('*').eq('purchase_id', p.id).eq('shop_id', shopId).order('at', { ascending: false });
+  async function openSupplierPaysModal(place, opener) {
+    const { data, error } = await sb.from('cash_entries').select('*').eq('shop_id', shopId).eq('cat', 'tra_no_ncc').order('at', { ascending: false });
     if (error) { showErr(error); return; }
-    openModal('Lịch sử trả nợ ' + p.code,
-      (data && data.length) ? el('div', null, data.map(d => el('div', { className: 'line-row' },
+    const list = (data || []).filter(d => String(d.supplier || '').trim().toLowerCase() === String(place).trim().toLowerCase());
+    openModal('Lịch sử trả nợ ' + place,
+      list.length ? el('div', null, list.map(d => el('div', { className: 'line-row' },
         el('div', { className: 'line-main' },
           el('b', { className: 'num', text: app.formatMoney(d.amount) }),
           el('small', { text: app.formatVnDateTime(d.at) + ' · ' + payMethodName(d.pay_method_id) + (d.note ? ' · ' + d.note : '') })
@@ -3152,19 +3111,23 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     { id: 'von', label: 'Bổ sung vốn', dir: 'in' },
     { id: 'thu_khac', label: 'Thu khác', dir: 'in' }
   ];
+  const AUTO_CATS = [
+    { id: 'ban_hang', label: 'Tiền bán hàng', dir: 'in' },
+    { id: 'mua_hang', label: 'Tiền mua hàng', dir: 'out' }
+  ];
   async function loadCashCats() {
     const { data } = await sb.from('cash_cats').select('*').eq('shop_id', shopId).order('created_at');
     ST.cashCats = data || [];
   }
   const allCashCats = () => CASH_CATS.concat((ST.cashCats || []).map(c => ({ id: 'x:' + c.label, label: c.label, dir: c.dir, custom: c })));
-  const cashCatOf = id => allCashCats().find(x => x.id === id) || { id, label: String(id).replace(/^x:/, ''), dir: 'out' };
+  const cashCatOf = id => allCashCats().concat(AUTO_CATS).find(x => x.id === id) || { id, label: String(id).replace(/^x:/, ''), dir: 'out' };
   async function loadCashEntries() {
     const { data, error } = await sb.from('cash_entries').select('*').eq('shop_id', shopId)
       .gte('at', ST.cashFrom + 'T00:00:00+07:00').lte('at', ST.cashTo + 'T23:59:59+07:00')
       .order('at', { ascending: false });
     if (error) throw error;
     ST.cashEntries = data || [];
-    await loadCashCats();
+    await Promise.all([loadCashCats(), app.hasPlan('pro') ? loadDebts() : Promise.resolve()]);
   }
 
   function renderCashTab() {
@@ -3196,11 +3159,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           const catObj = cashCatOf(c.cat);
           return el('div', { className: 'line-row' },
             el('div', { className: 'line-main' },
-              el('b', { text: catObj.label + (c.note ? ' · ' + c.note : '') }),
+              el('b', { text: catObj.label + (c.supplier ? ' · ' + c.supplier : '') + (c.note ? ' · ' + c.note : '') }),
               el('small', { text: app.formatVnDateTime(c.at) + ' · ' + payMethodName(c.pay_method_id) })
             ),
             el('b', { className: 'num', style: 'color:' + (c.dir === 'in' ? 'var(--accent)' : 'var(--error)'), text: (c.dir === 'in' ? '+' : '−') + app.formatMoney(c.amount) }),
-            kebab({ text: 'Sửa khoản này', fn: e => openCashModal(c, e.currentTarget) }, { text: 'Xóa', danger: true, fn: e => confirmModal('Xóa khoản thu chi?', 'Khoản này sẽ bị xóa khỏi sổ.', 'Xóa', async () => {
+            c.ref_type ? el('span', { className: 'badge', text: 'Tự động' }) : kebab({ text: 'Sửa khoản này', fn: e => openCashModal(c, e.currentTarget) }, { text: 'Xóa', danger: true, fn: e => confirmModal('Xóa khoản thu chi?', 'Khoản này sẽ bị xóa khỏi sổ.', 'Xóa', async () => {
               const res = await sb.from('cash_entries').delete().eq('id', c.id).eq('shop_id', shopId).select('id');
               checkMutated(res);
               await loadCashEntries();
@@ -3237,12 +3200,18 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
   function openCashModal(entry, opener, saved) {
     const reopen = () => openCashModal(entry, opener, f);
-    const f = saved || {
+    const f = Object.assign({
       at: entry ? toLocalDtValue(entry.at) : toLocalDtValue(null),
       cat: entry ? entry.cat : 'luong',
       amount: entry ? entry.amount : '',
       pay_method_id: entry ? entry.pay_method_id : (activePayMethods()[0] ? activePayMethods()[0].id : null),
-      note: entry ? (entry.note || '') : ''
+      note: entry ? (entry.note || '') : '',
+      supplier: entry ? (entry.supplier || '') : ''
+    }, saved || {});
+    const debtBySup = () => {
+      const m = new Map();
+      for (const p of (ST.debts || [])) m.set(p.place, (m.get(p.place) || 0) + (p.total - p.paid));
+      return m;
     };
     const body = el('div');
     const draw = () => {
@@ -3261,6 +3230,14 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           )),
           el('button', { type: 'button', className: 'btn btn-sm', style: 'margin-top:10px', text: '+ Thêm loại mới', onClick: () => openNewCashCat(f.cat && cashCatOf(f.cat).dir, async (id) => { await loadCashCats(); if (id) f.cat = id; reopen(); }) })
         ),
+        f.cat === 'tra_no_ncc' ? el('div', { className: 'field' },
+          el('label', { text: 'Trả nợ cho nhà cung cấp nào' }),
+          debtBySup().size ? el('div', { className: 'chips' }, [...debtBySup().entries()].map(([sp, left]) => el('button', {
+            type: 'button', className: 'chip', 'aria-pressed': String(f.supplier === sp),
+            onClick: () => { f.supplier = sp; f.amount = left; draw(); }, text: sp + ' · nợ ' + app.formatMoney(left)
+          }))) : el('small', { style: 'color:var(--text-sub)', text: 'Hiện không có khoản nợ nhà cung cấp nào.' }),
+          f.supplier && debtBySup().has(f.supplier) ? el('small', { style: 'display:block;margin-top:4px;color:var(--text-sub)', text: 'Có thể trả một phần hoặc trả hết. Hệ thống tự trừ vào phiếu nợ cũ nhất trước.' }) : null
+        ) : null,
         el('div', { className: 'grid-2' },
           el('div', { className: 'field' }, el('label', { text: 'Số tiền (đ)' }), el('input', { className: 'input num', type: 'number', min: 1, value: f.amount, onInput: e => { f.amount = e.target.value; } })),
           el('div', { className: 'field' }, el('label', { text: 'Ngày giờ' }), el('input', { className: 'input', type: 'datetime-local', value: f.at, onChange: e => { f.at = e.target.value; } }))
@@ -3282,9 +3259,10 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         const amt = Math.round(Number(f.amount));
         if (!(amt > 0)) { app.showToast('Số tiền phải lớn hơn 0', 'error'); return; }
         const catObj = cashCatOf(f.cat);
+        if (catObj.id === 'tra_no_ncc' && !f.supplier) { app.showToast('Chọn nhà cung cấp cần trả nợ', 'error'); return; }
         okBtn.disabled = true; okBtn.textContent = 'Đang lưu…';
         try {
-          const rec = { at: localDtToIso(f.at), dir: catObj.dir, cat: catObj.id, amount: amt, pay_method_id: f.pay_method_id, note: f.note.trim() || null };
+          const rec = { at: localDtToIso(f.at), dir: catObj.dir, cat: catObj.id, amount: amt, pay_method_id: f.pay_method_id, note: f.note.trim() || null, supplier: catObj.id === 'tra_no_ncc' ? f.supplier : null };
           if (entry) {
             const res = await sb.from('cash_entries').update(rec).eq('id', entry.id).eq('shop_id', shopId).select('id');
             checkMutated(res);

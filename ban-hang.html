@@ -2175,8 +2175,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     })();
   }
 
-  function splitMinutes(m) { m = Number(m) || 0; return m >= 1440 && m % 1440 === 0 ? { n: m / 1440, unit: 'day' } : { n: Math.round(m / 60 * 100) / 100, unit: 'hour' }; }
-  function advMinutes(a) { const n = Number(a.n) || 0; return Math.max(0, Math.min(43200, Math.round(n * (a.unit === 'day' ? 1440 : 60)))); }
 
   function renderSettingsTab() {
     const sh = ST.shop;
@@ -2186,12 +2184,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       accepting: sh.accepting !== false,
       slots: (Array.isArray(sh.open_slots) && sh.open_slots.length ? sh.open_slots : legacySlots).map(x => ({ from: x.from, to: x.to })),
       closed: Array.isArray(sh.closed_dates) ? sh.closed_dates.slice().sort() : [],
-      adv_min: splitMinutes(sh.advance_min_minutes || 0),
       places: Array.isArray(sh.places) ? sh.places.map(p => Object.assign({}, p)) : [],
       areas: (() => {
         const out = [];
-        (Array.isArray(sh.areas) ? sh.areas : []).forEach(x => { const nm = typeof x === 'string' ? x : (x && x.name); if (nm && !out.some(o => o.name === nm)) out.push({ name: nm, fee: Number(x && x.fee) || 0, eta: (x && x.eta) || '' }); });
-        (Array.isArray(sh.places) ? sh.places : []).forEach(pl => { if (pl.area && !out.some(o => o.name === pl.area)) out.push({ name: pl.area, fee: 0, eta: '' }); });
+        (Array.isArray(sh.areas) ? sh.areas : []).forEach(x => { const nm = typeof x === 'string' ? x : (x && x.name); if (nm && !out.some(o => o.name === nm)) out.push({ name: nm, fee: Number(x && x.fee) || 0, eta: (x && x.eta) || '', min_qty: Number(x && x.min_qty) || 0 }); });
+        (Array.isArray(sh.places) ? sh.places : []).forEach(pl => { if (pl.area && !out.some(o => o.name === pl.area)) out.push({ name: pl.area, fee: 0, eta: '', min_qty: 0 }); });
         return out;
       })()
     };
@@ -2480,7 +2477,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('input', { className: 'input', maxlength: 40, placeholder: 'Ví dụ: 30–45 phút', value: pl.promise || '', onInput: e => { pl.promise = e.target.value; } })),
       el('div', { className: 'field' }, el('label', { text: 'Địa chỉ (nếu có, để quán dễ đi giao)' }),
         el('input', { className: 'input', maxlength: 200, placeholder: 'Ví dụ: 123 Nguyễn Văn Linh, Q7', value: pl.address || '', onInput: e => { pl.address = e.target.value; } })),
-      el('div', { className: 'field' }, el('label', { text: 'Số SP tối thiểu / đơn' }), el('input', { className: 'input num', type: 'number', min: 0, max: 99, value: pl.min_qty || 0, onInput: e => { pl.min_qty = Math.max(0, Math.round(Number(e.target.value) || 0)); } }))
+      modeField(pl, 'qty', 'Số lượng tối thiểu (SP/đơn)', 'qty_own', a => a.min_qty > 0 ? a.min_qty + ' SP' : 'không giới hạn',
+        el('input', { className: 'input num', type: 'number', min: 0, max: 99, value: pl.min_qty || 0, onInput: e => { pl.min_qty = Math.max(0, Math.round(Number(e.target.value) || 0)); } }))
     );
     const drawPlaces = () => {
       const groups = st.areas.map(a => ({ name: a.name, area: a, real: true })).concat(st.places.some(p => !p.area) ? [{ name: '', real: false }] : []);
@@ -2499,11 +2497,12 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             } }) : null),
           g.real ? el('div', { className: 'grid-2', style: 'margin-top:8px' },
             el('div', { className: 'field' }, el('label', { text: 'Phí ship chung (đ)' }), el('input', { className: 'input num', type: 'number', min: 0, max: 1000000, value: g.area.fee || 0, onChange: e => { g.area.fee = Math.max(0, Math.round(Number(e.target.value) || 0)); drawPlaces(); } })),
-            el('div', { className: 'field' }, el('label', { text: 'Thời gian giao ước tính chung' }), el('input', { className: 'input', maxlength: 40, placeholder: 'Ví dụ: 30–45 phút', value: g.area.eta || '', onChange: e => { g.area.eta = e.target.value; drawPlaces(); } }))) : null,
+            el('div', { className: 'field' }, el('label', { text: 'Thời gian giao ước tính chung' }), el('input', { className: 'input', maxlength: 40, placeholder: 'Ví dụ: 30–45 phút', value: g.area.eta || '', onChange: e => { g.area.eta = e.target.value; drawPlaces(); } })),
+            el('div', { className: 'field' }, el('label', { text: 'Số lượng tối thiểu chung (SP/đơn)' }), el('input', { className: 'input num', type: 'number', min: 0, max: 99, value: g.area.min_qty || 0, onChange: e => { g.area.min_qty = Math.max(0, Math.min(99, Math.round(Number(e.target.value) || 0))); drawPlaces(); } }))) : null,
           st.places.filter(p => (p.area || '') === g.name).map(placeCard),
           el('button', { type: 'button', className: 'btn btn-sm', style: 'margin-top:4px', text: '+ Thêm nơi giao' + (g.real ? ' vào ' + g.name : ''), onClick: () => {
             if (st.places.length >= 60) { app.showToast('Tối đa 60 nơi giao', 'error'); return; }
-            st.places.push(g.real ? { name: '', fee: g.area.fee || 0, promise: g.area.eta || '', needs: 'apt', area: g.name, fee_own: false, eta_own: false } : { name: '', fee: 0, needs: 'apt', area: '' }); drawPlaces();
+            st.places.push(g.real ? { name: '', fee: g.area.fee || 0, promise: g.area.eta || '', min_qty: g.area.min_qty || 0, needs: 'apt', area: g.name, fee_own: false, eta_own: false, qty_own: false } : { name: '', fee: 0, needs: 'apt', area: '' }); drawPlaces();
           } }))) : el('div', { style: 'opacity:.7;margin:8px 0', text: 'Chưa có khu vực nào. Bấm "Tạo khu vực" bên dưới.' }),
         el('div', { style: 'display:flex;gap:8px;margin-top:8px' }, newAreaInp,
           el('button', { type: 'button', className: 'btn btn-sm', text: '+ Tạo khu vực', onClick: () => {
@@ -2511,7 +2510,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             if (!nm) { app.showToast('Nhập tên khu vực', 'error'); return; }
             if (st.areas.some(a => a.name === nm)) { app.showToast('Khu vực này đã có', 'error'); return; }
             if (st.areas.length >= 30) { app.showToast('Tối đa 30 khu vực', 'error'); return; }
-            st.areas.push({ name: nm, fee: 0, eta: '' }); newAreaInp.value = ''; drawPlaces();
+            st.areas.push({ name: nm, fee: 0, eta: '', min_qty: 0 }); newAreaInp.value = ''; drawPlaces();
           } }))
       );
     };
@@ -2529,12 +2528,12 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         try {
           const cleanPlaces = named.map(p => {
             const ar = st.areas.find(x => x.name === p.area) || null;
-            const feeOwn = !ar || p.fee_own !== false, etaOwn = !ar || p.eta_own !== false;
-            const o = { name: p.name.trim(), fee: Math.max(0, Math.round(Number(feeOwn ? p.fee : ar.fee) || 0)), needs: p.needs || 'apt', area: ar ? ar.name : '', address: (p.address || '').trim(), min_qty: Math.max(0, Math.round(Number(p.min_qty) || 0)), promise: (etaOwn ? (p.promise || '') : (ar.eta || '')).trim() };
-            if (ar) { o.fee_own = feeOwn; o.eta_own = etaOwn; }
+            const feeOwn = !ar || p.fee_own !== false, etaOwn = !ar || p.eta_own !== false, qtyOwn = !ar || p.qty_own !== false;
+            const o = { name: p.name.trim(), fee: Math.max(0, Math.round(Number(feeOwn ? p.fee : ar.fee) || 0)), needs: p.needs || 'apt', area: ar ? ar.name : '', address: (p.address || '').trim(), min_qty: Math.max(0, Math.round(Number(qtyOwn ? p.min_qty : ar.min_qty) || 0)), promise: (etaOwn ? (p.promise || '') : (ar.eta || '')).trim() };
+            if (ar) { o.fee_own = feeOwn; o.eta_own = etaOwn; o.qty_own = qtyOwn; }
             return o;
           });
-          const areas = st.areas.map(a => ({ name: a.name, fee: Math.max(0, Math.round(Number(a.fee) || 0)), eta: (a.eta || '').trim() }));
+          const areas = st.areas.map(a => ({ name: a.name, fee: Math.max(0, Math.round(Number(a.fee) || 0)), eta: (a.eta || '').trim(), min_qty: Math.max(0, Math.min(99, Math.round(Number(a.min_qty) || 0))) }));
           const { error } = await sb.rpc('update_shop_settings', {
             p_shop: shopId,
             p_accepting: st.accepting,
@@ -2542,7 +2541,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             p_closed_dates: st.closed.filter(d => d >= todayYmd),
             p_places: cleanPlaces,
             p_areas: areas,
-            p_advance_min: advMinutes(st.adv_min),
+            p_advance_min: 0,
             p_advance_max: 0
           });
           if (error) throw error;
@@ -2560,14 +2559,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         'Tạm ngưng nhận đơn'
       ),
       hoursBox,
-      el('div', { style: 'font-weight:600;margin-top:14px', text: 'Đặt trước' }),
-      el('div', { style: 'font-size:12.5px;opacity:.7;margin:2px 0 6px', text: 'Chung cho mọi đơn, ví dụ 12 giờ hoặc 3 ngày. Để 0 nếu có thể giao ngay. Ngoài giờ hay ngày nghỉ khách vẫn đặt trước được, giờ giao rơi vào giờ mở cửa kế tiếp.' }),
-      [['Báo trước bao lâu quán mới có hàng giao', 'adv_min']].map(([lbl, key]) => el('div', { className: 'field' }, el('label', { text: lbl }),
-        el('div', { style: 'display:flex;gap:8px' },
-          el('input', { className: 'input num', type: 'number', min: 0, step: 'any', style: 'flex:1;min-width:0', value: st[key].n, onInput: e => { st[key].n = e.target.value; } }),
-          el('select', { className: 'select', style: 'flex:1;min-width:0', onChange: e => { st[key].unit = e.target.value; } },
-            el('option', { value: 'hour', selected: st[key].unit === 'hour', text: 'Giờ' }),
-            el('option', { value: 'day', selected: st[key].unit === 'day', text: 'Ngày' }))))),
       el('div', { style: 'font-weight:700;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)', text: 'Khu vực hoạt động' }),
       el('div', { style: 'font-size:12.5px;opacity:.7;margin-top:2px', text: 'Tạo khu vực rồi thêm các nơi giao trong khu vực đó. Mỗi nơi giao có phí, kiểu giao và quy định riêng.' }),
       placesBox,
@@ -3509,7 +3500,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   function applyFormula(outId) {
     const bf = ST.batchForm;
     bf.out_item_id = outId;
-    bf.fromFormula = false; bf.base = null; bf.scale = 1;
+    bf.fromFormula = false;
     const f = (ST.formulas || []).find(x => x.out_item_id === outId);
     if (f && !ST.batchEditId) {
       const have = new Set(ST.invItems.map(i => i.id));
@@ -3518,8 +3509,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         bf.out_qty = f.out_qty;
         bf.inputs = lines.map(l => ({ inv_item_id: l.inv_item_id, qty: l.qty }));
         bf.fromFormula = true;
-        bf.base = { out_qty: Number(f.out_qty), lines: lines.map(l => ({ inv_item_id: l.inv_item_id, qty: Number(l.qty) })) };
-        bf.scale = 1;
       }
     }
   }
@@ -3590,28 +3579,10 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
     const rowInps = [];
     const r3 = v => Math.round(v * 1000) / 1000;
-    const outQtyInp = el('input', { className: 'input num', type: 'number', step: 'any', min: 0, value: bf.out_qty, onInput: e => {
-      bf.out_qty = e.target.value;
-      if (bf.base && Number(bf.out_qty) > 0) { rescale(Number(bf.out_qty) / bf.base.out_qty, true); }
-      updBatchEst();
-    } });
-    const scaleInp = el('input', { className: 'input num', type: 'number', step: 'any', min: 0, value: bf.scale == null ? 1 : r3(bf.scale), onInput: e => {
-      const x = Number(e.target.value);
-      if (bf.base && x > 0) rescale(x, false);
-    } });
-    // Co giãn: nhân công thức chuẩn theo số lần nấu; chỉ đổi các dòng còn nằm trong công thức
-    function rescale(x, fromOut) {
-      bf.scale = x;
-      if (!fromOut) { bf.out_qty = r3(bf.base.out_qty * x); outQtyInp.value = bf.out_qty; } else { scaleInp.value = r3(x); }
-      bf.inputs.forEach((inp, i) => {
-        const bl = bf.base.lines.find(l => l.inv_item_id === inp.inv_item_id);
-        if (bl) { inp.qty = r3(bl.qty * x); if (rowInps[i]) rowInps[i].value = inp.qty; }
-      });
-      updBatchEst();
-    }
+    const outQtyInp = el('input', { className: 'input num', type: 'number', step: 'any', min: 0, value: bf.out_qty, onInput: e => { bf.out_qty = e.target.value; updBatchEst(); } });
     const formCard = el('div', { className: 'card' },
       el('div', { className: 'row-between', style: 'margin-bottom:8px' },
-        el('b', { text: ST.batchEditId ? 'Đang sửa mẻ sản xuất' : 'Ghi mẻ sản xuất' }),
+        el('b', { text: ST.batchEditId ? 'Đang sửa nhật ký sản xuất' : 'Ghi nhật ký sản xuất' }),
         el('div', { style: 'display:flex;gap:6px' },
           ST.batchEditId ? el('button', { type: 'button', className: 'btn btn-sm', onClick: () => { resetBatchForm(); renderBatchTab(); }, text: 'Hủy sửa' }) : null,
           bf.out_item_id ? el('button', { type: 'button', className: 'btn btn-sm', onClick: () => fillFromLatestBatch(bf.out_item_id), text: 'Lấy theo mẻ gần nhất' }) : null
@@ -3633,17 +3604,12 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           outQtyInp
         )
       ),
-      bf.base ? el('div', { className: 'field' },
-        el('label', { text: 'Nấu mấy lần công thức chuẩn' }),
-        scaleInp,
-        el('div', { style: 'font-size:12.5px;opacity:.7;margin-top:4px', text: 'Công thức chuẩn: ' + bf.base.out_qty + ' ' + ((invMap.get(bf.out_item_id) || {}).unit || '') + ' mỗi lần. Đổi số lần hoặc sản lượng thì nguyên liệu tự co giãn theo.' })
-      ) : null,
       el('div', { className: 'grid-2' },
         el('div', { className: 'field' }, el('label', { text: 'Ngày giờ (trống = bây giờ)' }), el('input', { className: 'input', type: 'datetime-local', value: bf.at, onChange: e => { bf.at = e.target.value; } })),
         el('div', { className: 'field' }, el('label', { text: 'Ghi chú' }), el('input', { className: 'input', value: bf.note, onInput: e => { bf.note = e.target.value; } }))
       ),
       el('div', { style: 'font-weight:700;margin-top:12px;margin-bottom:6px', text: 'Nguyên liệu đã dùng' }),
-      bf.fromFormula ? el('div', { style: 'font-size:12.5px;opacity:.7;margin-bottom:6px', text: 'Đã điền theo công thức. Bạn có thể sửa định lượng hoặc xóa dòng nguyên liệu.' }) : null,
+      bf.fromFormula ? el('div', { style: 'font-size:12.5px;opacity:.7;margin-bottom:6px', text: 'Đã điền theo công thức. Thực tế lệch thì sửa lại số lượng hoặc xóa dòng nguyên liệu, rồi bấm Lưu nhật ký.' }) : null,
       bf.inputs.map((inp, idx) => {
         const iv = invMap.get(inp.inv_item_id);
         const over = iv && (Number(inp.qty) || 0) > Number(iv.qty);
@@ -3664,7 +3630,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       el('button', {
         type: 'button', className: 'btn btn-primary', style: 'width:100%;margin-top:12px',
         onClick: e => submitBatch(e.currentTarget),
-        text: ST.batchEditId ? 'Cập nhật mẻ' : 'Lưu mẻ sản xuất'
+        text: ST.batchEditId ? 'Cập nhật nhật ký' : 'Lưu nhật ký'
       })
     );
 
@@ -3688,7 +3654,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     );
 
     const listCard = el('div', { className: 'card' },
-      el('div', { style: 'font-weight:700;margin-bottom:8px', text: 'Mẻ gần đây (' + ST.batches.length + ')' }),
+      el('div', { style: 'font-weight:700;margin-bottom:8px', text: 'Nhật ký gần đây (' + ST.batches.length + ')' }),
       ST.batches.length ? ST.batches.map(b => {
         const outIv = invMap.get(b.out_item_id);
         const unitCost = b.out_qty > 0 ? b.cost_total / b.out_qty : 0;
@@ -3717,7 +3683,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
   function resetBatchForm() {
     ST.batchEditId = null;
-    ST.batchForm = { at: '', out_item_id: '', out_qty: '', note: '', inputs: [{ inv_item_id: '', qty: '' }], fromFormula: false, base: null, scale: 1 };
+    ST.batchForm = { at: '', out_item_id: '', out_qty: '', note: '', inputs: [{ inv_item_id: '', qty: '' }], fromFormula: false };
   }
 
   async function fillFromLatestBatch(outItemId) {
@@ -3725,7 +3691,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     if (!prev) { app.showToast('Chưa có mẻ trước cùng loại này', 'error'); return; }
     const { data, error } = await sb.from('batch_inputs').select('inv_item_id,qty').eq('batch_id', prev.id).eq('shop_id', shopId);
     if (error) { showErr(error); return; }
-    ST.batchForm.out_qty = prev.out_qty; ST.batchForm.base = null; ST.batchForm.fromFormula = false;
+    ST.batchForm.out_qty = prev.out_qty; ST.batchForm.fromFormula = false;
     ST.batchForm.inputs = (data && data.length) ? data.map(d => ({ inv_item_id: d.inv_item_id, qty: d.qty })) : [{ inv_item_id: '', qty: '' }];
     renderBatchTab();
   }
@@ -3749,7 +3715,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       resetBatchForm();
       await Promise.all([loadBatches(), loadInvItems()]);
       renderBatchTab();
-    } catch (err) { showErr(err); btn.disabled = false; btn.textContent = 'Lưu mẻ sản xuất'; }
+    } catch (err) { showErr(err); btn.disabled = false; btn.textContent = 'Lưu nhật ký'; }
   }
 
   async function openBatchDetailModal(b, opener) {

@@ -3869,10 +3869,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     };
     const plan = groups.map(g => {
       const t = (f.targets.g && f.targets.g[g.id]) || {};
-      const sx = Math.max(0, Math.floor(Number(t.sx) || 0)), ban = Math.max(0, Math.floor(Number(t.ban) || 0));
+      const lit = Math.max(0, Number(t.lit) || 0), ban = Math.max(0, Math.floor(Number(t.ban) || 0));
       const mx = mix(g, false);
+      const sx = mx.ml > 0 ? Math.floor(lit * 1000 / mx.ml) : 0;
       const von = Math.round(sx * mx.cost), dt = Math.round(ban * mx.net);
-      return { g, sx, ban, lit: sx * mx.ml / 1000, von, dt, lai: dt - von, ratio: sx > 0 ? ban / sx : null, bo: sx - ban };
+      return { g, sx, ban, lit, von, dt, lai: dt - von, ratio: sx > 0 ? ban / sx : null, bo: sx - ban };
     });
     const act = groups.map(g => {
       const mx = mix(g, true);
@@ -3902,11 +3903,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const numCell = (gid, key) => {
       const t = (f.targets.g && f.targets.g[gid]) || {};
       return el('input', {
-        className: 'input num', type: 'number', min: 0, step: 1, inputMode: 'numeric', value: t[key] == null ? '' : t[key],
+        className: 'input num', type: 'number', min: 0, step: key === 'lit' ? 'any' : 1, inputMode: key === 'lit' ? 'decimal' : 'numeric', value: t[key] == null ? '' : t[key],
         style: 'padding:6px 4px;min-height:34px;text-align:right;width:100%;font-size:13.5px',
         onChange: e => {
           f.targets.g = f.targets.g || {}; f.targets.g[gid] = f.targets.g[gid] || {};
-          const v = e.target.value === '' ? null : Math.max(0, Math.floor(Number(e.target.value) || 0));
+          const v = e.target.value === '' ? null : key === 'lit' ? Math.max(0, Number(e.target.value) || 0) : Math.max(0, Math.floor(Number(e.target.value) || 0));
           f.targets.g[gid][key] = v;
           saveFlow(); renderFlowTab();
         }
@@ -3917,8 +3918,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       const head = el('div', { style: 'display:contents' }, cell('', {}), ...C.groups.map(g => cell(g.name, { bold: true })), cell('Tổng', { bold: true }));
       const row = (label, vals, totTxt, o) => el('div', { style: 'display:contents' }, cell(label, { left: true, sub: true }), ...vals, cell(totTxt, { bold: true }));
       const kids = [head, sect('Sản xuất'),
-        row('Nấu (lít)', rows.map(r => cell(flowNum(r.lit, 1))), flowNum(tot.lit, 1)),
-        row('Số chai sx', rows.map(r => editable ? numCell(r.g.id, 'sx') : cell(flowNum(r.sx))), flowNum(tot.sx)),
+        row('Nấu (lít)', rows.map(r => editable ? numCell(r.g.id, 'lit') : cell(flowNum(r.lit, 1))), flowNum(tot.lit, 1)),
+        row('Số chai sx', rows.map(r => cell(flowNum(r.sx))), flowNum(tot.sx)),
         row('Vốn', rows.map(r => cell(flowMoney(r.von))), flowMoney(tot.von)),
         sect('Bán hàng'),
         row('Số chai bán', rows.map(r => editable ? numCell(r.g.id, 'ban') : cell(flowNum(r.ban))), flowNum(tot.ban)),

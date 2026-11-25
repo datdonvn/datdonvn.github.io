@@ -622,7 +622,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     { id: 'inv', label: 'Kho', minPlan: 'pro' },
     { id: 'recipe', label: 'Định mức', minPlan: 'pro' },
     { id: 'cash', label: 'Thu chi', minPlan: 'pro' },
-    { id: 'batch', label: 'Làm', minPlan: 'pro' },
+    { id: 'batch', label: 'Sản xuất', minPlan: 'pro' },
     { id: 'cust', label: 'Khách', minPlan: 'standard' },
     { id: 'promo', label: 'Khuyến mãi', minPlan: 'proplus' },
     { id: 'feedback', label: 'Đánh giá', minPlan: 'proplus' }
@@ -2175,6 +2175,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     })();
   }
 
+  function splitMinutes(m) { m = Number(m) || 0; return m >= 1440 && m % 1440 === 0 ? { n: m / 1440, unit: 'day' } : { n: Math.round(m / 60 * 100) / 100, unit: 'hour' }; }
+  function advMinutes(a) { const n = Number(a.n) || 0; return Math.max(0, Math.min(43200, Math.round(n * (a.unit === 'day' ? 1440 : 60)))); }
+
   function renderSettingsTab() {
     const sh = ST.shop;
     const pf = { name: sh.name || '', phone: sh.phone || '', address: sh.address || '', payment_note: sh.payment_note || '' };
@@ -2183,6 +2186,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       accepting: sh.accepting !== false,
       slots: (Array.isArray(sh.open_slots) && sh.open_slots.length ? sh.open_slots : legacySlots).map(x => ({ from: x.from, to: x.to })),
       closed: Array.isArray(sh.closed_dates) ? sh.closed_dates.slice().sort() : [],
+      adv_min: splitMinutes(sh.advance_min_minutes || 0),
+      adv_max: splitMinutes(sh.advance_max_minutes || (sh.max_advance_days || 0) * 1440),
       places: Array.isArray(sh.places) ? sh.places.map(p => Object.assign({}, p)) : [],
       areas: [...new Set((Array.isArray(sh.areas) ? sh.areas : []).concat((Array.isArray(sh.places) ? sh.places : []).map(p => p.area).filter(Boolean)))]
     };
@@ -2457,10 +2462,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           Object.keys(NEEDS).map(k => el('option', { value: k, selected: (pl.needs || 'apt') === k, text: NEEDS[k].label })))),
       el('div', { className: 'field' }, el('label', { text: 'Địa chỉ (nếu có, để quán dễ đi giao)' }),
         el('input', { className: 'input', maxlength: 200, placeholder: 'Ví dụ: 123 Nguyễn Văn Linh, Q7', value: pl.address || '', onInput: e => { pl.address = e.target.value; } })),
-      el('div', { className: 'grid-3' },
+      el('div', { className: 'grid-2' },
         el('div', { className: 'field' }, el('label', { text: 'Số SP tối thiểu / đơn' }), el('input', { className: 'input num', type: 'number', min: 0, max: 99, value: pl.min_qty || 0, onInput: e => { pl.min_qty = Math.max(0, Math.round(Number(e.target.value) || 0)); } })),
-        el('div', { className: 'field' }, el('label', { text: 'Đặt trước tối đa (ngày)' }), el('input', { className: 'input num', type: 'number', min: 0, max: 30, value: pl.max_days == null ? '' : pl.max_days, placeholder: '0', onInput: e => { pl.max_days = e.target.value === '' ? null : Math.max(0, Math.min(30, Math.round(Number(e.target.value) || 0))); } })),
-        el('div', { className: 'field' }, el('label', { text: 'Giao cam kết (nếu có)' }), el('input', { className: 'input', maxlength: 40, placeholder: '30 phút', value: pl.promise || '', onInput: e => { pl.promise = e.target.value; } }))
+        el('div', { className: 'field' }, el('label', { text: 'Thời gian giao ước tính' }), el('input', { className: 'input', maxlength: 40, placeholder: 'Ví dụ: 30 phút', value: pl.promise || '', onInput: e => { pl.promise = e.target.value; } }))
       )
     );
     const drawPlaces = () => {
@@ -2507,7 +2511,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         try {
           const cleanPlaces = named.map(p => {
             const o = { name: p.name.trim(), fee: Math.max(0, Math.round(Number(p.fee) || 0)), needs: p.needs || 'apt', area: (p.area || '').trim(), address: (p.address || '').trim(), min_qty: Math.max(0, Math.round(Number(p.min_qty) || 0)), promise: (p.promise || '').trim() };
-            if (p.max_days != null && p.max_days !== '') o.max_days = Math.max(0, Math.min(30, Math.round(Number(p.max_days) || 0)));
             return o;
           });
           const areas = [...new Set(st.areas.concat(cleanPlaces.map(p => p.area).filter(Boolean)))];
@@ -2517,7 +2520,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             p_open_slots: slots,
             p_closed_dates: st.closed.filter(d => d >= todayYmd),
             p_places: cleanPlaces,
-            p_areas: areas
+            p_areas: areas,
+            p_advance_min: advMinutes(st.adv_min),
+            p_advance_max: (() => { const mx = advMinutes(st.adv_max), mn = advMinutes(st.adv_min); return mx > 0 && mx < mn ? mn : mx; })()
           });
           if (error) throw error;
           await loadShopFull();
@@ -2534,6 +2539,14 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         'Tạm ngưng nhận đơn'
       ),
       hoursBox,
+      el('div', { style: 'font-weight:600;margin-top:14px', text: 'Đặt trước' }),
+      el('div', { style: 'font-size:12.5px;opacity:.7;margin:2px 0 6px', text: 'Chung cho mọi đơn. Ngoài giờ hay ngày nghỉ khách vẫn đặt trước được, giờ giao rơi vào giờ mở cửa kế tiếp.' }),
+      [['Đặt trước tối thiểu (cần báo trước mới có hàng)', 'adv_min'], ['Đặt trước tối đa (khách được hẹn xa nhất)', 'adv_max']].map(([lbl, key]) => el('div', { className: 'field' }, el('label', { text: lbl }),
+        el('div', { style: 'display:flex;gap:8px' },
+          el('input', { className: 'input num', type: 'number', min: 0, step: 'any', style: 'flex:1;min-width:0', value: st[key].n, onInput: e => { st[key].n = e.target.value; } }),
+          el('select', { className: 'select', style: 'flex:1;min-width:0', onChange: e => { st[key].unit = e.target.value; } },
+            el('option', { value: 'hour', selected: st[key].unit === 'hour', text: 'Giờ' }),
+            el('option', { value: 'day', selected: st[key].unit === 'day', text: 'Ngày' }))))),
       el('div', { style: 'font-weight:700;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)', text: 'Khu vực hoạt động' }),
       el('div', { style: 'font-size:12.5px;opacity:.7;margin-top:2px', text: 'Tạo khu vực rồi thêm các nơi giao trong khu vực đó. Mỗi nơi giao có phí, kiểu giao và quy định riêng.' }),
       placesBox,
@@ -3467,6 +3480,66 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const { data, error } = await sb.from('batches').select('*').eq('shop_id', shopId).order('at', { ascending: false }).range(0, 39);
     if (error) throw error;
     ST.batches = data || [];
+    const fr = await sb.from('batch_formulas').select('*').eq('shop_id', shopId);
+    ST.formulas = fr.data || [];
+  }
+
+  // Chọn thành phẩm: nếu có công thức thì tự điền sản lượng và nguyên liệu theo định lượng (vẫn sửa/xóa tay được)
+  function applyFormula(outId) {
+    const bf = ST.batchForm;
+    bf.out_item_id = outId;
+    bf.fromFormula = false;
+    const f = (ST.formulas || []).find(x => x.out_item_id === outId);
+    if (f && !ST.batchEditId) {
+      const have = new Set(ST.invItems.map(i => i.id));
+      const lines = (f.lines || []).filter(l => have.has(l.inv_item_id));
+      if (lines.length) {
+        bf.out_qty = f.out_qty;
+        bf.inputs = lines.map(l => ({ inv_item_id: l.inv_item_id, qty: l.qty }));
+        bf.fromFormula = true;
+      }
+    }
+  }
+
+  function openFormulaModal(f, opener) {
+    const g = { out_item_id: f ? f.out_item_id : '', out_qty: f ? f.out_qty : '', lines: f ? (f.lines || []).map(l => ({ inv_item_id: l.inv_item_id, qty: l.qty })) : [{ inv_item_id: '', qty: '' }] };
+    if (!g.lines.length) g.lines = [{ inv_item_id: '', qty: '' }];
+    const body = el('div');
+    const draw = () => {
+      body.replaceChildren(
+        el('div', { className: 'field' },
+          el('label', { text: 'Làm ra (thành phẩm / bán thành phẩm)' }),
+          el('select', { className: 'select', disabled: !!f, onChange: e => { g.out_item_id = e.target.value; draw(); } },
+            el('option', { value: '', text: 'Chọn vật tư làm ra…' }),
+            ST.invItems.map(i => el('option', { value: i.id, selected: i.id === g.out_item_id, text: i.name + ' (' + INV_KINDS[i.kind] + ', ' + i.unit + ')' })))),
+        el('div', { className: 'field' }, el('label', { text: 'Mỗi mẻ làm ra được bao nhiêu' }),
+          el('input', { className: 'input num', type: 'number', step: 'any', min: 0, value: g.out_qty, onInput: e => { g.out_qty = e.target.value; } })),
+        el('div', { style: 'font-weight:700;margin:12px 0 6px', text: 'Nguyên liệu và định lượng mỗi mẻ' }),
+        g.lines.map((l, idx) => {
+          const iv = ST.invItems.find(i => i.id === l.inv_item_id);
+          return el('div', { className: 'line-row' },
+            el('select', { className: 'select', style: 'flex:1 1 100%;min-width:0', onChange: e => { l.inv_item_id = e.target.value; draw(); } },
+              el('option', { value: '', text: 'Chọn nguyên liệu…' }),
+              ST.invItems.filter(i => i.id !== g.out_item_id).map(i => el('option', { value: i.id, selected: i.id === l.inv_item_id, text: i.name + ' (' + INV_KINDS[i.kind] + ', ' + i.unit + ')' }))),
+            el('input', { className: 'input num', style: 'flex:1 1 120px;min-width:0', type: 'number', step: 'any', min: 0, placeholder: 'Định lượng' + (iv ? ' (' + iv.unit + ')' : ''), value: l.qty, onInput: e => { l.qty = e.target.value; } }),
+            g.lines.length > 1 ? el('button', { type: 'button', className: 'btn btn-sm btn-danger', text: 'Xóa', onClick: () => { g.lines.splice(idx, 1); draw(); } }) : null);
+        }),
+        el('button', { type: 'button', className: 'btn btn-sm', style: 'margin-top:8px', text: '+ Thêm nguyên liệu', onClick: () => { g.lines.push({ inv_item_id: '', qty: '' }); draw(); } })
+      );
+    };
+    draw();
+    const ok = el('button', { type: 'button', className: 'btn btn-primary', text: 'Lưu công thức', onClick: async () => {
+      const lines = g.lines.filter(l => l.inv_item_id && Number(l.qty) > 0).map(l => ({ inv_item_id: l.inv_item_id, qty: Number(l.qty) }));
+      if (!g.out_item_id || !(Number(g.out_qty) > 0) || !lines.length) { app.showToast('Chọn vật tư làm ra, sản lượng > 0 và ít nhất 1 nguyên liệu', 'error'); return; }
+      ok.disabled = true; ok.textContent = 'Đang lưu…';
+      try {
+        const { error } = await sb.rpc('save_formula', { p_shop: shopId, p_out_item: g.out_item_id, p_out_qty: Number(g.out_qty), p_lines: lines });
+        if (error) throw error;
+        closeModal(); app.showToast('Đã lưu công thức', 'accent');
+        await loadBatches(); renderBatchTab();
+      } catch (err) { showErr(err); ok.disabled = false; ok.textContent = 'Lưu công thức'; }
+    } });
+    openModal(f ? 'Sửa công thức sản xuất' : 'Thêm công thức sản xuất', body, [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), ok], opener);
   }
 
   function refocusSearch() {
@@ -3494,7 +3567,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
     const formCard = el('div', { className: 'card' },
       el('div', { className: 'row-between', style: 'margin-bottom:8px' },
-        el('b', { text: ST.batchEditId ? 'Đang sửa mẻ sản xuất' : 'Ghi mẻ sản xuất (tùy chọn)' }),
+        el('b', { text: ST.batchEditId ? 'Đang sửa mẻ sản xuất' : 'Ghi mẻ sản xuất' }),
         el('div', { style: 'display:flex;gap:6px' },
           ST.batchEditId ? el('button', { type: 'button', className: 'btn btn-sm', onClick: () => { resetBatchForm(); renderBatchTab(); }, text: 'Hủy sửa' }) : null,
           bf.out_item_id ? el('button', { type: 'button', className: 'btn btn-sm', onClick: () => fillFromLatestBatch(bf.out_item_id), text: 'Lấy theo mẻ gần nhất' }) : null
@@ -3506,9 +3579,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             el('label', { style: 'margin:0', text: 'Vật tư làm ra' }),
             el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openInvItemModal(null, e.currentTarget, () => renderBatchTab()), text: '+ Tạo mới' })
           ),
-          el('select', { className: 'select', onChange: e => { bf.out_item_id = e.target.value; renderBatchTab(); } },
+          el('select', { className: 'select', onChange: e => { applyFormula(e.target.value); renderBatchTab(); } },
             el('option', { value: '', text: 'Chọn vật tư…' }),
-            ST.invItems.map(i => el('option', { value: i.id, selected: i.id === bf.out_item_id, text: i.name + ' (' + INV_KINDS[i.kind] + ', ' + i.unit + ')' }))
+            ST.invItems.map(i => el('option', { value: i.id, selected: i.id === bf.out_item_id, text: i.name + ' (' + INV_KINDS[i.kind] + ', ' + i.unit + ')' + ((ST.formulas || []).some(f => f.out_item_id === i.id) ? ' · có công thức' : '') }))
           )
         ),
         el('div', { className: 'field' },
@@ -3521,6 +3594,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('div', { className: 'field' }, el('label', { text: 'Ghi chú' }), el('input', { className: 'input', value: bf.note, onInput: e => { bf.note = e.target.value; } }))
       ),
       el('div', { style: 'font-weight:700;margin-top:12px;margin-bottom:6px', text: 'Nguyên liệu đã dùng' }),
+      bf.fromFormula ? el('div', { style: 'font-size:12.5px;opacity:.7;margin-bottom:6px', text: 'Đã điền theo công thức. Bạn có thể sửa định lượng hoặc xóa dòng nguyên liệu.' }) : null,
       bf.inputs.map((inp, idx) => {
         const iv = invMap.get(inp.inv_item_id);
         const over = iv && (Number(inp.qty) || 0) > Number(iv.qty);
@@ -3543,6 +3617,25 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         onClick: e => submitBatch(e.currentTarget),
         text: ST.batchEditId ? 'Cập nhật mẻ' : 'Lưu mẻ sản xuất'
       })
+    );
+
+    const formulaCard = el('div', { className: 'card' },
+      el('div', { className: 'row-between', style: 'margin-bottom:8px' },
+        el('b', { text: 'Công thức sản xuất (' + (ST.formulas || []).length + ')' }),
+        el('button', { type: 'button', className: 'btn btn-sm btn-primary', onClick: e => openFormulaModal(null, e.currentTarget), text: '+ Thêm công thức' })),
+      (ST.formulas || []).length ? ST.formulas.map(f => {
+        const outIv = invMap.get(f.out_item_id);
+        return el('div', { className: 'line-row' },
+          el('div', { className: 'line-main' },
+            el('b', { text: (outIv ? outIv.name : 'Vật tư') + ' · mỗi mẻ ' + f.out_qty + ' ' + (outIv ? outIv.unit : '') }),
+            el('small', { text: (f.lines || []).length + ' nguyên liệu: ' + (f.lines || []).map(l => { const iv = invMap.get(l.inv_item_id); return (iv ? iv.name : '?') + ' ' + l.qty + (iv ? ' ' + iv.unit : ''); }).join(', ') })),
+          el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openFormulaModal(f, e.currentTarget), text: 'Sửa' }),
+          kebab({ text: 'Xóa công thức', danger: true, fn: e => confirmModal('Xóa công thức?', 'Mẻ đã ghi không bị ảnh hưởng.', 'Xóa', async () => {
+            const { error } = await sb.rpc('delete_formula', { p_shop: shopId, p_id: f.id });
+            if (error) throw error;
+            await loadBatches(); renderBatchTab();
+          }, e.currentTarget) }));
+      }) : el('div', { className: 'empty-state', text: 'Chưa có công thức. Thêm công thức để mỗi lần sản xuất chỉ cần chọn món là tự điền nguyên liệu.' })
     );
 
     const listCard = el('div', { className: 'card' },
@@ -3569,13 +3662,13 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
     contentHost.replaceChildren(
       renderMetaBar('batch', async () => { await loadTabData('batch'); renderBatchTab(); }),
-      formCard, listCard
+      formulaCard, formCard, listCard
     );
   }
 
   function resetBatchForm() {
     ST.batchEditId = null;
-    ST.batchForm = { at: '', out_item_id: '', out_qty: '', note: '', inputs: [{ inv_item_id: '', qty: '' }] };
+    ST.batchForm = { at: '', out_item_id: '', out_qty: '', note: '', inputs: [{ inv_item_id: '', qty: '' }], fromFormula: false };
   }
 
   async function fillFromLatestBatch(outItemId) {

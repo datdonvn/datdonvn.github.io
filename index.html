@@ -1040,11 +1040,12 @@ function renderMenuView() {
       el('button', { type: 'button', className: 'btn btn-ghost', onClick: () => { stopAdd(); renderApp(); }, text: 'Không thêm nữa' })
     ));
   }
-  const promos = ST.adding ? [] : (shop.promos || []).filter(p => p.banner !== false && p.running !== false);
+  const promos = ST.adding ? [] : (shop.promos || []).filter(p => p.banner !== false && p.running !== false && p.kind !== 'voucher');
   if (promos.length) {
     const strip = el('div', { className: 'promos' + (promos.length === 1 ? ' one' : ''), 'aria-label': 'Khuyến mãi đang chạy' },
       promos.map(p => el('div', { className: 'promo-card' },
         el('b', { text: p.name }),
+        p.audience === 'member' ? el('span', { className: 'promo-exp', text: 'Dành cho thành viên' }) : null,
         (p.text || p.description) ? el('span', { text: p.text || p.description }) : null,
         p.to_date ? el('span', { className: 'promo-exp', text: 'Đến hết ' + formatYmdShort(p.to_date) }) : null
       ))
@@ -2006,7 +2007,7 @@ function openFeedbackModal(code, phone, opener) {
 /* ===== TAB 3: THÀNH VIÊN ===== */
 function renderMemberView() {
   const wrap = el('div');
-  const promos = ((ST.shop && ST.shop.promos) || []).filter(p => (p.kind === 'loyalty' || p.kind === 'voucher') && p.running !== false);
+  const promos = ((ST.shop && ST.shop.promos) || []).filter(p => (p.kind === 'loyalty' || p.kind === 'voucher' || p.audience === 'member') && p.running !== false);
 
   wrap.append(el('h2', { className: 'cat-title', text: 'Thành viên & Ưu đãi' }));
 

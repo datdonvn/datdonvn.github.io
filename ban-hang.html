@@ -3658,7 +3658,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         },
         text: 'Phát voucher'
       })
-    ) : el('small', { style: 'color:var(--text-sub)', text: 'Chưa có chương trình voucher nào đang bật ở tab Khuyến mãi.' });
+    ) : el('small', { style: 'color:var(--text-sub)', text: 'Chưa có chương trình \'Khách chỉ định\' nào đang bật ở tab Khuyến mãi.' });
 
     openModal(c.name + (c.code ? ' (' + c.code + ')' : ''), el('div', null,
       el('div', { style: 'font-weight:700', text: 'Voucher của khách' }),
@@ -3722,6 +3722,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const { data, error } = await sb.from('promotions').select('*').eq('shop_id', shopId).order('created_at', { ascending: false });
     if (error) throw error;
     ST.promos = data || [];
+    const vr = await sb.from('customer_vouchers').select('id,promo_id,customer_id,issued_at,expires_at,used_order_id').eq('shop_id', shopId);
+    ST.vouchers = vr.data || [];
   }
 
   function promoStatus(p) {
@@ -3741,74 +3743,156 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     renderPromoTab();
   }
 
+  function audienceOf(p) { return p.kind === 'voucher' ? 'custom' : (p.audience || 'all'); }
+  function promoVoucherStats(p) {
+    const now = new Date().toISOString();
+    const list = (ST.vouchers || []).filter(v => v.promo_id === p.id);
+    return { issued: list.length, used: list.filter(v => v.used_order_id).length, open: list.filter(v => !v.used_order_id && (!v.expires_at || v.expires_at > now)).length };
+  }
+  function shortDM(iso) { return iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : ''; }
+
   function renderPromoTab() {
-    const seg = el('div', { className: 'bh-seg' },
-      el('button', { type: 'button', 'aria-pressed': String(ST.promoKind === 'promo'), onClick: () => { ST.promoKind = 'promo'; renderPromoTab(); }, text: 'Khuyến mãi' }),
-      el('button', { type: 'button', 'aria-pressed': String(ST.promoKind === 'voucher'), onClick: () => { ST.promoKind = 'voucher'; renderPromoTab(); }, text: 'Voucher' })
-    );
-    if (ST.promoKind === 'loyalty') ST.promoKind = 'promo';
-    const list = ST.promos.filter(p => p.kind === ST.promoKind);
+    const list = ST.promos.filter(p => p.kind !== 'loyalty');
 
     contentHost.replaceChildren(
       renderMetaBar('promo', async () => { await loadPromos(); markLoaded('promo'); renderPromoTab(); }),
       el('div', { className: 'row-between', style: 'margin-bottom:10px' },
-        seg,
+        el('b', { text: 'Khuyến mãi' }),
         el('button', { type: 'button', className: 'btn btn-primary', onClick: e => openPromoModal(null, e.currentTarget), text: '+ Thêm chương trình' })
       ),
       list.length ? el('div', { className: 'card' }, list.map(p => {
         const st = promoStatus(p);
+        const aud = audienceOf(p);
         const rl = Array.isArray(p.rules) ? p.rules : null;
         const valText = rl ? rl.length + ' dòng ưu đãi' : p.discount_type === 'percent' ? 'Giảm ' + p.value + '%' :
           p.discount_type === 'amount' ? 'Giảm ' + app.formatMoney(p.value) :
           'Tặng ' + p.value + ' món';
+        let audText = aud === 'member' ? 'Chỉ thành viên' : aud === 'custom' ? 'Khách chỉ định' : 'Mọi người';
+        if (aud === 'custom') { const s = promoVoucherStats(p); audText += ' (' + s.issued + ' người, đã dùng ' + s.used + ')'; }
         return el('div', { className: 'line-row promo-row' },
           el('div', { className: 'line-main' },
             el('b', { text: p.name }),
-            el('small', { text: [valText, p.min_qty > 0 ? 'từ ' + p.min_qty + ' phần' : '', p.min_money > 0 ? 'đơn từ ' + app.formatMoney(p.min_money) : '', (p.item_ids && p.item_ids.length) ? 'áp dụng ' + p.item_ids.length + ' món' : '', (p.description && p.description !== valText) ? p.description : '', (p.active && p.show_banner !== false) ? 'hiện ở banner' : ''].filter(Boolean).join(' · ') })
+            el('small', { text: [audText, valText, p.min_qty > 0 ? 'từ ' + p.min_qty + ' phần' : '', p.min_money > 0 ? 'đơn từ ' + app.formatMoney(p.min_money) : '', (p.item_ids && p.item_ids.length) ? 'áp dụng ' + p.item_ids.length + ' món' : '', (p.description && p.description !== valText) ? p.description : '', (aud !== 'custom' && p.active && p.show_banner !== false) ? 'hiện ở banner' : ''].filter(Boolean).join(' · ') })
           ),
           el('span', { className: 'badge ' + st.cls, text: st.text }),
           kebab({ text: 'Sửa chương trình', fn: e => openPromoModal(p, e.currentTarget) },
             { text: p.active ? 'Tắt chương trình (đang chạy)' : 'Bật chương trình (đang tắt)', cls: p.active ? 'btn-primary' : '', fn: () => patchPromo(p, { active: !p.active }) },
-            { text: p.show_banner !== false ? 'Ẩn khỏi banner (đang hiện)' : 'Hiện trên banner (đang ẩn)', cls: p.show_banner !== false ? 'btn-primary' : '', fn: () => patchPromo(p, { show_banner: p.show_banner === false }) },
-            { text: 'Xóa', danger: true, fn: e => confirmModal('Xóa "' + p.name + '"?', 'Chương trình sẽ bị xóa hẳn.', 'Xóa', async () => {
+            aud !== 'custom' ? { text: p.show_banner !== false ? 'Ẩn khỏi banner (đang hiện)' : 'Hiện trên banner (đang ẩn)', cls: p.show_banner !== false ? 'btn-primary' : '', fn: () => patchPromo(p, { show_banner: p.show_banner === false }) } : null,
+            { text: 'Xóa', danger: true, fn: e => confirmModal('Xóa "' + p.name + '"?', 'Chương trình sẽ bị xóa hẳn' + (aud === 'custom' ? ', các phiếu đã phát cũng mất.' : '.'), 'Xóa', async () => {
             const res = await sb.from('promotions').delete().eq('id', p.id).eq('shop_id', shopId).select('id');
             checkMutated(res);
             await loadPromos();
             renderPromoTab();
-          }, e.currentTarget) })
+          }, e.currentTarget) }
+          )
         );
-      })) : el('div', { className: 'card empty-state', text: 'Chưa có chương trình nào trong mục này.' })
+      })) : el('div', { className: 'card empty-state', text: 'Chưa có chương trình nào.' })
     );
   }
 
-  // Khuyến mãi gộp: 1 chương trình, nhiều dòng ưu đãi (chung: tên, mô tả, ngày, cộng dồn, banner, bật)
-  function openPromoRulesModal(p, opener) {
+  // Một form chung: Dành cho (Mọi người / Thành viên / Khách chỉ định) + các dòng ưu đãi
+  function openPromoModal(p, opener) {
     const legacyRule = q => ({ discount_type: q.discount_type, value: q.value, free_item_id: q.free_item_id || '', min_qty: q.min_qty || 0, min_money: q.min_money || 0, item_ids: Array.isArray(q.item_ids) ? q.item_ids.slice() : [] });
     const f = {
       name: p ? p.name : '', description: p ? (p.description || '') : '',
+      audience: p ? audienceOf(p) : 'all',
+      valid_days: p && p.kind === 'voucher' ? p.valid_days : 30,
       from_date: p ? (p.from_date || '') : '', to_date: p ? (p.to_date || '') : '',
       stack: p ? !!p.stack : false, show_banner: p ? p.show_banner !== false : true, active: p ? !!p.active : true,
       rules: p ? (Array.isArray(p.rules) && p.rules.length ? p.rules.map(legacyRule) : [legacyRule(p)]) : [{ discount_type: 'amount', value: 2000, free_item_id: '', min_qty: 2, min_money: 0, item_ids: [] }]
     };
+    const picked = new Set();
+    let custSearch = '';
+    const issued = p && f.audience === 'custom' ? (ST.vouchers || []).filter(v => v.promo_id === p.id) : [];
+    const lockAud = !!p;   // loại chương trình không đổi được sau khi tạo
+    const lastOf = c => (ST.custStats && ST.custStats.get(c.id) ? ST.custStats.get(c.id).last : '') || '';
+    const custList = () => {
+      const q = fold(custSearch.trim());
+      return ST.customers.filter(c => String(c.phone || '').replace(/\D/g, '').length >= 8)
+        .filter(c => !q || fold(c.name).includes(q) || fold(c.phone).includes(q) || fold(c.apt).includes(q))
+        .sort((a, b) => (lastOf(b) > lastOf(a) ? 1 : lastOf(b) < lastOf(a) ? -1 : 0));
+    };
+    const holdsOpen = cid => issued.some(v => v.customer_id === cid && !v.used_order_id && (!v.expires_at || v.expires_at > new Date().toISOString()));
+
     const body = el('div');
+    const pickHost = el('div');
+    const drawPicker = () => {
+      const shown = custList();
+      const sel = shown.filter(c => !holdsOpen(c.id));
+      pickHost.replaceChildren(
+        el('div', { className: 'row-between', style: 'margin:12px 0 6px' },
+          el('b', { text: 'Chọn khách nhận phiếu (' + picked.size + ' người)' }),
+          el('button', { type: 'button', className: 'btn btn-sm', text: picked.size >= sel.length && sel.length ? 'Bỏ chọn' : 'Chọn hết', onClick: () => { if (picked.size >= sel.length && sel.length) picked.clear(); else sel.forEach(c => picked.add(c.id)); drawPicker(); } })),
+        el('input', { className: 'input', placeholder: 'Tìm theo tên hoặc SĐT', value: custSearch, onInput: e => { custSearch = e.target.value; drawPickList(); } }),
+        el('div', { style: 'font-size:12.5px;opacity:.7;margin:4px 0' }, 'Khách gần đây nhất xếp trên. Chỉ hiện khách đã có SĐT trong danh sách Khách hàng.'),
+        pickList
+      );
+      drawPickList();
+    };
+    const pickList = el('div', { style: 'max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:8px' });
+    const drawPickList = () => {
+      const shown = custList().slice(0, 60);
+      pickList.replaceChildren(...(shown.length ? shown.map(c => {
+        const has = holdsOpen(c.id);
+        const last = lastOf(c);
+        return el('label', { style: 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-top:1px solid var(--border);font-weight:500' },
+          el('input', { type: 'checkbox', checked: picked.has(c.id), disabled: has, style: 'width:20px;height:20px;flex:none', onChange: e => { if (e.target.checked) picked.add(c.id); else picked.delete(c.id); const t = pickHost.querySelector('b'); if (t) t.textContent = 'Chọn khách nhận phiếu (' + picked.size + ' người)'; } }),
+          el('span', { style: 'flex:1;min-width:0' }, el('b', { text: c.name }), el('small', { style: 'display:block;opacity:.7', text: c.phone + (last ? ' · đặt gần nhất ' + shortDM(last) : '') + (has ? ' · đã có phiếu' : '') })));
+      }) : [el('div', { style: 'padding:10px;opacity:.7', text: 'Chưa có khách phù hợp.' })]));
+    };
+
+    const issuedHost = el('div');
+    const drawIssued = () => {
+      if (!p || f.audience !== 'custom') { issuedHost.replaceChildren(); return; }
+      const nowIso = new Date().toISOString();
+      const nameOf = id => { const c = ST.customers.find(x => x.id === id); return c ? c.name : 'Khách'; };
+      issuedHost.replaceChildren(
+        el('div', { style: 'font-weight:700;margin:16px 0 6px;padding-top:12px;border-top:1px solid var(--border)', text: 'Đã phát (' + issued.length + ')' }),
+        issued.length ? issued.map(v => {
+          const used = !!v.used_order_id; const exp = !used && v.expires_at && v.expires_at <= nowIso;
+          return el('div', { className: 'line-row' },
+            el('span', { style: 'flex:1', text: nameOf(v.customer_id) + (v.expires_at && !used ? ' · hạn ' + shortDM(v.expires_at) : '') }),
+            el('span', { className: 'badge ' + (used || exp ? 'badge-muted' : ''), text: used ? 'Đã dùng' : exp ? 'Hết hạn' : 'Còn hạn' }),
+            !used ? el('button', { type: 'button', className: 'btn btn-sm btn-danger', text: 'Thu hồi', style: 'margin-left:8px', onClick: async () => {
+              try {
+                const res = await sb.from('customer_vouchers').delete().eq('id', v.id).eq('shop_id', shopId).is('used_order_id', null).select('id');
+                checkMutated(res);
+                issued.splice(issued.indexOf(v), 1);
+                ST.vouchers = (ST.vouchers || []).filter(x => x.id !== v.id);
+                app.showToast('Đã thu hồi phiếu', 'accent');
+                drawIssued(); drawPicker();
+              } catch (err) { showErr(err); }
+            } }) : null);
+        }) : el('div', { style: 'opacity:.7', text: 'Chưa phát cho ai.' })
+      );
+    };
+
     const draw = () => {
+      const custom = f.audience === 'custom';
+      const visRules = custom ? f.rules.slice(0, 1) : f.rules;
       body.replaceChildren(
-        el('div', { className: 'field' }, el('label', { text: 'Tên chương trình (dòng 1 trên banner)' }), el('input', { className: 'input', value: f.name, placeholder: 'Ví dụ: Mua nhiều, giảm nhiều', onInput: e => { f.name = e.target.value; } })),
-        el('div', { className: 'field' }, el('label', { text: 'Mô tả (dòng 2 trên banner)' }), el('input', { className: 'input', value: f.description, placeholder: 'Ví dụ: 330ml mua 2 giảm 2k, mua 3 giảm 5k…', onInput: e => { f.description = e.target.value; } })),
-        el('div', { className: 'grid-2' },
-          el('div', { className: 'field' }, el('label', { text: 'Từ ngày' }), el('input', { className: 'input', type: 'date', value: f.from_date, onChange: e => { f.from_date = e.target.value; } })),
-          el('div', { className: 'field' }, el('label', { text: 'Đến ngày' }), el('input', { className: 'input', type: 'date', value: f.to_date, onChange: e => { f.to_date = e.target.value; } }))
-        ),
+        el('div', { className: 'field' }, el('label', { text: 'Tên chương trình' + (custom ? '' : ' (dòng 1 trên banner)') }), el('input', { className: 'input', value: f.name, placeholder: custom ? 'Ví dụ: Tặng bạn thân thiết giảm 10k' : 'Ví dụ: Mua nhiều, giảm nhiều', onInput: e => { f.name = e.target.value; } })),
+        el('div', { className: 'field' }, el('label', { text: 'Dành cho ai' }),
+          el('select', { className: 'select', disabled: lockAud && f.audience === 'custom', onChange: e => { f.audience = e.target.value; if (f.audience === 'custom') f.rules = f.rules.slice(0, 1); draw(); } },
+            el('option', { value: 'all', selected: f.audience === 'all', text: 'Mọi người', disabled: !!p && f.audience === 'custom' }),
+            el('option', { value: 'member', selected: f.audience === 'member', text: 'Chỉ thành viên', disabled: !!p && f.audience === 'custom' }),
+            el('option', { value: 'custom', selected: f.audience === 'custom', text: 'Khách chỉ định', disabled: !!p && f.audience !== 'custom' }))),
+        el('div', { style: 'font-size:12.5px;opacity:.7;margin:-4px 0 8px', text: f.audience === 'all' ? 'Tự áp dụng cho mọi đơn đủ điều kiện.' : f.audience === 'member' ? 'Tự áp dụng khi khách đặt bằng SĐT của khách đã là thành viên.' : 'Mỗi khách được chọn nhận 1 phiếu, dùng 1 lần.' + (lockAud ? ' Loại này không đổi sang loại khác được.' : '') }),
+        custom ? null : el('div', { className: 'field' }, el('label', { text: 'Mô tả (dòng 2 trên banner)' }), el('input', { className: 'input', value: f.description, placeholder: 'Ví dụ: 330ml mua 2 giảm 2k, mua 3 giảm 5k…', onInput: e => { f.description = e.target.value; } })),
+        custom ? el('div', { className: 'field' }, el('label', { text: 'Số ngày hiệu lực từ lúc phát (0 = không giới hạn)' }), el('input', { className: 'input num', type: 'number', min: 0, value: f.valid_days, onInput: e => { f.valid_days = e.target.value; } }))
+          : el('div', { className: 'grid-2' },
+            el('div', { className: 'field' }, el('label', { text: 'Từ ngày' }), el('input', { className: 'input', type: 'date', value: f.from_date, onChange: e => { f.from_date = e.target.value; } })),
+            el('div', { className: 'field' }, el('label', { text: 'Đến ngày' }), el('input', { className: 'input', type: 'date', value: f.to_date, onChange: e => { f.to_date = e.target.value; } }))),
         el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:6px;font-weight:600' },
           el('input', { type: 'checkbox', checked: f.stack, style: 'width:20px;height:20px', onChange: e => { f.stack = e.target.checked; } }), 'Cộng dồn với chương trình khác'),
         el('div', { style: 'font-size:12.5px;opacity:.7;margin:2px 0 0 28px', text: 'Không tick: cùng nhóm món chỉ lấy dòng ưu đãi cao nhất khách đạt được. Nhóm món khác nhau thì tính riêng rồi cộng lại.' }),
-        el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:600' },
+        custom ? null : el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:600' },
           el('input', { type: 'checkbox', checked: f.show_banner, style: 'width:20px;height:20px', onChange: e => { f.show_banner = e.target.checked; } }), 'Hiện trên banner trang đặt hàng'),
         el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:600' },
           el('input', { type: 'checkbox', checked: f.active, style: 'width:20px;height:20px', onChange: e => { f.active = e.target.checked; } }), 'Đang bật'),
-        el('div', { style: 'font-weight:700;margin:16px 0 6px;padding-top:12px;border-top:1px solid var(--border)', text: 'Các dòng ưu đãi (' + f.rules.length + ')' }),
-        f.rules.map((r, i) => el('div', { className: 'card', style: 'margin-bottom:10px;padding:12px' },
-          el('div', { className: 'row-between', style: 'margin-bottom:8px' },
+        el('div', { style: 'font-weight:700;margin:16px 0 6px;padding-top:12px;border-top:1px solid var(--border)', text: custom ? 'Mức ưu đãi' : 'Các dòng ưu đãi (' + f.rules.length + ')' }),
+        visRules.map((r, i) => el('div', { className: 'card', style: 'margin-bottom:10px;padding:12px' },
+          custom ? null : el('div', { className: 'row-between', style: 'margin-bottom:8px' },
             el('b', { text: 'Dòng ' + (i + 1) }),
             f.rules.length > 1 ? el('button', { type: 'button', className: 'btn btn-sm btn-danger', text: 'Xóa dòng', onClick: () => { f.rules.splice(i, 1); draw(); } }) : null),
           el('div', { className: 'grid-2' },
@@ -3826,156 +3910,74 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             el('div', { className: 'field' }, el('label', { text: 'Số lượng tối thiểu' }), el('input', { className: 'input num', type: 'number', min: 0, value: r.min_qty, onInput: e => { r.min_qty = e.target.value; } })),
             el('div', { className: 'field' }, el('label', { text: 'Số tiền tối thiểu (đ)' }), el('input', { className: 'input num', type: 'number', min: 0, value: r.min_money, onInput: e => { r.min_money = e.target.value; } }))
           ),
-          el('details', null,
+          custom ? null : el('details', null,
             el('summary', { style: 'font-weight:600;cursor:pointer', text: 'Áp dụng cho món: ' + (r.item_ids.length ? r.item_ids.length + ' món' : 'cả giỏ hàng') }),
             el('div', { style: 'font-size:12.5px;opacity:.7;margin:4px 0', text: 'Không chọn món nào = áp dụng cả giỏ. Chọn món = chỉ tính số lượng và tiền của các món đã chọn.' }),
             ST.menuItems.map(m => el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:6px;font-weight:500' },
               el('input', { type: 'checkbox', checked: r.item_ids.indexOf(m.id) >= 0, style: 'width:20px;height:20px', onChange: e => { r.item_ids = r.item_ids.filter(x => x !== m.id); if (e.target.checked) r.item_ids.push(m.id); } }), m.name))
           )
         )),
-        el('button', { type: 'button', className: 'btn', style: 'width:100%', text: '+ Thêm dòng ưu đãi', onClick: () => { const last = f.rules[f.rules.length - 1]; f.rules.push(last ? Object.assign({}, last, { item_ids: last.item_ids.slice(), min_qty: (Number(last.min_qty) || 0) + 1 }) : { discount_type: 'amount', value: 2000, free_item_id: '', min_qty: 2, min_money: 0, item_ids: [] }); draw(); } })
+        custom ? null : el('button', { type: 'button', className: 'btn', style: 'width:100%', text: '+ Thêm dòng ưu đãi', onClick: () => { const last = f.rules[f.rules.length - 1]; f.rules.push(last ? Object.assign({}, last, { item_ids: last.item_ids.slice(), min_qty: (Number(last.min_qty) || 0) + 1 }) : { discount_type: 'amount', value: 2000, free_item_id: '', min_qty: 2, min_money: 0, item_ids: [] }); draw(); } }),
+        custom ? pickHost : null,
+        custom ? issuedHost : null
       );
+      if (custom) {
+        if (!ST.custStats) loadCustomersWithStats().then(() => { drawPicker(); }).catch(() => {});
+        drawPicker(); drawIssued();
+      }
     };
     draw();
     const okBtn = el('button', {
-      type: 'button', className: 'btn btn-primary', text: 'Lưu',
+      type: 'button', className: 'btn btn-primary', text: p ? 'Lưu' : (f.audience === 'custom' ? 'Lưu' : 'Lưu'),
       onClick: async () => {
         if (!f.name.trim()) { app.showToast('Nhập tên chương trình', 'error'); return; }
-        const rules = f.rules.map(r => {
+        const custom = f.audience === 'custom';
+        const useRules = custom ? f.rules.slice(0, 1) : f.rules;
+        const rules = useRules.map(r => {
           const o = { discount_type: r.discount_type, value: Math.round(Number(r.value) || 0), min_qty: Math.round(Number(r.min_qty) || 0), min_money: Math.round(Number(r.min_money) || 0), item_ids: r.item_ids.length ? r.item_ids : null };
           if (r.discount_type === 'free_item') o.free_item_id = r.free_item_id || null;
           return o;
         });
         okBtn.disabled = true; okBtn.textContent = 'Đang lưu…';
         try {
-          const rec = {
-            name: f.name.trim(), description: f.description.trim() || null,
-            from_date: f.from_date || null, to_date: f.to_date || null,
-            stack: f.stack, show_banner: f.show_banner, active: f.active,
-            discount_type: 'amount', value: 1, free_item_id: null, item_ids: null, min_qty: 0, min_money: 0,
-            rules
+          const base = {
+            name: f.name.trim(), description: custom ? null : (f.description.trim() || null),
+            stack: f.stack, show_banner: custom ? false : f.show_banner, active: f.active, audience: f.audience
           };
+          const rec = custom ? Object.assign(base, {
+            from_date: null, to_date: null, rules: null,
+            discount_type: rules[0].discount_type, value: rules[0].value, free_item_id: rules[0].free_item_id || null,
+            item_ids: rules[0].item_ids, min_qty: rules[0].min_qty, min_money: rules[0].min_money,
+            valid_days: Math.max(0, Math.round(Number(f.valid_days) || 0))
+          }) : Object.assign(base, {
+            from_date: f.from_date || null, to_date: f.to_date || null,
+            discount_type: 'amount', value: 1, free_item_id: null, item_ids: null, min_qty: 0, min_money: 0, valid_days: 0, rules
+          });
+          let promoId;
           if (p) {
             const res = await sb.from('promotions').update(rec).eq('id', p.id).eq('shop_id', shopId).select('id');
             checkMutated(res);
+            promoId = p.id;
           } else {
-            const { error } = await sb.from('promotions').insert(Object.assign({ shop_id: shopId, kind: 'promo' }, rec));
+            const { data, error } = await sb.from('promotions').insert(Object.assign({ shop_id: shopId, kind: custom ? 'voucher' : 'promo' }, rec)).select('id').single();
             if (error) throw error;
+            promoId = data.id;
+          }
+          let given = 0;
+          if (custom && picked.size) {
+            const now = new Date();
+            const exp = rec.valid_days > 0 ? new Date(now.getTime() + rec.valid_days * 86400000).toISOString() : null;
+            const rows = [...picked].map(cid => ({ shop_id: shopId, customer_id: cid, promo_id: promoId, issued_at: now.toISOString(), expires_at: exp }));
+            const { error } = await sb.from('customer_vouchers').insert(rows);
+            if (error) throw error;
+            given = rows.length;
           }
           closeModal();
-          app.showToast('Đã lưu chương trình', 'accent');
+          app.showToast('Đã lưu chương trình' + (given ? ' và phát cho ' + given + ' khách' : ''), 'accent');
           await loadPromos();
           renderPromoTab();
         } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = 'Lưu'; }
       }
-    });
-    openModal(p ? 'Sửa chương trình' : 'Thêm chương trình', body, [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), okBtn], opener);
-  }
-
-  function openPromoModal(p, opener) {
-    if ((p ? p.kind : ST.promoKind) === 'promo') return openPromoRulesModal(p, opener);
-    const f = {
-      kind: p ? p.kind : ST.promoKind,
-      name: p ? p.name : '',
-      description: p ? (p.description || '') : '',
-      discount_type: p ? p.discount_type : 'percent',
-      value: p ? p.value : 10,
-      free_item_id: p ? (p.free_item_id || '') : (ST.menuItems[0] ? ST.menuItems[0].id : ''),
-      from_date: p ? (p.from_date || '') : '',
-      to_date: p ? (p.to_date || '') : '',
-      stack: p ? !!p.stack : true,
-      item_ids: p && Array.isArray(p.item_ids) ? p.item_ids.slice() : [],
-      min_qty: p ? (p.min_qty || 0) : 0,
-      min_money: p ? (p.min_money || 0) : 0,
-      valid_days: p ? (p.valid_days || 30) : 30,
-      loyalty_goal: p ? (p.loyalty_goal || 10) : 10,
-      show_banner: p ? p.show_banner !== false : true,
-      active: p ? !!p.active : true
-    };
-    const body = el('div');
-    const draw = () => {
-      body.replaceChildren(
-        el('div', { className: 'field' }, el('label', { text: 'Tên chương trình' }), el('input', { className: 'input', value: f.name, onInput: e => { f.name = e.target.value; } })),
-        el('div', { className: 'field' }, el('label', { text: 'Mô tả' }), el('input', { className: 'input', value: f.description, onInput: e => { f.description = e.target.value; } })),
-        el('div', { className: 'grid-2' },
-          el('div', { className: 'field' }, el('label', { text: 'Kiểu ưu đãi' }),
-            el('select', { className: 'select', onChange: e => { f.discount_type = e.target.value; draw(); } },
-              el('option', { value: 'percent', selected: f.discount_type === 'percent', text: 'Giảm %' }),
-              el('option', { value: 'amount', selected: f.discount_type === 'amount', text: 'Giảm số tiền' }),
-              el('option', { value: 'free_item', selected: f.discount_type === 'free_item', text: 'Tặng món' })
-            )
-          ),
-          el('div', { className: 'field' }, el('label', { text: f.discount_type === 'percent' ? 'Phần trăm (1–100)' : f.discount_type === 'amount' ? 'Số tiền giảm (đ)' : 'Số lượng tặng' }),
-            el('input', { className: 'input num', type: 'number', min: 1, value: f.value, onInput: e => { f.value = e.target.value; } })
-          )
-        ),
-        f.discount_type === 'free_item' ? el('div', { className: 'field' },
-          el('label', { text: 'Món tặng' }),
-          el('select', { className: 'select', onChange: e => { f.free_item_id = e.target.value; } },
-            ST.menuItems.map(m => el('option', { value: m.id, selected: m.id === f.free_item_id, text: m.name }))
-          )
-        ) : null,
-        f.kind === 'promo' ? el('div', { className: 'field' },
-          el('label', { text: 'Áp dụng cho món nào' }),
-          el('div', { style: 'font-size:12.5px;opacity:.7;margin-bottom:2px', text: 'Không chọn món nào = áp dụng cả giỏ hàng. Chọn món = chỉ tính số lượng và tiền của các món đã chọn.' }),
-          ST.menuItems.map(m => el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:6px;font-weight:500' },
-            el('input', { type: 'checkbox', checked: f.item_ids.indexOf(m.id) >= 0, style: 'width:20px;height:20px', onChange: e => {
-              f.item_ids = f.item_ids.filter(x => x !== m.id); if (e.target.checked) f.item_ids.push(m.id); } }), m.name))
-        ) : null,
-        el('div', { className: 'grid-2' },
-          el('div', { className: 'field' }, el('label', { text: 'Từ ngày' }), el('input', { className: 'input', type: 'date', value: f.from_date, onChange: e => { f.from_date = e.target.value; } })),
-          el('div', { className: 'field' }, el('label', { text: 'Đến ngày' }), el('input', { className: 'input', type: 'date', value: f.to_date, onChange: e => { f.to_date = e.target.value; } }))
-        ),
-        el('div', { className: 'grid-2' },
-          el('div', { className: 'field' }, el('label', { text: 'Tối thiểu số lượng' }), el('input', { className: 'input num', type: 'number', min: 0, value: f.min_qty, onInput: e => { f.min_qty = e.target.value; } })),
-          el('div', { className: 'field' }, el('label', { text: 'Tối thiểu số tiền (đ)' }), el('input', { className: 'input num', type: 'number', min: 0, value: f.min_money, onInput: e => { f.min_money = e.target.value; } }))
-        ),
-        f.kind === 'voucher' ? el('div', { className: 'field' }, el('label', { text: 'Số ngày hiệu lực từ lúc phát' }), el('input', { className: 'input num', type: 'number', min: 0, value: f.valid_days, onInput: e => { f.valid_days = e.target.value; } })) : null,
-        f.kind === 'loyalty' ? el('div', { className: 'field' }, el('label', { text: 'Mục tiêu tích (số đơn vị)' }), el('input', { className: 'input num', type: 'number', min: 1, value: f.loyalty_goal, onInput: e => { f.loyalty_goal = e.target.value; } })) : null,
-        el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:600' },
-          el('input', { type: 'checkbox', checked: f.stack, style: 'width:20px;height:20px', onChange: e => { f.stack = e.target.checked; } }), 'Cộng dồn với chương trình khác'
-        ),
-        el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:600' },
-          el('input', { type: 'checkbox', checked: f.show_banner, style: 'width:20px;height:20px', onChange: e => { f.show_banner = e.target.checked; } }), 'Hiện trên banner trang đặt hàng'
-        ),
-        el('div', { style: 'font-size:12.5px;opacity:.7;margin:2px 0 0 28px', text: 'Tick là hiện cho khách thấy, bỏ tick là ẩn, kể cả khi chương trình đang chạy hay đã tắt. Chương trình đang bật vẫn tự áp dụng giảm giá dù ẩn khỏi banner.' }),
-        el('label', { style: 'display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:600' },
-          el('input', { type: 'checkbox', checked: f.active, style: 'width:20px;height:20px', onChange: e => { f.active = e.target.checked; } }), 'Đang bật'
-        )
-      );
-    };
-    draw();
-    const okBtn = el('button', {
-      type: 'button', className: 'btn btn-primary',
-      onClick: async () => {
-        if (!f.name.trim()) { app.showToast('Nhập tên chương trình', 'error'); return; }
-        okBtn.disabled = true; okBtn.textContent = 'Đang lưu…';
-        try {
-          const rec = {
-            name: f.name.trim(), description: f.description.trim() || null,
-            discount_type: f.discount_type, value: Math.round(Number(f.value) || 0),
-            free_item_id: f.discount_type === 'free_item' ? (f.free_item_id || null) : null,
-            item_ids: f.kind === 'promo' && f.item_ids.length ? f.item_ids : null,
-            from_date: f.from_date || null, to_date: f.to_date || null,
-            stack: f.stack, min_qty: Math.round(Number(f.min_qty) || 0), min_money: Math.round(Number(f.min_money) || 0),
-            valid_days: f.kind === 'voucher' ? Math.round(Number(f.valid_days) || 0) : 0,
-            loyalty_goal: f.kind === 'loyalty' ? Math.round(Number(f.loyalty_goal) || 0) : 0,
-            active: f.active, show_banner: f.show_banner
-          };
-          if (p) {
-            const res = await sb.from('promotions').update(rec).eq('id', p.id).eq('shop_id', shopId).select('id');
-            checkMutated(res);
-          } else {
-            const { error } = await sb.from('promotions').insert(Object.assign({ shop_id: shopId, kind: f.kind }, rec));
-            if (error) throw error;
-          }
-          closeModal();
-          app.showToast('Đã lưu chương trình', 'accent');
-          await loadPromos();
-          renderPromoTab();
-        } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = 'Lưu'; }
-      },
-      text: 'Lưu'
     });
     openModal(p ? 'Sửa chương trình' : 'Thêm chương trình', body, [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), okBtn], opener);
   }

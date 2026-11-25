@@ -623,7 +623,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     { id: 'recipe', label: 'Định mức', minPlan: 'pro' },
     { id: 'cash', label: 'Thu chi', minPlan: 'pro' },
     { id: 'batch', label: 'Sản xuất', minPlan: 'pro' },
-    { id: 'flow', label: 'Quy trình làm việc', minPlan: 'pro' },
+    { id: 'flow', label: 'Mục tiêu trong ngày', minPlan: 'pro' },
     { id: 'cust', label: 'Khách', minPlan: 'standard' },
     { id: 'promo', label: 'Khuyến mãi', minPlan: 'proplus' },
     { id: 'feedback', label: 'Đánh giá', minPlan: 'proplus' }
@@ -767,7 +767,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   function markLoaded(tab) { ST.loadedAt[tab] = new Date(); }
   function openMoreModal(opener) {
     const rest = TABS.filter(t => !NAV_MAIN.includes(t.id) && t.id !== 'settings');
-    openModal('Thêm', el('div', {}, [['Bán hàng', ['eod', 'menu']], ['Kho và sản xuất', ['buy', 'inv', 'recipe', 'batch', 'flow']], ['Tiền', ['cash']]].map(([gt, ids]) => {
+    openModal('Thêm', el('div', {}, [['Bán hàng', ['menu']], ['Kho và sản xuất', ['buy', 'inv', 'recipe', 'batch', 'flow']], ['Tiền', ['cash']]].map(([gt, ids]) => {
       const ts = rest.filter(t => ids.includes(t.id));
       return ts.length ? el('div', { style: 'margin-bottom:12px' },
         el('div', { style: 'font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:6px', text: gt }),
@@ -793,7 +793,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     document.title = newOnlineCount > 0 ? '(' + newOnlineCount + ') Đơn mới – ' + ST.shop.name : 'Bán hàng – ' + ST.shop.name;
     const navBtns = NAV_MAIN.map(id => TABS.find(t => t.id === id)).filter(Boolean).map(t => el('button', {
       type: 'button',
-      'aria-current': (ST.tab === t.id || (t.id === 'online' && ST.tab === 'feedback')) ? 'page' : null,
+      'aria-current': (ST.tab === t.id || (t.id === 'online' && ST.tab === 'feedback') || (t.id === 'sale' && ST.tab === 'eod')) ? 'page' : null,
       onClick: () => switchTab(t.id)
     },
       navIcon(t.id),
@@ -823,6 +823,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         markLoaded('sale');
       } else if (id === 'eod') {
         await loadEod();
+        if (app.hasPlan('pro')) await loadEodPro();
         markLoaded('eod');
       } else if (id === 'online') {
         await loadOnlineOrders(false);
@@ -1206,12 +1207,14 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       );
     } else if (ST.saleList === 'saved') {
       contentHost.replaceChildren(
+        saleSubBar(),
         renderMetaBar('sale', async () => { await loadTabData('sale'); renderSaleTab(); }),
         seg,
         el('div', { className: 'card' }, buildRecent())
       );
     } else {
       contentHost.replaceChildren(
+        saleSubBar(),
         renderMetaBar('sale', async () => { await loadTabData('sale'); renderSaleTab(); }),
         ...pickNodes
       );
@@ -1527,8 +1530,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const unpaid = (d && d.unpaid) || { orders: 0, amount: 0 };
     const totals = (d && d.totals) || { orders: 0, revenue: 0, paid: 0, discount: 0 };
 
-    contentHost.replaceChildren(
-      renderMetaBar('eod', async () => { await loadEod(); markLoaded('eod'); renderEodView(null); }),
+    const metaBar = renderMetaBar('eod', async () => { await loadTabData('eod'); markLoaded('eod'); renderEodView(null); });
+    const histCards = [
       el('div', { className: 'card' },
         el('div', { className: 'hscroll even', style: 'margin-bottom:8px' }, [['Hôm nay', app.toVnYmd(new Date())], ['Hôm qua', app.shiftYmd(app.toVnYmd(new Date()), -1)]].map(([lb, ymd]) => el('button', {
           type: 'button', className: 'chip', 'aria-pressed': String(ST.eodDate === ymd),
@@ -1565,7 +1568,184 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           })
         )) : el('div', { className: 'empty-state', text: 'Tất cả đơn trong ngày đã được thu đủ.' })
       )
-    );
+    ];
+    const pro = eodProBlock();
+    contentHost.replaceChildren(saleSubBar(), metaBar, ...pro,
+      pro.length ? el('div', { style: 'margin:14px 4px 6px;font-weight:700;color:var(--text-sub)', text: 'Lịch sử cuối ngày (xem theo ngày)' }) : null,
+      ...histCards);
+  }
+
+  /* ===== CUỐI NGÀY (gói pro): A. KPI, B. Check list, C. Kiểm quỹ; lưu ảnh chụp 3 ngày ===== */
+  function saleSubBar() {
+    const mk = (id, txt) => el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.tab === id), onClick: () => { if (ST.tab !== id) switchTab(id); }, text: txt });
+    return el('div', { className: 'hscroll even', style: 'margin-bottom:10px' }, mk('sale', 'Bán hàng'), mk('eod', 'Cuối ngày'));
+  }
+
+  async function loadEodPro() {
+    await loadFlow();
+    const today = app.toVnYmd(new Date());
+    const from = today + 'T00:00:00+07:00', to = today + 'T23:59:59+07:00';
+    const pu = await sb.from('purchases').select('id,total,paid').eq('shop_id', shopId).gte('at', from).lte('at', to);
+    if (pu.error) throw pu.error;
+    let lines = [];
+    if ((pu.data || []).length) {
+      const pl = await sb.from('purchase_lines').select('purchase_id,name').eq('shop_id', shopId).in('purchase_id', pu.data.map(p => p.id));
+      if (pl.error) throw pl.error;
+      lines = pl.data || [];
+    }
+    const ce = await sb.from('cash_entries').select('dir,cat,amount,pay_method_id').eq('shop_id', shopId).gte('at', from).lte('at', to);
+    if (ce.error) throw ce.error;
+    const sn = await sb.from('eod_snapshots').select('day,data').eq('shop_id', shopId).gte('day', app.shiftYmd(today, -2)).order('day', { ascending: false });
+    if (sn.error) throw sn.error;
+    ST.eodPro = { purchases: pu.data || [], lines, cash: ce.data || [], snaps: sn.data || [] };
+    const mine = ST.eodPro.snaps.find(s => s.day === today);
+    const stt = mine && mine.data && mine.data.state;
+    ST.eodState = { open: (stt && stt.open) || {}, ok: (stt && stt.ok) || {}, actual: (stt && stt.actual) || {}, checks: (stt && stt.checks) || {} };
+    eodPersist(false);
+  }
+
+  let eodSaveT = null;
+  function eodPersist(now) {
+    clearTimeout(eodSaveT);
+    const run = async () => {
+      try {
+        const today = app.toVnYmd(new Date());
+        const { error } = await sb.from('eod_snapshots').upsert({ shop_id: shopId, day: today, data: { state: ST.eodState, model: eodModel() }, updated_at: new Date().toISOString() }, { onConflict: 'shop_id,day' });
+        if (error) throw error;
+        await sb.from('eod_snapshots').delete().eq('shop_id', shopId).lt('day', app.shiftYmd(today, -2));
+      } catch (e) { showErr(e); }
+    };
+    if (now) return run();
+    eodSaveT = setTimeout(run, 700);
+  }
+
+  const stepKey = s => (s.time || '') + '|' + s.text;
+  function eodModel() {
+    const f = ST.flow, P = ST.eodPro, st = ST.eodState, C = flowCompute();
+    const rev = f.orders.reduce((s, o) => s + Math.max(0, (Number(o.total) || 0) - (Number(o.delivery_fee) || 0)), 0);
+    const kpi = {
+      rev: { act: rev, tgt: C.tp.dt }, don: { act: f.orders.length, tgt: C.tp.don },
+      lit: C.groups.map((g, i) => ({ name: g.name, act: C.act[i].lit, tgt: C.plan[i].lit })),
+      litTot: { act: C.ta.lit, tgt: C.tp.lit }
+    };
+    const steps = f.steps.slice().sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99')).map(s => ({ text: s.text, time: s.time || '', note: s.note || '', done: !!st.checks[stepKey(s)] }));
+    const accs = new Map(activePayMethods().map(m => [m.id, { id: m.id, name: m.name, sales: 0, buy: 0, other: 0 }]));
+    const acc = id => {
+      const k = id || '_none';
+      if (!accs.has(k)) accs.set(k, { id: k, name: id ? (payMethodName(id) || 'Tài khoản khác') : 'Chưa chọn tài khoản', sales: 0, buy: 0, other: 0 });
+      return accs.get(k);
+    };
+    for (const o of f.orders) {
+      const got = Number(o.paid) > 0 ? Number(o.paid) : (o.pay_status === 'paid' ? Number(o.total) || 0 : 0);
+      if (got > 0) acc(o.pay_method_id).sales += got;
+    }
+    for (const c of P.cash) {
+      const a = Number(c.amount) || 0;
+      if (c.cat === 'mua_hang' || c.cat === 'tra_no_ncc') { if (c.dir === 'out') acc(c.pay_method_id).buy += a; else acc(c.pay_method_id).buy -= a; }
+      else acc(c.pay_method_id).other += c.dir === 'in' ? a : -a;
+    }
+    const accounts = [...accs.values()].map(a => {
+      const open = Number(st.open[a.id]) || 0;
+      const end = open + a.sales;
+      const book = end - a.buy + a.other;
+      const ok = st.ok[a.id] === undefined ? null : st.ok[a.id];
+      const actual = ok === false && st.actual[a.id] != null ? Number(st.actual[a.id]) : null;
+      return Object.assign({}, a, { open, end, book, ok, actual, real: actual != null ? actual : book });
+    }).filter(a => a.open || a.sales || a.buy || a.other || a.id !== '_none');
+    const sum = k => accounts.reduce((s, a) => s + a[k], 0);
+    return {
+      kpi, steps,
+      money: { accounts, items: P.lines.length, buyTotal: P.purchases.reduce((s, p) => s + (Number(p.total) || 0), 0), tot: { open: sum('open'), sales: sum('sales'), end: sum('end'), buy: sum('buy'), other: sum('other'), book: sum('book'), real: sum('real') } }
+    };
+  }
+
+  function eodCards(model, editable, dayLabel) {
+    const st = ST.eodState;
+    const again = () => { eodPersist(false); renderEodView(); };
+    const g4 = (cols, kids) => el('div', { style: 'display:grid;grid-template-columns:' + cols + ';align-items:center;column-gap:4px' }, kids);
+    const c = (txt, o) => el('div', { className: 'num', style: 'padding:6px 2px;font-size:13.5px;text-align:' + ((o && o.left) ? 'left' : 'right') + ';' + ((o && o.bold) ? 'font-weight:700;' : '') + ((o && o.sub) ? 'color:var(--text-sub);' : '') + ((o && o.color) ? 'color:' + o.color + ';' : ''), text: txt });
+    const sect = txt => el('div', { style: 'margin:10px 0 4px;padding:5px 8px;background:var(--surface-2,#eef1ec);border-radius:8px;font-weight:700;font-size:13px', text: txt });
+    // A. KPI
+    const pct = (a, t) => t > 0 ? Math.round(a / t * 100) : null;
+    const kr = (label, act, tgt, money, dec) => {
+      const p = pct(act, tgt);
+      const f = v => money ? flowMoney(v) : flowNum(v, dec || 0);
+      return [c(label, { left: true, sub: true }), c(f(act), { bold: true }), c(f(tgt)), c(p == null ? '—' : p + '%', { color: p != null && p >= 100 ? 'var(--accent)' : null })];
+    };
+    const K = model.kpi;
+    const cardA = el('div', { className: 'card' }, el('b', { style: 'display:block;margin-bottom:6px', text: 'A. KPI' + (dayLabel ? ' · ' + dayLabel : '') }),
+      g4('minmax(70px,1.1fr) 1fr 1fr 48px', [c('', {}), c('Thực tế', { bold: true }), c('Mục tiêu', { bold: true }), c('Đạt', { bold: true }),
+        ...kr('Doanh thu', K.rev.act, K.rev.tgt, true), ...kr('Số đơn', K.don.act, K.don.tgt, false),
+        ...K.lit.flatMap(l => kr(l.name + ' (lít)', l.act, l.tgt, false, 1)), ...kr('Tổng lít nấu', K.litTot.act, K.litTot.tgt, false, 1)]));
+    // B. Check list
+    const done = model.steps.filter(s => s.done).length;
+    const cardB = el('div', { className: 'card' },
+      el('div', { className: 'row-between', style: 'margin-bottom:6px' }, el('b', { text: 'B. Check list quy trình' + (dayLabel ? ' · ' + dayLabel : '') }), el('span', { className: 'num', style: 'color:var(--text-sub);font-size:13px', text: done + '/' + model.steps.length })),
+      model.steps.length ? model.steps.map(s => {
+        const row = el('label', { style: 'display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--border)' + (editable ? ';cursor:pointer' : '') },
+          el('input', { type: 'checkbox', checked: !!s.done, disabled: !editable, style: 'width:20px;height:20px;flex:none;margin-top:1px',
+            onChange: e => { st.checks[stepKey(s)] = e.target.checked; if (!e.target.checked) delete st.checks[stepKey(s)]; again(); } }),
+          el('div', { style: 'flex:1;min-width:0' }, el('div', { style: 'font-weight:600;overflow-wrap:anywhere;' + (s.done ? 'text-decoration:line-through;color:var(--text-sub)' : ''), text: s.text }),
+            s.note ? el('div', { style: 'font-size:12.5px;color:var(--text-sub);overflow-wrap:anywhere', text: s.note }) : null),
+          el('span', { className: 'num', style: 'flex:none;font-size:13px;color:var(--text-sub)', text: s.time }));
+        return row;
+      }) : el('div', { className: 'empty-state', text: 'Chưa có việc nào. Thêm ở tab Mục tiêu trong ngày.' }));
+    // C. Kiểm quỹ
+    const M = model.money, A = M.accounts;
+    const numIn = (val, onSet, ph) => el('input', { className: 'input num', type: 'number', inputMode: 'numeric', min: 0, placeholder: ph || '0', value: val ? val : '', style: 'padding:6px 4px;min-height:34px;text-align:right;width:100%;font-size:13.5px', onChange: e => onSet(e.target.value === '' ? null : Math.max(0, Math.round(Number(e.target.value) || 0))) });
+    const colsM = 'minmax(70px,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)';
+    const sellRows = [c('', {}), c('Đầu ngày', { bold: true }), c('Trong ngày', { bold: true }), c('Cuối ngày', { bold: true })];
+    for (const a of A) sellRows.push(c(a.name, { left: true, sub: true }),
+      editable ? numIn(a.open, v => { if (v == null) delete st.open[a.id]; else st.open[a.id] = v; again(); }) : c(flowMoney(a.open)), c(flowMoney(a.sales)), c(flowMoney(a.end), { bold: true }));
+    sellRows.push(c('Tổng', { left: true, bold: true }), c(flowMoney(M.tot.open), { bold: true }), c(flowMoney(M.tot.sales), { bold: true }), c(flowMoney(M.tot.end), { bold: true }));
+    const buyRows = [];
+    for (const a of A) buyRows.push(c(a.name, { left: true, sub: true }), c(flowMoney(a.buy)));
+    buyRows.push(c('Tổng chi mua hàng', { left: true, bold: true }), c(flowMoney(M.tot.buy), { bold: true }));
+    const otherAny = A.some(a => a.other);
+    const otherRows = [];
+    for (const a of A) if (a.other) otherRows.push(c(a.name, { left: true, sub: true }), c(flowMoney(a.other)));
+    const totBlock = A.map(a => {
+      const chips = el('div', { style: 'display:flex;gap:6px;justify-content:flex-end' },
+        ...[[true, 'Đúng'], [false, 'Lệch']].map(([v, t]) => el('button', { type: 'button', className: 'chip', disabled: !editable, 'aria-pressed': String(a.ok === v), style: 'padding:4px 10px;font-size:13px',
+          onClick: () => { if (a.ok === v) delete st.ok[a.id]; else st.ok[a.id] = v; if (v === true) delete st.actual[a.id]; again(); }, text: t })));
+      return el('div', { style: 'padding:8px 0;border-top:1px solid var(--border)' },
+        el('div', { style: 'display:flex;justify-content:space-between;gap:8px;align-items:center' },
+          el('div', { style: 'min-width:0' }, el('b', { text: a.name }), el('div', { className: 'num', style: 'font-size:13px;color:var(--text-sub)', text: 'Theo sổ ' + flowMoney(a.book) })), chips),
+        a.ok === false ? el('div', { style: 'display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:6px' },
+          el('span', { style: 'font-size:13px;color:var(--error)', text: 'Số tiền thật đang có' }),
+          editable ? el('div', { style: 'width:130px' }, numIn(a.actual, v => { if (v == null) delete st.actual[a.id]; else st.actual[a.id] = v; again(); }, 'Nhập số thật'))
+            : el('b', { className: 'num', text: flowMoney(a.actual) })) : null,
+        a.ok === false && a.actual != null ? el('div', { className: 'num', style: 'text-align:right;font-size:12.5px;color:var(--error)', text: 'Lệch ' + flowMoney(a.actual - a.book) }) : null);
+    });
+    const cardC = el('div', { className: 'card' }, el('b', { style: 'display:block;margin-bottom:4px', text: 'C. Kiểm quỹ' + (dayLabel ? ' · ' + dayLabel : '') }),
+      sect('Bán hàng'), g4(colsM, sellRows),
+      sect('Mua hàng'),
+      el('div', { className: 'row-between', style: 'font-size:13.5px;padding:2px 2px 4px' }, el('span', { style: 'color:var(--text-sub)', text: M.items + ' mặt hàng · tổng mua ' + flowMoney(M.buyTotal) })),
+      g4('minmax(0,1fr) auto', buyRows),
+      otherAny ? el('div', null, sect('Thu chi khác'), g4('minmax(0,1fr) auto', otherRows)) : null,
+      sect('Tổng tài khoản'), ...totBlock,
+      el('div', { className: 'row-between', style: 'padding-top:8px;border-top:1px solid var(--border);font-weight:700' }, el('span', { text: 'Tổng tiền (theo số thật)' }), el('span', { className: 'num', text: flowMoney(M.tot.real) })));
+    return [cardA, cardB, cardC];
+  }
+
+  function eodProBlock() {
+    if (!app.hasPlan('pro') || !ST.flow || !ST.eodPro || !ST.eodState) return [];
+    const today = app.toVnYmd(new Date());
+    const model = eodModel();
+    const past = (ST.eodPro.snaps || []).filter(s => s.day < today && s.data && s.data.model);
+    const lb = ymd => ymd === app.shiftYmd(today, -1) ? 'Hôm qua' : 'Hôm kia';
+    const pastCard = el('div', { className: 'card' }, el('b', { style: 'display:block;margin-bottom:6px', text: 'Hai ngày trước' }),
+      [app.shiftYmd(today, -1), app.shiftYmd(today, -2)].map(d => {
+        const sn = past.find(s => s.day === d);
+        return el('div', { className: 'line-row' }, el('div', { className: 'line-main' }, el('b', { text: lb(d) + ' ' + d.slice(8, 10) + '/' + d.slice(5, 7) }), el('small', { text: sn ? 'Đã lưu' : 'Chưa có dữ liệu' })),
+          sn ? el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openEodPastModal(sn, d, e.currentTarget), text: 'Xem' }) : null);
+      }));
+    return [...eodCards(model, true, 'Hôm nay'), pastCard];
+  }
+
+  function openEodPastModal(sn, day, opener) {
+    const model = sn.data.model;
+    openModal('Cuối ngày ' + day.slice(8, 10) + '/' + day.slice(5, 7), el('div', null, ...eodCards(model, false, '')), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' })], opener);
   }
 
   // Đổi phương thức thanh toán của đơn (giữ nguyên trạng thái thu tiền và số đã thu)
@@ -3755,7 +3935,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const today = app.toVnYmd(new Date());
     const wf = await sb.from('shop_workflow').select('targets,steps').eq('shop_id', shopId).maybeSingle();
     if (wf.error) throw wf.error;
-    const od = await sb.from('orders').select('id,total,delivery_fee').eq('shop_id', shopId).neq('status', 'cancelled')
+    const od = await sb.from('orders').select('id,total,delivery_fee,paid,pay_method_id,pay_status').eq('shop_id', shopId).neq('status', 'cancelled')
       .gte('ordered_at', today + 'T00:00:00+07:00').lte('ordered_at', today + 'T23:59:59+07:00').limit(1000);
     if (od.error) throw od.error;
     const orders = od.data || [];

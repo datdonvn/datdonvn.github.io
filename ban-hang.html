@@ -1570,9 +1570,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       )
     ];
     const pro = eodProBlock();
-    contentHost.replaceChildren(saleSubBar(), metaBar, ...pro,
-      pro.length ? el('div', { style: 'margin:14px 4px 6px;font-weight:700;color:var(--text-sub)', text: 'Lịch sử cuối ngày (xem theo ngày)' }) : null,
-      ...histCards);
+    contentHost.replaceChildren(saleSubBar(), metaBar, ...(pro.length ? pro : histCards));
   }
 
   /* ===== CUỐI NGÀY (gói pro): A. KPI, B. Check list, C. Kiểm quỹ; lưu ảnh chụp 3 ngày ===== */
@@ -1728,19 +1726,35 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     return [cardA, cardB, cardC];
   }
 
+  // Chấm đạt / không đạt từng phần của một ngày (dùng cả cho ảnh chụp đã lưu)
+  function eodVerdict(model) {
+    const K = model.kpi;
+    const ge = x => !(Number(x.tgt) > 0) || Number(x.act) >= Number(x.tgt);
+    const A = ge(K.rev) && ge(K.don) && ge(K.litTot) ? 'Đạt' : 'Không đạt';
+    const steps = model.steps || [];
+    const B = !steps.length ? '—' : steps.every(s => s.done) ? 'Đạt' : 'Không đạt';
+    const used = (model.money.accounts || []).filter(a => a.open || a.sales || a.buy || a.other);
+    const C = used.some(a => a.ok === false) ? 'Không đạt' : used.every(a => a.ok === true) ? 'Đạt' : 'Chưa kiểm';
+    return { A, B, C };
+  }
+
   function eodProBlock() {
     if (!app.hasPlan('pro') || !ST.flow || !ST.eodPro || !ST.eodState) return [];
     const today = app.toVnYmd(new Date());
     const model = eodModel();
-    const past = (ST.eodPro.snaps || []).filter(s => s.day < today && s.data && s.data.model);
-    const lb = ymd => ymd === app.shiftYmd(today, -1) ? 'Hôm qua' : 'Hôm kia';
-    const pastCard = el('div', { className: 'card' }, el('b', { style: 'display:block;margin-bottom:6px', text: 'Hai ngày trước' }),
-      [app.shiftYmd(today, -1), app.shiftYmd(today, -2)].map(d => {
-        const sn = past.find(s => s.day === d);
-        return el('div', { className: 'line-row' }, el('div', { className: 'line-main' }, el('b', { text: lb(d) + ' ' + d.slice(8, 10) + '/' + d.slice(5, 7) }), el('small', { text: sn ? 'Đã lưu' : 'Chưa có dữ liệu' })),
-          sn ? el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openEodPastModal(sn, d, e.currentTarget), text: 'Xem' }) : null);
+    const saved = d => { const s = (ST.eodPro.snaps || []).find(x => x.day === d); return s && s.data && s.data.model ? s : null; };
+    const vcol = v => v === 'Đạt' ? 'var(--accent)' : v === 'Không đạt' ? 'var(--error)' : 'var(--text-sub)';
+    const histCard = el('div', { className: 'card' }, el('b', { style: 'display:block;margin-bottom:6px', text: 'Lịch sử' }),
+      [today, app.shiftYmd(today, -1), app.shiftYmd(today, -2)].map(d => {
+        const m = d === today ? model : (saved(d) ? saved(d).data.model : null);
+        const v = m ? eodVerdict(m) : null;
+        const part = (k, val) => el('span', { style: 'white-space:nowrap' }, k + ': ', el('b', { style: 'color:' + vcol(val), text: val }));
+        return el('div', { className: 'line-row' },
+          el('div', { className: 'line-main' }, el('b', { text: d.slice(8, 10) + '/' + d.slice(5, 7) }),
+            v ? el('small', { style: 'display:flex;flex-wrap:wrap;gap:2px 10px' }, part('A', v.A), part('B', v.B), part('C', v.C)) : el('small', { text: 'Chưa có dữ liệu' })),
+          m ? el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openEodPastModal({ data: { model: m } }, d, e.currentTarget), text: 'Xem' }) : null);
       }));
-    return [...eodCards(model, true, 'Hôm nay'), pastCard];
+    return [...eodCards(model, true, 'Hôm nay'), histCard];
   }
 
   function openEodPastModal(sn, day, opener) {

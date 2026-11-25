@@ -3285,16 +3285,37 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       el('div', { className: 'row-between', style: 'margin-bottom:8px' },
         el('b', { text: 'Danh sách định mức đã nhập' }),
         el('small', { style: 'color:var(--text-sub)', text: done + '/' + rows.length + ' món có định mức' })),
-      rows.length ? rows.map(({ m, list, cost }) => el('div', { className: 'line-row', style: 'cursor:pointer', onClick: async () => { ST.recipeMenuId = m.id; await loadRecipesForMenu(m.id); renderRecipeTab(); window.scrollTo(0, 0); } },
+      rows.length ? rows.map(({ m, list, cost }) => el('div', { className: 'line-row' },
         el('div', { className: 'line-main' },
           el('b', { text: m.name }),
-          el('small', { text: list.length ? list.map(r => { const iv = invMap.get(r.inv_item_id); return (iv ? iv.name : '?') + ' ' + Number(r.qty) + (iv ? ' ' + iv.unit : ''); }).join(' · ') : 'Chưa có định mức' })
+          el('small', { text: list.length ? list.length + ' nguyên liệu' : 'Chưa có định mức' })
         ),
         list.length ? el('div', { style: 'text-align:right' },
           el('div', { className: 'num', style: 'font-weight:700', text: 'Vốn ' + app.formatMoney(cost) }),
-          el('small', { className: 'num', style: 'color:var(--accent)', text: 'Lãi ' + app.formatMoney(m.price - cost) })) : null
+          el('small', { className: 'num', style: 'color:var(--accent)', text: 'Lãi ' + app.formatMoney(m.price - cost) })) : null,
+        el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openRecipeDetailModal(m, list, cost, invMap, e.currentTarget), text: list.length ? 'Xem' : 'Nhập' })
       )) : el('div', { className: 'empty-state', text: 'Chưa có món nào.' })
     );
+  }
+
+  function openRecipeDetailModal(m, list, cost, invMap, opener) {
+    const goEdit = async () => { closeModal(); ST.recipeMenuId = m.id; await loadRecipesForMenu(m.id); renderRecipeTab(); window.scrollTo(0, 0); };
+    if (!list.length) { goEdit(); return; }
+    openModal('Định mức ' + m.name, el('div', null,
+      list.map(r => {
+        const iv = invMap.get(r.inv_item_id);
+        return el('div', { className: 'line-row' },
+          el('span', { text: (iv ? iv.name : '?') + ' × ' + Number(r.qty) + (iv ? ' ' + iv.unit : '') }),
+          el('b', { className: 'num', text: app.formatMoney(iv ? Number(r.qty) * Number(iv.avg_cost || 0) : 0) }));
+      }),
+      el('div', { className: 'row-between', style: 'font-weight:700;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)' },
+        el('span', { text: 'Vốn' }), el('span', { className: 'num', text: app.formatMoney(cost) })),
+      el('div', { className: 'row-between', style: 'color:var(--accent)' },
+        el('span', { text: 'Lãi (giá bán ' + app.formatMoney(m.price) + ')' }), el('span', { className: 'num', text: app.formatMoney(m.price - cost) }))
+    ), [
+      el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' }),
+      el('button', { type: 'button', className: 'btn btn-primary', onClick: goEdit, text: 'Sửa định mức' })
+    ], opener);
   }
 
   function openCopyRecipeModal(targetMenu, opener) {
@@ -3682,9 +3703,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         return el('div', { className: 'line-row' },
           el('div', { className: 'line-main' },
             el('b', { text: (outIv ? outIv.name : 'Vật tư') + ' · mỗi mẻ ' + f.out_qty + ' ' + (outIv ? outIv.unit : '') }),
-            el('small', { text: (f.lines || []).length + ' nguyên liệu: ' + (f.lines || []).map(l => { const iv = invMap.get(l.inv_item_id); return (iv ? iv.name : '?') + ' ' + l.qty + (iv ? ' ' + iv.unit : ''); }).join(', ') })),
-          el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openFormulaModal(f, e.currentTarget), text: 'Sửa' }),
-          kebab({ text: 'Xóa công thức', danger: true, fn: e => confirmModal('Xóa công thức?', 'Mẻ đã ghi không bị ảnh hưởng.', 'Xóa', async () => {
+            el('small', { text: (f.lines || []).length + ' nguyên liệu' })),
+          el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openFormulaViewModal(f, outIv, invMap, e.currentTarget), text: 'Xem' }),
+          kebab({ text: 'Sửa công thức', fn: e => openFormulaModal(f, e.currentTarget) }, { text: 'Xóa công thức', danger: true, fn: e => confirmModal('Xóa công thức?', 'Mẻ đã ghi không bị ảnh hưởng.', 'Xóa', async () => {
             const { error } = await sb.rpc('delete_formula', { p_shop: shopId, p_id: f.id });
             if (error) throw error;
             await loadBatches(); renderBatchTab();
@@ -3786,6 +3807,18 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       } catch (err) { showErr(err); ok.disabled = false; ok.textContent = 'Lưu thực tế'; }
     } });
     openModal('Sản lượng thực tế', body, [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Để sau' }), ok], opener || null);
+  }
+
+  function openFormulaViewModal(f, outIv, invMap, opener) {
+    openModal((outIv ? outIv.name : 'Công thức') + ' · mỗi mẻ ' + f.out_qty + ' ' + (outIv ? outIv.unit : ''), el('div', null,
+      (f.lines || []).map(l => {
+        const iv = invMap.get(l.inv_item_id);
+        return el('div', { className: 'line-row' }, el('span', { text: (iv ? iv.name : '?') + ' × ' + l.qty + (iv ? ' ' + iv.unit : '') }));
+      })
+    ), [
+      el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' }),
+      el('button', { type: 'button', className: 'btn btn-primary', onClick: () => { closeModal(); openFormulaModal(f, opener); }, text: 'Sửa công thức' })
+    ], opener);
   }
 
   async function openBatchDetailModal(b, opener) {

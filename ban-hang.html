@@ -1671,10 +1671,21 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       return [c(label, { left: true, sub: true }), c(f(act), { bold: true }), c(f(tgt)), c(p == null ? '—' : p + '%', { color: p != null && p >= 100 ? 'var(--accent)' : null })];
     };
     const K = model.kpi;
-    const cardA = el('div', { className: 'card' }, el('b', { style: 'display:block;margin-bottom:6px', text: 'A. KPI' + (dayLabel ? ' · ' + dayLabel : '') }),
-      g4('minmax(70px,1.1fr) 1fr 1fr 48px', [c('', {}), c('Thực tế', { bold: true }), c('Mục tiêu', { bold: true }), c('Đạt', { bold: true }),
-        ...kr('Doanh thu', K.rev.act, K.rev.tgt, true), ...kr('Số đơn', K.don.act, K.don.tgt, false),
-        ...K.lit.flatMap(l => kr(l.name + ' (lít)', l.act, l.tgt, false, 1)), ...kr('Tổng lít nấu', K.litTot.act, K.litTot.tgt, false, 1)]));
+    const kbar = (label, act, tgt, money, dec) => {
+      const p = pct(act, tgt), f = v => money ? flowMoney(v) : flowNum(v, dec || 0);
+      const ok = p != null && p >= 100;
+      return el('div', { style: 'padding:8px 0;border-top:1px solid var(--border)' },
+        el('div', { style: 'display:flex;justify-content:space-between;gap:8px;align-items:baseline' },
+          el('span', { style: 'font-weight:600', text: label }),
+          el('span', { className: 'num', style: 'font-size:13.5px' }, el('b', { text: f(act) }), el('span', { style: 'color:var(--text-sub)', text: ' / ' + f(tgt) }))),
+        el('div', { style: 'display:flex;align-items:center;gap:8px;margin-top:5px' },
+          el('div', { style: 'flex:1;height:8px;border-radius:99px;background:var(--border);overflow:hidden' },
+            el('div', { style: 'height:100%;border-radius:99px;width:' + Math.min(100, p || 0) + '%;background:' + (ok ? 'var(--accent)' : 'var(--text-sub)') })),
+          el('span', { className: 'num', style: 'width:44px;text-align:right;font-size:13px;font-weight:700;color:' + (ok ? 'var(--accent)' : 'var(--text-sub)'), text: p == null ? '—' : p + '%' })));
+    };
+    const cardA = el('div', { className: 'card' }, el('b', { style: 'display:block;margin-bottom:4px', text: 'A. KPI' + (dayLabel ? ' · ' + dayLabel : '') }),
+      kbar('Doanh thu', K.rev.act, K.rev.tgt, true), kbar('Số đơn', K.don.act, K.don.tgt, false),
+      ...K.lit.map(l => kbar(l.name + ' (lít)', l.act, l.tgt, false, 1)), kbar('Tổng lít nấu', K.litTot.act, K.litTot.tgt, false, 1));
     // B. Check list
     const done = model.steps.filter(s => s.done).length;
     const cardB = el('div', { className: 'card' },
@@ -1691,38 +1702,33 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     // C. Kiểm quỹ
     const M = model.money, A = M.accounts;
     const numIn = (val, onSet, ph) => el('input', { className: 'input num', type: 'number', inputMode: 'numeric', min: 0, placeholder: ph || '0', value: val ? val : '', style: 'padding:6px 4px;min-height:34px;text-align:right;width:100%;font-size:13.5px', onChange: e => onSet(e.target.value === '' ? null : Math.max(0, Math.round(Number(e.target.value) || 0))) });
-    const colsM = 'minmax(70px,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)';
-    const sellRows = [c('', {}), c('Đầu ngày', { bold: true }), c('Trong ngày', { bold: true }), c('Cuối ngày', { bold: true })];
-    for (const a of A) sellRows.push(c(a.name, { left: true, sub: true }),
-      editable ? numIn(a.open, v => { if (v == null) delete st.open[a.id]; else st.open[a.id] = v; again(); }) : c(flowMoney(a.open)), c(flowMoney(a.sales)), c(flowMoney(a.end), { bold: true }));
-    sellRows.push(c('Tổng', { left: true, bold: true }), c(flowMoney(M.tot.open), { bold: true }), c(flowMoney(M.tot.sales), { bold: true }), c(flowMoney(M.tot.end), { bold: true }));
-    const buyRows = [];
-    for (const a of A) buyRows.push(c(a.name, { left: true, sub: true }), c(flowMoney(a.buy)));
-    buyRows.push(c('Tổng chi mua hàng', { left: true, bold: true }), c(flowMoney(M.tot.buy), { bold: true }));
-    const otherAny = A.some(a => a.other);
-    const otherRows = [];
-    for (const a of A) if (a.other) otherRows.push(c(a.name, { left: true, sub: true }), c(flowMoney(a.other)));
-    const totBlock = A.map(a => {
-      const chips = el('div', { style: 'display:flex;gap:6px;justify-content:flex-end' },
-        ...[[true, 'Đúng'], [false, 'Lệch']].map(([v, t]) => el('button', { type: 'button', className: 'chip', disabled: !editable, 'aria-pressed': String(a.ok === v), style: 'padding:4px 10px;font-size:13px',
+    const mrow = (label, val, o) => el('div', { style: 'display:flex;justify-content:space-between;gap:8px;align-items:center;padding:3px 0;font-size:13.5px' + ((o && o.bold) ? ';font-weight:700' : '') },
+      el('span', { style: (o && o.bold) ? '' : 'color:var(--text-sub)', text: label }), (o && o.node) || el('span', { className: 'num', style: (o && o.color) ? 'color:' + o.color : '', text: val }));
+    const signed = (v, plus) => (v < 0 ? '− ' : plus ? '+ ' : '') + flowMoney(Math.abs(v));
+    const shown = A.filter(a => a.open || a.sales || a.buy || a.other || a.ok != null || a.book);
+    const blocks = (shown.length ? shown : A.slice(0, 1)).map(a => {
+      const chips = el('div', { style: 'display:flex;gap:6px' },
+        ...[[true, 'Đúng'], [false, 'Lệch']].map(([v, t]) => el('button', { type: 'button', className: 'chip', disabled: !editable, 'aria-pressed': String(a.ok === v), style: 'padding:4px 12px;font-size:13px',
           onClick: () => { if (a.ok === v) delete st.ok[a.id]; else st.ok[a.id] = v; if (v === true) delete st.actual[a.id]; again(); }, text: t })));
-      return el('div', { style: 'padding:8px 0;border-top:1px solid var(--border)' },
-        el('div', { style: 'display:flex;justify-content:space-between;gap:8px;align-items:center' },
-          el('div', { style: 'min-width:0' }, el('b', { text: a.name }), el('div', { className: 'num', style: 'font-size:13px;color:var(--text-sub)', text: 'Theo sổ ' + flowMoney(a.book) })), chips),
-        a.ok === false ? el('div', { style: 'display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:6px' },
-          el('span', { style: 'font-size:13px;color:var(--error)', text: 'Số tiền thật đang có' }),
-          editable ? el('div', { style: 'width:130px' }, numIn(a.actual, v => { if (v == null) delete st.actual[a.id]; else st.actual[a.id] = v; again(); }, 'Nhập số thật'))
-            : el('b', { className: 'num', text: flowMoney(a.actual) })) : null,
-        a.ok === false && a.actual != null ? el('div', { className: 'num', style: 'text-align:right;font-size:12.5px;color:var(--error)', text: 'Lệch ' + flowMoney(a.actual - a.book) }) : null);
+      const stateCol = a.ok === true ? 'var(--accent)' : a.ok === false ? 'var(--error)' : 'var(--text-sub)';
+      return el('div', { style: 'border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:8px' },
+        el('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:4px' },
+          el('b', { text: a.name }), el('b', { style: 'font-size:13px;color:' + stateCol, text: a.ok === true ? 'Đúng' : a.ok === false ? 'Lệch' : 'Chưa kiểm' })),
+        mrow('Đầu ngày', '', { node: editable ? el('div', { style: 'width:120px' }, numIn(a.open, v => { if (v == null) delete st.open[a.id]; else st.open[a.id] = v; again(); })) : el('span', { className: 'num', text: flowMoney(a.open) }) }),
+        mrow('+ Bán hàng', flowMoney(a.sales)),
+        mrow('− Mua hàng', flowMoney(a.buy)),
+        a.other ? mrow('Thu chi khác', signed(a.other, true)) : null,
+        el('div', { style: 'border-top:1px dashed var(--border);margin:4px 0' }),
+        mrow('Theo sổ', flowMoney(a.book), { bold: true }),
+        el('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-top:6px' }, el('span', { style: 'font-size:13px;color:var(--text-sub)', text: 'Đối chiếu thực tế' }), chips),
+        a.ok === false ? el('div', { style: 'margin-top:8px' },
+          mrow('Số tiền thật đang có', '', { node: editable ? el('div', { style: 'width:130px' }, numIn(a.actual, v => { if (v == null) delete st.actual[a.id]; else st.actual[a.id] = v; again(); }, 'Nhập số thật')) : el('b', { className: 'num', text: flowMoney(a.actual) }) }),
+          a.actual != null ? mrow('Chênh lệch', signed(a.actual - a.book, true), { color: 'var(--error)' }) : null) : null);
     });
-    const cardC = el('div', { className: 'card' }, el('b', { style: 'display:block;margin-bottom:4px', text: 'C. Kiểm quỹ' + (dayLabel ? ' · ' + dayLabel : '') }),
-      sect('Bán hàng'), g4(colsM, sellRows),
-      sect('Mua hàng'),
-      el('div', { className: 'row-between', style: 'font-size:13.5px;padding:2px 2px 4px' }, el('span', { style: 'color:var(--text-sub)', text: M.items + ' mặt hàng · tổng mua ' + flowMoney(M.buyTotal) })),
-      g4('minmax(0,1fr) auto', buyRows),
-      otherAny ? el('div', null, sect('Thu chi khác'), g4('minmax(0,1fr) auto', otherRows)) : null,
-      sect('Tổng tài khoản'), ...totBlock,
-      el('div', { className: 'row-between', style: 'padding-top:8px;border-top:1px solid var(--border);font-weight:700' }, el('span', { text: 'Tổng tiền (theo số thật)' }), el('span', { className: 'num', text: flowMoney(M.tot.real) })));
+    const cardC = el('div', { className: 'card' }, el('b', { style: 'display:block;margin-bottom:2px', text: 'C. Kiểm quỹ' + (dayLabel ? ' · ' + dayLabel : '') }),
+      el('div', { style: 'font-size:13px;color:var(--text-sub)', text: 'Mua hàng hôm nay: ' + M.items + ' mặt hàng · ' + flowMoney(M.buyTotal) }),
+      ...blocks,
+      el('div', { className: 'row-between', style: 'padding-top:10px;margin-top:8px;border-top:1px solid var(--border);font-weight:700' }, el('span', { text: 'Tổng tiền (theo số thật)' }), el('span', { className: 'num', text: flowMoney(M.tot.real) })));
     return [cardA, cardB, cardC];
   }
 

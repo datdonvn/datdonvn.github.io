@@ -716,10 +716,7 @@ function isClosedDay(shop, y, m, d) {
   return Array.isArray(shop.closed_dates) && shop.closed_dates.indexOf(key) >= 0;
 }
 function advMin(shop) { return Math.max(0, Number(shop.advance_min_minutes) || 0); }
-function advMax(shop) {
-  const v = Number(shop.advance_max_minutes);
-  return Math.max(0, Number.isFinite(v) && v > 0 ? v : (Number(shop.max_advance_days) || 0) * 1440);
-}
+function advMax() { return 7 * 1440; } // khách hẹn trước tối đa 7 ngày
 function fmtMinutes(m) {
   if (m >= 1440 && m % 1440 === 0) return (m / 1440) + ' ngày';
   if (m >= 60 && m % 60 === 0) return (m / 60) + ' giờ';
@@ -729,7 +726,7 @@ function fmtMinutes(m) {
 // Các ngày/khung giờ khách chọn được khi đặt trước: từ giờ hoạt động sớm nhất sau thời gian chuẩn bị,
 // đến hết ngày của (bây giờ + đặt trước tối đa), nhưng luôn gồm ít nhất ngày hoạt động gần nhất.
 function buildDeliveryDays(shop) {
-  const lead = advMin(shop), maxM = advMax(shop);
+  const lead = advMin(shop), maxM = advMax();
   const slotsDef = shopSlots(shop);
   const ranges = slotsDef.length ? slotsDef : [[0, 23 * 60 + 45]];
   const n = getVnNow();
@@ -1357,7 +1354,7 @@ function openCheckoutModal(opener) {
 
 function placeField(places, selPlace, shop) {
   const feeText = pl => (pl.fee > 0 ? 'Phí giao ' + formatMoney(pl.fee) : 'Miễn phí');
-  const subText = pl => [feeText(pl), pl.promise ? 'Giao dự kiến ' + pl.promise : ''].filter(Boolean).join(' · ');
+  const subText = pl => [feeText(pl), pl.promise ? 'Giao trong khoảng ' + pl.promise : ''].filter(Boolean).join(' · ');
   const pick = pl => { ST.profile.place = pl.name; ST.co.placeOpen = false; ST.co.placeQ = ''; renderCheckoutContent(); };
   const wrap = el('div', { className: 'field' }, el('label', { text: 'Nơi giao' }));
   if (places.length <= 6) {
@@ -1552,7 +1549,7 @@ function renderCheckoutContentInner() {
           if (days.length) { ST.co.dayIdx = 0; ST.co.deliverAt = days[0].slots[0].iso; }
           renderCheckoutContent();
         }
-      }, 'Chọn giờ hẹn', el('small', { text: advMin(shop) > 0 ? 'Cần đặt trước ' + fmtMinutes(advMin(shop)) : (advMax(shop) > 0 ? 'Đặt trước tối đa ' + fmtMinutes(advMax(shop)) : 'Chọn giờ giao theo ý bạn') }))
+      }, 'Chọn giờ hẹn', el('small', { text: advMin(shop) > 0 ? 'Cần đặt trước ' + fmtMinutes(advMin(shop)) : 'Chọn giờ giao theo ý bạn' }))
     ),
     !ST.co.asap && days.length ? el('div', null,
       days.length > 1 ? el('div', { className: 'day-pills' },

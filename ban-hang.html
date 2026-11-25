@@ -2184,11 +2184,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       accepting: sh.accepting !== false,
       slots: (Array.isArray(sh.open_slots) && sh.open_slots.length ? sh.open_slots : legacySlots).map(x => ({ from: x.from, to: x.to })),
       closed: Array.isArray(sh.closed_dates) ? sh.closed_dates.slice().sort() : [],
-      places: Array.isArray(sh.places) ? sh.places.map(p => Object.assign({}, p)) : [],
+      places: Array.isArray(sh.places) ? sh.places.map(p => Object.assign({}, p, { hrs_own: p.hrs_own === true, slots: p.hrs_own === true && Array.isArray(p.slots) ? p.slots.map(x => ({ from: x.from, to: x.to })) : [] })) : [],
       areas: (() => {
         const out = [];
-        (Array.isArray(sh.areas) ? sh.areas : []).forEach(x => { const nm = typeof x === 'string' ? x : (x && x.name); if (nm && !out.some(o => o.name === nm)) out.push({ name: nm, fee: Number(x && x.fee) || 0, eta: (x && x.eta) || '', min_qty: Number(x && x.min_qty) || 0 }); });
-        (Array.isArray(sh.places) ? sh.places : []).forEach(pl => { if (pl.area && !out.some(o => o.name === pl.area)) out.push({ name: pl.area, fee: 0, eta: '', min_qty: 0 }); });
+        (Array.isArray(sh.areas) ? sh.areas : []).forEach(x => { const nm = typeof x === 'string' ? x : (x && x.name); if (nm && !out.some(o => o.name === nm)) out.push({ name: nm, fee: Number(x && x.fee) || 0, eta: (x && x.eta) || '', min_qty: Number(x && x.min_qty) || 0, hrs_own: !!(x && x.hrs_own === true), slots: x && x.hrs_own === true && Array.isArray(x.slots) ? x.slots.map(q => ({ from: q.from, to: q.to })) : [] }); });
+        (Array.isArray(sh.places) ? sh.places : []).forEach(pl => { if (pl.area && !out.some(o => o.name === pl.area)) out.push({ name: pl.area, fee: 0, eta: '', min_qty: 0, hrs_own: false, slots: [] }); });
         return out;
       })()
     };
@@ -2464,6 +2464,21 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           el('option', { value: 'own', selected: own, text: 'Riêng cho nơi này' })),
         own ? el('div', { style: 'margin-top:6px' }, input) : null);
     };
+    const slotTxt = arr => { const a = (arr || []).filter(x => x.from && x.to); return a.length ? a.map(x => x.from + '–' + x.to).join(', ') : 'cả ngày'; };
+    // Giờ hoạt động: quán (chung) -> khu vực -> nơi giao; mỗi cấp chọn dùng giờ cấp trên hoặc giờ riêng
+    const hoursField = (obj, parentLabel, parentSlots) => el('div', { className: 'field' }, el('label', { text: 'Giờ hoạt động' }),
+      el('select', { className: 'select', onChange: e => { obj.hrs_own = e.target.value === 'own'; if (obj.hrs_own && !(obj.slots || []).length) obj.slots = (parentSlots() || []).filter(x => x.from && x.to).map(x => ({ from: x.from, to: x.to })); drawPlaces(); } },
+        el('option', { value: 'parent', selected: !obj.hrs_own, text: 'Dùng giờ ' + parentLabel + ' (' + slotTxt(parentSlots()) + ')' }),
+        el('option', { value: 'own', selected: !!obj.hrs_own, text: 'Giờ riêng' })),
+      obj.hrs_own ? el('div', { style: 'margin-top:6px' },
+        (obj.slots || []).map((sl, i) => el('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:8px' },
+          el('input', { className: 'input', type: 'time', style: 'flex:1;min-width:0', value: sl.from, onChange: e => { sl.from = e.target.value; } }),
+          el('span', { text: 'đến' }),
+          el('input', { className: 'input', type: 'time', style: 'flex:1;min-width:0', value: sl.to, onChange: e => { sl.to = e.target.value; } }),
+          el('button', { type: 'button', className: 'btn btn-sm btn-danger', text: 'Xóa', onClick: () => { obj.slots.splice(i, 1); drawPlaces(); } }))),
+        (obj.slots || []).length < 6 ? el('button', { type: 'button', className: 'btn btn-sm', text: '+ Thêm khung giờ', onClick: () => { obj.slots = obj.slots || []; obj.slots.push({ from: '', to: '' }); drawPlaces(); } }) : null,
+        el('div', { style: 'font-size:12.5px;opacity:.7', text: 'Không có khung giờ nào = nhận đơn cả ngày. Ngày nghỉ dùng chung toàn quán.' })) : null);
+    const effAreaSlots = ar => ar.hrs_own ? ar.slots : st.slots;
     const placeCard = (pl) => el('div', { className: 'card', style: 'margin:8px 0;padding:10px' },
       el('div', { style: 'display:flex;gap:8px;align-items:center' },
         el('input', { className: 'input', style: 'flex:1;min-width:0', maxlength: 40, placeholder: 'Tên nơi giao', value: pl.name || '', onInput: e => { pl.name = e.target.value; } }),
@@ -2477,6 +2492,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('input', { className: 'input', maxlength: 40, placeholder: 'Ví dụ: 30–45 phút', value: pl.promise || '', onInput: e => { pl.promise = e.target.value; } })),
       el('div', { className: 'field' }, el('label', { text: 'Địa chỉ (nếu có, để quán dễ đi giao)' }),
         el('input', { className: 'input', maxlength: 200, placeholder: 'Ví dụ: 123 Nguyễn Văn Linh, Q7', value: pl.address || '', onInput: e => { pl.address = e.target.value; } })),
+      (() => { const ar = areaOf(pl); return ar ? hoursField(pl, 'của khu vực', () => effAreaSlots(ar)) : hoursField(pl, 'chung của quán', () => st.slots); })(),
       modeField(pl, 'qty', 'Số lượng tối thiểu (SP/đơn)', 'qty_own', a => a.min_qty > 0 ? a.min_qty + ' SP' : 'không giới hạn',
         el('input', { className: 'input num', type: 'number', min: 0, max: 99, value: pl.min_qty || 0, onInput: e => { pl.min_qty = Math.max(0, Math.round(Number(e.target.value) || 0)); } }))
     );
@@ -2498,7 +2514,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           g.real ? el('div', { className: 'grid-2', style: 'margin-top:8px' },
             el('div', { className: 'field' }, el('label', { text: 'Phí ship chung (đ)' }), el('input', { className: 'input num', type: 'number', min: 0, max: 1000000, value: g.area.fee || 0, onChange: e => { g.area.fee = Math.max(0, Math.round(Number(e.target.value) || 0)); drawPlaces(); } })),
             el('div', { className: 'field' }, el('label', { text: 'Thời gian giao ước tính chung' }), el('input', { className: 'input', maxlength: 40, placeholder: 'Ví dụ: 30–45 phút', value: g.area.eta || '', onChange: e => { g.area.eta = e.target.value; drawPlaces(); } })),
-            el('div', { className: 'field' }, el('label', { text: 'Số lượng tối thiểu chung (SP/đơn)' }), el('input', { className: 'input num', type: 'number', min: 0, max: 99, value: g.area.min_qty || 0, onChange: e => { g.area.min_qty = Math.max(0, Math.min(99, Math.round(Number(e.target.value) || 0))); drawPlaces(); } }))) : null,
+            el('div', { className: 'field' }, el('label', { text: 'Số lượng tối thiểu chung (SP/đơn)' }), el('input', { className: 'input num', type: 'number', min: 0, max: 99, value: g.area.min_qty || 0, onChange: e => { g.area.min_qty = Math.max(0, Math.min(99, Math.round(Number(e.target.value) || 0))); drawPlaces(); } })),
+            hoursField(g.area, 'chung của quán', () => st.slots)) : null,
           st.places.filter(p => (p.area || '') === g.name).map(placeCard),
           el('button', { type: 'button', className: 'btn btn-sm', style: 'margin-top:4px', text: '+ Thêm nơi giao' + (g.real ? ' vào ' + g.name : ''), onClick: () => {
             if (st.places.length >= 60) { app.showToast('Tối đa 60 nơi giao', 'error'); return; }
@@ -2510,7 +2527,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             if (!nm) { app.showToast('Nhập tên khu vực', 'error'); return; }
             if (st.areas.some(a => a.name === nm)) { app.showToast('Khu vực này đã có', 'error'); return; }
             if (st.areas.length >= 30) { app.showToast('Tối đa 30 khu vực', 'error'); return; }
-            st.areas.push({ name: nm, fee: 0, eta: '', min_qty: 0 }); newAreaInp.value = ''; drawPlaces();
+            st.areas.push({ name: nm, fee: 0, eta: '', min_qty: 0, hrs_own: false, slots: [] }); newAreaInp.value = ''; drawPlaces();
           } }))
       );
     };
@@ -2521,6 +2538,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       onClick: async () => {
         const slots = st.slots.filter(x => x.from || x.to);
         if (slots.some(x => !x.from || !x.to || x.from === x.to)) { app.showToast('Khung giờ mở cửa cần đủ giờ mở và giờ đóng, khác nhau.', 'error'); return; }
+        const badOwn = o => (o.hrs_own ? (o.slots || []) : []).some(x => !x.from || !x.to || x.from === x.to);
+        if (st.areas.some(badOwn) || st.places.some(badOwn)) { app.showToast('Giờ riêng của khu vực/nơi giao cần đủ giờ mở và giờ đóng, khác nhau.', 'error'); return; }
         const todayYmd = app.toVnYmd(new Date());
         const named = st.places.filter(p => (p.name || '').trim());
         if (st.places.length !== named.length) { app.showToast('Có nơi giao chưa nhập tên.', 'error'); return; }
@@ -2530,10 +2549,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             const ar = st.areas.find(x => x.name === p.area) || null;
             const feeOwn = !ar || p.fee_own !== false, etaOwn = !ar || p.eta_own !== false, qtyOwn = !ar || p.qty_own !== false;
             const o = { name: p.name.trim(), fee: Math.max(0, Math.round(Number(feeOwn ? p.fee : ar.fee) || 0)), needs: p.needs || 'apt', area: ar ? ar.name : '', address: (p.address || '').trim(), min_qty: Math.max(0, Math.round(Number(qtyOwn ? p.min_qty : ar.min_qty) || 0)), promise: (etaOwn ? (p.promise || '') : (ar.eta || '')).trim() };
+            o.hrs_own = !!p.hrs_own; if (o.hrs_own) o.slots = (p.slots || []).map(x => ({ from: x.from, to: x.to }));
             if (ar) { o.fee_own = feeOwn; o.eta_own = etaOwn; o.qty_own = qtyOwn; }
             return o;
           });
-          const areas = st.areas.map(a => ({ name: a.name, fee: Math.max(0, Math.round(Number(a.fee) || 0)), eta: (a.eta || '').trim(), min_qty: Math.max(0, Math.min(99, Math.round(Number(a.min_qty) || 0))) }));
+          const areas = st.areas.map(a => ({ name: a.name, fee: Math.max(0, Math.round(Number(a.fee) || 0)), eta: (a.eta || '').trim(), min_qty: Math.max(0, Math.min(99, Math.round(Number(a.min_qty) || 0))), hrs_own: !!a.hrs_own, slots: a.hrs_own ? (a.slots || []).map(x => ({ from: x.from, to: x.to })) : [] }));
           const { error } = await sb.rpc('update_shop_settings', {
             p_shop: shopId,
             p_accepting: st.accepting,

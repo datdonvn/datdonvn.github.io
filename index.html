@@ -130,7 +130,8 @@ span.shop-logo.shop-mono { display: inline-flex; align-items: center; justify-co
   font-weight: 600;
   font-size: 14.5px;
 }
-.status-banner.off { background: var(--warn-bg); color: var(--warn-text); }
+.status-banner.off { background: var(--error-bg); color: var(--error); }
+.off-tag { color: var(--error); font-weight: 600; }
 .status-banner.stop { background: var(--error-bg); color: var(--error); }
 
 /* Dải khuyến mãi */
@@ -700,6 +701,19 @@ function dayTitle(offset) {
   const wds = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
   return wds[dt.getUTCDay()] + ' ' + pad2(dt.getUTCDate()) + '/' + pad2(dt.getUTCMonth() + 1);
 }
+// Giờ hoạt động áp theo nơi giao đang chọn (nơi giao đã gộp sẵn giờ quán/khu vực/riêng); ngày nghỉ chung cả hệ thống
+function effShop(shop, plName) {
+  const places = Array.isArray(shop.places) ? shop.places : [];
+  const name = plName !== undefined ? plName : (ST.profile.place || (places[0] && places[0].name));
+  const pl = places.find(x => x.name === name);
+  return pl && Array.isArray(pl.slots) ? Object.assign({}, shop, { open_slots: pl.slots, open_from: null, open_to: null }) : shop;
+}
+function placeOpenNow(shop, pl) {
+  const sh = effShop(shop, pl.name), n = getVnNow();
+  if (isClosedDay(sh, n.y, n.m, n.d)) return false;
+  const r = shopSlots(sh);
+  return !r.length || r.some(x => n.min >= x[0] && n.min <= x[1]);
+}
 function shopSlots(shop) {
   let arr = Array.isArray(shop.open_slots) ? shop.open_slots : [];
   if (!arr.length && shop.open_from && shop.open_to) arr = [{ from: shop.open_from, to: shop.open_to }];
@@ -726,6 +740,7 @@ function fmtMinutes(m) {
 // Các ngày/khung giờ khách chọn được khi đặt trước: từ giờ hoạt động sớm nhất sau thời gian chuẩn bị,
 // đến hết ngày của (bây giờ + đặt trước tối đa), nhưng luôn gồm ít nhất ngày hoạt động gần nhất.
 function buildDeliveryDays(shop) {
+  shop = effShop(shop);
   const lead = advMin(shop), maxM = advMax();
   const slotsDef = shopSlots(shop);
   const ranges = slotsDef.length ? slotsDef : [[0, 23 * 60 + 45]];
@@ -749,10 +764,12 @@ function buildDeliveryDays(shop) {
   return days.filter(d => d.offset <= lastOffset);
 }
 function slotsText(shop) {
+  shop = effShop(shop);
   const arr = Array.isArray(shop.open_slots) && shop.open_slots.length ? shop.open_slots : (shop.open_from && shop.open_to ? [{ from: shop.open_from, to: shop.open_to }] : []);
   return arr.map(x => x.from + '–' + x.to).join(', ');
 }
 function getShopStatus(shop) {
+  shop = effShop(shop);
   if (!shop.accepting) {
     return { cls: 'stop', text: 'Quán đang tạm ngưng nhận đơn. Bạn vẫn xem được thực đơn và quay lại sau nhé.' };
   }
@@ -776,6 +793,7 @@ function getShopStatus(shop) {
 }
 // Đang trong giờ nhận đơn (để cho chọn "Càng sớm càng tốt")
 function isOpenNow(shop) {
+  shop = effShop(shop);
   if (!shop.accepting) return false;
   if (advMin(shop) > 0) return false;
   const n = getVnNow();
@@ -1355,22 +1373,23 @@ function openCheckoutModal(opener) {
 function placeField(places, selPlace, shop) {
   const feeText = pl => (pl.fee > 0 ? 'Phí giao ' + formatMoney(pl.fee) : 'Miễn phí');
   const subText = pl => [feeText(pl), pl.promise ? 'Giao trong khoảng ' + pl.promise : ''].filter(Boolean).join(' · ');
-  const pick = pl => { ST.profile.place = pl.name; ST.co.placeOpen = false; ST.co.placeQ = ''; renderCheckoutContent(); };
+  const subEl = pl => el('small', {}, subText(pl), placeOpenNow(shop, pl) ? null : el('span', { className: 'off-tag', text: ' · Ngoài giờ hoạt động' }));
+  const pick = pl => { ST.profile.place = pl.name; ST.co.deliverAt = null; ST.co.dayIdx = 0; ST.co.placeOpen = false; ST.co.placeQ = ''; renderCheckoutContent(); };
   const wrap = el('div', { className: 'field' }, el('label', { text: 'Nơi giao' }));
   if (places.length <= 6) {
     wrap.append(el('div', { className: 'choices' }, places.map(pl => el('button', {
       type: 'button', className: 'choice-btn', 'aria-pressed': String(ST.profile.place === pl.name), onClick: () => pick(pl)
-    }, pl.name, el('small', { text: subText(pl) })))));
+    }, pl.name, subEl(pl)))));
   } else {
     const q = fold(ST.co.placeQ || '');
     const shown = places.filter(pl => !q || fold(pl.name).includes(q) || fold(pl.address || '').includes(q));
     wrap.append(el('button', { type: 'button', className: 'choice-btn', style: 'width:100%;text-align:left', 'aria-pressed': 'true', onClick: () => { ST.co.placeOpen = !ST.co.placeOpen; renderCheckoutContent(); } },
-      selPlace ? selPlace.name : 'Chọn nơi giao', el('small', { text: (selPlace ? subText(selPlace) + ' · ' : '') + (ST.co.placeOpen ? 'Thu gọn' : 'Bấm để đổi nơi giao') })));
+      selPlace ? selPlace.name : 'Chọn nơi giao', el('small', {}, (selPlace ? subText(selPlace) : ''), selPlace && !placeOpenNow(shop, selPlace) ? el('span', { className: 'off-tag', text: ' · Ngoài giờ hoạt động' }) : null, ' · ' + (ST.co.placeOpen ? 'Thu gọn' : 'Bấm để đổi nơi giao'))));
     if (ST.co.placeOpen) {
       wrap.append(el('input', { id: 'co-placeq', className: 'input', style: 'margin-top:8px', placeholder: 'Gõ tên nơi giao để tìm', value: ST.co.placeQ || '', onInput: e => { ST.co.placeQ = e.target.value; renderCheckoutContent(); } }));
       wrap.append(el('div', { style: 'max-height:220px;overflow:auto;margin-top:6px;border:1px solid var(--border);border-radius:10px' },
         shown.length ? shown.map(pl => el('button', { type: 'button', className: 'choice-btn', style: 'width:100%;text-align:left;border:0;border-top:1px solid var(--border);border-radius:0', 'aria-pressed': String(ST.profile.place === pl.name), onClick: () => pick(pl) },
-          pl.name, el('small', { text: subText(pl) })))
+          pl.name, subEl(pl)))
           : [el('div', { style: 'padding:10px;color:var(--text-sub)', text: 'Không tìm thấy nơi giao phù hợp.' })]));
     }
   }

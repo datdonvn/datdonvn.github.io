@@ -928,9 +928,12 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const promo = qt ? Math.max(0, Math.min(subtotal, qt.discount || 0)) : 0;
     const manual = Math.max(0, Math.min(subtotal - promo, Number(ST.sale.discount) || 0));
     const disc = promo + manual;
-    const total = Math.max(0, subtotal - disc);
+    const places = Array.isArray(ST.shop && ST.shop.places) ? ST.shop.places : [];
+    const pl = (ST.sale.ship && !ST.sale.editId) ? (places.find(p => p.name === ST.sale.shipPlace) || places[0] || null) : null;
+    const fee = pl ? Math.max(0, Number(pl.fee) || 0) : 0;
+    const total = Math.max(0, subtotal - disc) + fee;
     const count = ST.sale.items.reduce((s, it) => s + it.qty, 0);
-    return { subtotal, promo, manual, disc, total, count };
+    return { subtotal, promo, manual, disc, fee, total, count };
   }
   let saleQuoteTimer = null;
   async function fetchSaleQuote() {
@@ -1256,7 +1259,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     stickyHost.replaceChildren(el('div', { className: 'sticky-bar' },
       el('div', { className: 'sticky-bar-in' },
         el('div', { className: 'sum' },
-          el('small', { text: tot.count + ' món' + (tot.disc ? ' · giảm ' + app.formatMoney(tot.disc) : '') }),
+          el('small', { text: tot.count + ' món' + (tot.disc ? ' · giảm ' + app.formatMoney(tot.disc) : '') + (tot.fee ? ' · ship ' + app.formatMoney(tot.fee) : '') }),
           el('b', { className: 'num', text: app.formatMoney(tot.total) })
         ),
         btn

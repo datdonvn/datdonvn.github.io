@@ -1218,7 +1218,7 @@ function renderCartBar() {
         type: 'button',
         className: 'btn-view',
         disabled: !ST.shop.accepting,
-        onClick: e => openCheckoutModal(e.currentTarget),
+        onClick: async e => { const b = e.currentTarget; if (Date.now() - ST.lastMenuAt > 20000) { try { await loadShop(true); } catch (x) {} } openCheckoutModal(b); },
         text: 'Xem đơn'
       })
     )

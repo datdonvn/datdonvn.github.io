@@ -679,6 +679,13 @@ function parseHm(str) {
   const m = String(str || '').match(/^(\d{1,2}):(\d{2})/);
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 }
+const NEEDS = {
+  apt: { label: 'Giao tận căn', field: 'Số căn hộ', ph: 'Ví dụ: A0605', err: 'Vui lòng nhập số căn hộ.' },
+  lobby: { label: 'Giao ở sảnh', field: 'Sảnh nào', ph: 'Ví dụ: Sảnh B', err: 'Vui lòng nhập sảnh nhận hàng.' },
+  gate: { label: 'Giao ở cổng', field: 'Cổng nào', ph: 'Ví dụ: Cổng 2', err: 'Vui lòng nhập cổng nhận hàng.' },
+  address: { label: 'Giao theo địa chỉ', field: 'Địa chỉ giao hàng', ph: 'Số nhà, tên đường, phường/xã', err: 'Vui lòng nhập địa chỉ giao hàng.' }
+};
+function fold(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase(); }
 function hmText(min) { return pad2(Math.floor(min / 60)) + ':' + pad2(min % 60); }
 function vnIso(y, m, d, min) {
   const dt = new Date(Date.UTC(y, m, d, 0, min));
@@ -693,52 +700,79 @@ function dayTitle(offset) {
   const wds = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
   return wds[dt.getUTCDay()] + ' ' + pad2(dt.getUTCDate()) + '/' + pad2(dt.getUTCMonth() + 1);
 }
-function buildDeliveryDays(shop) {
-  const maxDays = Math.max(0, Number(shop.max_advance_days) || 0);
-  const openMin = parseHm(shop.open_from);
-  const closeMin = parseHm(shop.open_to);
-  const from = openMin != null ? openMin : 0;
-  const to = closeMin != null ? closeMin : 23 * 60 + 45;
+function shopSlots(shop) {
+  let arr = Array.isArray(shop.open_slots) ? shop.open_slots : [];
+  if (!arr.length && shop.open_from && shop.open_to) arr = [{ from: shop.open_from, to: shop.open_to }];
+  const out = [];
+  arr.forEach(x => {
+    const f = parseHm(x.from), t = parseHm(x.to);
+    if (f == null || t == null || f === t) return;
+    if (f < t) out.push([f, t]); else { out.push([f, 1439]); out.push([0, t]); }
+  });
+  return out.sort((a, b) => a[0] - b[0]);
+}
+function isClosedDay(shop, y, m, d) {
+  const key = y + '-' + pad2(m + 1) + '-' + pad2(d);
+  return Array.isArray(shop.closed_dates) && shop.closed_dates.indexOf(key) >= 0;
+}
+function effMaxDays(shop, pl) {
+  if (pl && pl.max_days != null && pl.max_days !== '') return Math.max(0, Number(pl.max_days) || 0);
+  return Math.max(0, Number(shop.max_advance_days) || 0);
+}
+function buildDeliveryDays(shop, maxDaysArg) {
+  const maxDays = maxDaysArg != null ? maxDaysArg : Math.max(0, Number(shop.max_advance_days) || 0);
+  const slotsDef = shopSlots(shop);
+  const ranges = slotsDef.length ? slotsDef : [[0, 23 * 60 + 45]];
   const n = getVnNow();
   const days = [];
   for (let offset = 0; offset <= maxDays; offset++) {
-    const startMin = offset === 0 ? Math.max(from, Math.ceil((n.min + 15) / 15) * 15) : from;
+    const dt = new Date(Date.UTC(n.y, n.m, n.d + offset));
+    if (isClosedDay(shop, dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate())) continue;
+    const minStart = offset === 0 ? Math.ceil((n.min + 15) / 15) * 15 : 0;
     const slots = [];
-    for (let m = startMin; m <= to; m += 15) {
-      slots.push({ label: hmText(m), iso: vnIso(n.y, n.m, n.d + offset, m) });
-    }
+    ranges.forEach(r => {
+      for (let m = Math.ceil(Math.max(r[0], minStart) / 15) * 15; m <= Math.min(r[1], 23 * 60 + 45); m += 15) {
+        slots.push({ label: hmText(m), iso: vnIso(n.y, n.m, n.d + offset, m) });
+      }
+    });
     if (slots.length) days.push({ offset, label: dayTitle(offset), slots });
   }
   return days;
+}
+function slotsText(shop) {
+  const arr = Array.isArray(shop.open_slots) && shop.open_slots.length ? shop.open_slots : (shop.open_from && shop.open_to ? [{ from: shop.open_from, to: shop.open_to }] : []);
+  return arr.map(x => x.from + '–' + x.to).join(', ');
 }
 function getShopStatus(shop) {
   if (!shop.accepting) {
     return { cls: 'stop', text: 'Quán đang tạm ngưng nhận đơn. Bạn vẫn xem được thực đơn và quay lại sau nhé.' };
   }
-  const openMin = parseHm(shop.open_from);
-  const closeMin = parseHm(shop.open_to);
-  if (openMin == null || closeMin == null) {
-    return { cls: '', text: 'Quán đang nhận đơn.' };
-  }
   const n = getVnNow();
-  if (n.min >= openMin && n.min < closeMin) {
-    return { cls: '', text: 'Đang nhận đơn đến ' + hmText(closeMin) };
+  const ranges = shopSlots(shop);
+  const closedToday = isClosedDay(shop, n.y, n.m, n.d);
+  if (!ranges.length && !closedToday) return { cls: '', text: 'Quán đang nhận đơn.' };
+  if (!closedToday) {
+    const cur = ranges.find(r => n.min >= r[0] && n.min < r[1]);
+    if (cur) {
+      let end = cur[1];
+      if (end >= 1439) end = 1440;
+      return { cls: '', text: 'Đang nhận đơn đến ' + (end === 1440 ? '24:00' : hmText(end)) };
+    }
   }
-  const days = buildDeliveryDays(shop);
-  if (!days.length) {
-    return { cls: 'off', text: 'Ngoài giờ nhận đơn. Quán nhận đơn từ ' + hmText(openMin) + ' đến ' + hmText(closeMin) + ', bạn quay lại sau nhé.' };
-  }
+  const days = buildDeliveryDays(shop, effMaxDays(shop, null));
+  const lead = closedToday ? 'Hôm nay quán nghỉ.' : 'Ngoài giờ nhận đơn' + (slotsText(shop) ? ' (quán nhận đơn ' + slotsText(shop) + ').' : '.');
+  if (!days.length) return { cls: 'off', text: lead + ' Bạn quay lại sau nhé.' };
   const earliest = days[0].slots[0].label + ' ' + days[0].label.toLowerCase();
-  return { cls: 'off', text: 'Ngoài giờ nhận đơn, bạn vẫn đặt trước được, giao sớm nhất lúc ' + earliest };
+  return { cls: 'off', text: lead + ' Bạn vẫn đặt trước được, giao sớm nhất lúc ' + earliest };
 }
 // Đang trong giờ nhận đơn (để cho chọn "Càng sớm càng tốt")
 function isOpenNow(shop) {
   if (!shop.accepting) return false;
-  const openMin = parseHm(shop.open_from);
-  const closeMin = parseHm(shop.open_to);
-  if (openMin == null || closeMin == null) return true;
   const n = getVnNow();
-  return n.min >= openMin && n.min <= closeMin;
+  if (isClosedDay(shop, n.y, n.m, n.d)) return false;
+  const ranges = shopSlots(shop);
+  if (!ranges.length) return true;
+  return ranges.some(r => n.min >= r[0] && n.min <= r[1]);
 }
 
 /* ===== TRẠNG THÁI ỨNG DỤNG ===== */
@@ -1293,7 +1327,7 @@ function openCheckoutModal(opener) {
   if (places.length && !places.some(p => p.name === ST.profile.place)) {
     ST.profile.place = places[0].name;
   }
-  const days = buildDeliveryDays(shop);
+  const days = buildDeliveryDays(shop, effMaxDays(shop, places.find(p => p.name === ST.profile.place) || null));
   if (!isOpenNow(shop)) ST.co.asap = false;
   if (!ST.co.asap && days.length && !ST.co.deliverAt) {
     ST.co.dayIdx = 0;
@@ -1306,6 +1340,39 @@ function openCheckoutModal(opener) {
   renderCheckoutContent();
   scheduleQuote();
   if (isValidPhone(ST.profile.phone)) fetchMyVouchers(ST.profile.phone);
+}
+
+function placeField(places, selPlace, shop) {
+  const areas = [...new Set((Array.isArray(shop.areas) ? shop.areas : []).concat(places.map(p => p.area).filter(Boolean)))];
+  const feeText = pl => (pl.fee > 0 ? 'Phí giao ' + formatMoney(pl.fee) : 'Miễn phí');
+  const pick = pl => { ST.profile.place = pl.name; ST.co.placeOpen = false; ST.co.placeQ = ''; renderCheckoutContent(); };
+  const info = pl => [pl.address, pl.promise ? 'Giao trong ' + pl.promise : '', pl.min_qty > 0 ? 'Tối thiểu ' + pl.min_qty + ' sản phẩm' : ''].filter(Boolean);
+  const wrap = el('div', { className: 'field' }, el('label', { text: 'Nơi giao' }));
+  if (places.length <= 6 && areas.length <= 1) {
+    wrap.append(el('div', { className: 'choices' }, places.map(pl => el('button', {
+      type: 'button', className: 'choice-btn', 'aria-pressed': String(ST.profile.place === pl.name), onClick: () => pick(pl)
+    }, pl.name, el('small', { text: feeText(pl) })))));
+  } else {
+    const q = fold(ST.co.placeQ || '');
+    const ar = ST.co.placeArea || '';
+    const shown = places.filter(pl => (!ar || (pl.area || '') === ar) && (!q || fold(pl.name).includes(q) || fold(pl.address || '').includes(q) || fold(pl.area || '').includes(q)));
+    wrap.append(el('button', { type: 'button', className: 'choice-btn', style: 'width:100%;text-align:left', 'aria-pressed': 'true', onClick: () => { ST.co.placeOpen = !ST.co.placeOpen; renderCheckoutContent(); } },
+      selPlace ? selPlace.name : 'Chọn nơi giao', el('small', { text: (selPlace ? feeText(selPlace) + ' · ' : '') + (ST.co.placeOpen ? 'Thu gọn' : 'Bấm để đổi nơi giao') })));
+    if (ST.co.placeOpen) {
+      if (areas.length > 1) wrap.append(el('div', { className: 'day-pills', style: 'margin-top:8px' },
+        [''].concat(areas).map(a => el('button', { type: 'button', 'aria-pressed': String(ar === a), onClick: () => { ST.co.placeArea = a; renderCheckoutContent(); }, text: a || 'Tất cả' }))));
+      wrap.append(el('input', { id: 'co-placeq', className: 'input', style: 'margin-top:8px', placeholder: 'Gõ tên nơi giao để tìm', value: ST.co.placeQ || '', onInput: e => { ST.co.placeQ = e.target.value; renderCheckoutContent(); } }));
+      wrap.append(el('div', { style: 'max-height:220px;overflow:auto;margin-top:6px;border:1px solid var(--border);border-radius:10px' },
+        shown.length ? shown.map(pl => el('button', { type: 'button', className: 'choice-btn', style: 'width:100%;text-align:left;border:0;border-top:1px solid var(--border);border-radius:0', 'aria-pressed': String(ST.profile.place === pl.name), onClick: () => pick(pl) },
+          pl.name, el('small', { text: [pl.area, feeText(pl)].filter(Boolean).join(' · ') })))
+          : [el('div', { style: 'padding:10px;color:var(--text-sub)', text: 'Không tìm thấy nơi giao phù hợp.' })]));
+    }
+  }
+  if (selPlace) {
+    const lines = info(selPlace);
+    if (lines.length) wrap.append(el('div', { style: 'font-size:12.5px;color:var(--text-sub);margin-top:6px', text: lines.join(' · ') }));
+  }
+  return wrap;
 }
 
 // Vẽ lại form xác nhận đơn nhưng giữ con trỏ đang nhập (tránh nhảy con trỏ khi vừa gõ vừa vẽ lại)
@@ -1333,7 +1400,12 @@ function renderCheckoutContentInner() {
 
   const places = Array.isArray(shop.places) ? shop.places : [];
   const selPlace = places.find(p => p.name === ST.profile.place) || null;
-  const days = buildDeliveryDays(shop);
+  const maxD = effMaxDays(shop, selPlace);
+  const days = buildDeliveryDays(shop, maxD);
+  if (ST.co.dayIdx >= days.length) { ST.co.dayIdx = 0; if (!ST.co.asap && days.length) ST.co.deliverAt = days[0].slots[0].iso; }
+  const cartQty = cartEntries().reduce((t, e) => t + e.qty, 0);
+  const minQty = selPlace ? Math.max(0, Number(selPlace.min_qty) || 0) : 0;
+  const belowQty = minQty > 0 && cartQty < minQty;
   const methods = Array.isArray(shop.payment_methods) ? shop.payment_methods : [];
   const selMethod = methods.find(m => m.id === ST.co.payMethodId) || methods[0] || null;
   if (selMethod && !ST.co.payMethodId) ST.co.payMethodId = selMethod.id;
@@ -1426,23 +1498,13 @@ function renderCheckoutContentInner() {
         }
       })
     ),
-    places.length ? el('div', { className: 'field' },
-      el('label', { text: 'Nơi giao' }),
-      el('div', { className: 'choices' },
-        places.map(pl => el('button', {
-          type: 'button',
-          className: 'choice-btn',
-          'aria-pressed': String(ST.profile.place === pl.name),
-          onClick: () => { ST.profile.place = pl.name; renderCheckoutContent(); }
-        }, pl.name, el('small', { text: pl.fee > 0 ? 'Phí giao ' + formatMoney(pl.fee) : 'Miễn phí' })))
-      )
-    ) : null,
-    selPlace && selPlace.needs === 'apt' ? el('div', { className: 'field' },
-      el('label', { for: 'co-apt', text: 'Số căn hộ' }),
+    places.length ? placeField(places, selPlace, shop) : null,
+    selPlace && selPlace.needs && selPlace.needs !== 'address' ? el('div', { className: 'field' },
+      el('label', { for: 'co-unit', text: (NEEDS[selPlace.needs] || NEEDS.apt).field }),
       el('input', {
-        id: 'co-apt', className: 'input', maxlength: 100, placeholder: 'Ví dụ: A0605',
-        value: ST.profile.apt || '',
-        onInput: e => { ST.profile.apt = e.target.value; }
+        id: 'co-unit', className: 'input', maxlength: 100, placeholder: (NEEDS[selPlace.needs] || NEEDS.apt).ph,
+        value: ST.profile[selPlace.needs] || '',
+        onInput: e => { ST.profile[selPlace.needs] = e.target.value; }
       })
     ) : null,
     (selPlace && selPlace.needs === 'address') || !places.length ? el('div', { className: 'field' },
@@ -1482,7 +1544,7 @@ function renderCheckoutContentInner() {
           if (days.length) { ST.co.dayIdx = 0; ST.co.deliverAt = days[0].slots[0].iso; }
           renderCheckoutContent();
         }
-      }, 'Chọn giờ hẹn', el('small', { text: shop.max_advance_days > 0 ? 'Đặt trước tối đa ' + shop.max_advance_days + ' ngày' : 'Trong ngày hôm nay' }))
+      }, 'Chọn giờ hẹn', el('small', { text: maxD > 0 ? 'Đặt trước tối đa ' + maxD + ' ngày' : 'Trong ngày hôm nay' }))
     ),
     !ST.co.asap && days.length ? el('div', null,
       days.length > 1 ? el('div', { className: 'day-pills' },
@@ -1533,11 +1595,12 @@ function renderCheckoutContentInner() {
   const submitBtn = el('button', {
     type: 'button',
     className: 'btn btn-block',
-    disabled: ST.co.submitting || belowMin || !shop.accepting || (ST.co.asap ? !isOpenNow(shop) : !ST.co.deliverAt),
+    disabled: ST.co.submitting || belowMin || belowQty || !shop.accepting || (ST.co.asap ? !isOpenNow(shop) : !ST.co.deliverAt),
     onClick: submitOrder,
     text: ST.co.submitting ? 'Đang gửi đơn…' : ('Đặt đơn · ' + formatMoney(quotedTotal))
   });
-  checkoutRefs.footer.replaceChildren(minWarn, submitBtn);
+  const qtyWarn = belowQty ? el('div', { className: 'msg msg-warn', style: 'margin:0 0 8px', text: 'Nơi giao này cần đặt tối thiểu ' + minQty + ' sản phẩm (hiện có ' + cartQty + ')' }) : null;
+  checkoutRefs.footer.replaceChildren(minWarn, qtyWarn, submitBtn);
 }
 
 async function submitOrder() {
@@ -1560,14 +1623,15 @@ async function submitOrder() {
   }
   let address = '';
   if (selPlace) {
-    if (selPlace.needs === 'apt') {
-      const apt = (ST.profile.apt || '').trim();
-      if (!apt) { ST.co.error = 'Vui lòng nhập số căn hộ.'; renderCheckoutContent(); return; }
-      address = apt;
-    } else if (selPlace.needs === 'address') {
+    const nd = NEEDS[selPlace.needs] || NEEDS.apt;
+    if (selPlace.needs === 'address') {
       const addr = (ST.profile.address || '').trim();
-      if (!addr) { ST.co.error = 'Vui lòng nhập địa chỉ giao hàng.'; renderCheckoutContent(); return; }
+      if (!addr) { ST.co.error = nd.err; renderCheckoutContent(); return; }
       address = addr;
+    } else {
+      const v = (ST.profile[selPlace.needs] || '').trim();
+      if (!v) { ST.co.error = nd.err; renderCheckoutContent(); return; }
+      address = selPlace.needs === 'lobby' && !/^s[ảa]nh/i.test(v) ? 'Sảnh ' + v : selPlace.needs === 'gate' && !/^c[ổo]ng/i.test(v) ? 'Cổng ' + v : v;
     }
   } else {
     address = (ST.profile.address || '').trim();

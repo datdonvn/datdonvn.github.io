@@ -594,6 +594,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     inv: 'M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8',
     recipe: 'M6 3h12v18H6zM9 8h6M9 12h6M9 16h4',
     cash: 'M3 7h18v10H3zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM6 10v4M18 10v4',
+    flow: 'M12 8v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z',
     batch: 'M8 3h8M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3M8 15h8',
     cust: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21a7 7 0 0 1 14 0M17 4a4 4 0 0 1 0 7M22 21a7 7 0 0 0-4-6',
     promo: 'M20 12l-8 8-9-9V3h8zM7.5 7.5h.01',
@@ -622,6 +623,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     { id: 'recipe', label: 'Định mức', minPlan: 'pro' },
     { id: 'cash', label: 'Thu chi', minPlan: 'pro' },
     { id: 'batch', label: 'Sản xuất', minPlan: 'pro' },
+    { id: 'flow', label: 'Quy trình làm việc', minPlan: 'pro' },
     { id: 'cust', label: 'Khách', minPlan: 'standard' },
     { id: 'promo', label: 'Khuyến mãi', minPlan: 'proplus' },
     { id: 'feedback', label: 'Đánh giá', minPlan: 'proplus' }
@@ -765,7 +767,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   function markLoaded(tab) { ST.loadedAt[tab] = new Date(); }
   function openMoreModal(opener) {
     const rest = TABS.filter(t => !NAV_MAIN.includes(t.id) && t.id !== 'settings');
-    openModal('Thêm', el('div', {}, [['Bán hàng', ['eod', 'menu']], ['Kho và sản xuất', ['buy', 'inv', 'recipe', 'batch']], ['Tiền', ['cash']]].map(([gt, ids]) => {
+    openModal('Thêm', el('div', {}, [['Bán hàng', ['eod', 'menu']], ['Kho và sản xuất', ['buy', 'inv', 'recipe', 'batch', 'flow']], ['Tiền', ['cash']]].map(([gt, ids]) => {
       const ts = rest.filter(t => ids.includes(t.id));
       return ts.length ? el('div', { style: 'margin-bottom:12px' },
         el('div', { style: 'font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:6px', text: gt }),
@@ -845,6 +847,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       } else if (id === 'batch' && app.hasPlan('pro')) {
         await Promise.all([loadInvItems(), loadBatches()]);
         markLoaded('batch');
+      } else if (id === 'flow' && app.hasPlan('pro')) {
+        await loadFlow();
+        markLoaded('flow');
       } else if (id === 'cash' && app.hasPlan('pro')) {
         await loadCashEntries();
         markLoaded('cash');
@@ -873,6 +878,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       inv: renderInvTab,
       recipe: renderRecipeTab,
       batch: renderBatchTab,
+      flow: renderFlowTab,
       cash: renderCashTab,
       cust: renderCustTab,
       promo: renderPromoTab,
@@ -3741,6 +3747,236 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       renderMetaBar('batch', async () => { await loadTabData('batch'); renderBatchTab(); }),
       formulaCard, formCard, listCard
     );
+  }
+
+  /* ===== TAB: Quy trình làm việc (gói tối thiểu: pro) ===== */
+  async function loadFlow() {
+    await Promise.all([loadMenu(), loadInvItems(), loadAllRecipeFlags(), loadBatches()]);
+    const today = app.toVnYmd(new Date());
+    const wf = await sb.from('shop_workflow').select('targets,steps').eq('shop_id', shopId).maybeSingle();
+    if (wf.error) throw wf.error;
+    const od = await sb.from('orders').select('id,total,delivery_fee').eq('shop_id', shopId).neq('status', 'cancelled')
+      .gte('ordered_at', today + 'T00:00:00+07:00').lte('ordered_at', today + 'T23:59:59+07:00').limit(1000);
+    if (od.error) throw od.error;
+    const orders = od.data || [];
+    let lines = [];
+    if (orders.length) {
+      const it = await sb.from('order_items').select('order_id,item_id,qty,price,is_gift').eq('shop_id', shopId).in('order_id', orders.map(o => o.id));
+      if (it.error) throw it.error;
+      lines = it.data || [];
+    }
+    let promos = [];
+    try { const pr = await sb.from('promotions').select('*').eq('shop_id', shopId); promos = pr.data || []; } catch (e) {}
+    const d = wf.data || {};
+    ST.flow = { targets: (d.targets && typeof d.targets === 'object') ? d.targets : {}, steps: Array.isArray(d.steps) ? d.steps : [], orders, lines, promos };
+  }
+
+  let flowSaveChain = Promise.resolve();
+  function saveFlow() {
+    const f = ST.flow;
+    flowSaveChain = flowSaveChain.then(async () => {
+      const { error } = await sb.from('shop_workflow').upsert({ shop_id: shopId, targets: f.targets, steps: f.steps, updated_at: new Date().toISOString() }, { onConflict: 'shop_id' });
+      if (error) throw error;
+    });
+    return flowSaveChain.catch(err => { showErr(err); });
+  }
+
+  // Nhóm cột = thành phẩm có công thức sản xuất (mía lau, hoa cúc...); món thuộc nhóm có lượng thành phẩm đó nhiều nhất trong định mức
+  function flowGroups() {
+    const invMap = new Map(ST.invItems.map(i => [i.id, i]));
+    const outIds = new Set((ST.formulas || []).map(f => f.out_item_id));
+    const cost = new Map();
+    const best = new Map();
+    for (const r of (ST.allRecipes || [])) {
+      const iv = invMap.get(r.inv_item_id);
+      cost.set(r.menu_item_id, (cost.get(r.menu_item_id) || 0) + Number(r.qty) * Number(iv ? iv.avg_cost || 0 : 0));
+      if (outIds.has(r.inv_item_id)) {
+        const cur = best.get(r.menu_item_id);
+        if (!cur || Number(r.qty) > cur.ml) best.set(r.menu_item_id, { gid: r.inv_item_id, ml: Number(r.qty) });
+      }
+    }
+    const groups = new Map();
+    for (const m of ST.menuItems) {
+      if (m.active === false) continue;
+      const b = best.get(m.id);
+      if (!b) continue;
+      if (!groups.has(b.gid)) { const iv = invMap.get(b.gid); groups.set(b.gid, { id: b.gid, name: iv ? iv.name : 'Thành phẩm', menus: [] }); }
+      groups.get(b.gid).menus.push({ m, ml: b.ml, cost: cost.get(m.id) || 0 });
+    }
+    return [...groups.values()];
+  }
+
+  // Giá thực thu mỗi chai khi mua k chai cùng món (đã trừ khuyến mãi đang chạy dành cho mọi người)
+  function flowNetPrice(m, k) {
+    const today = app.toVnYmd(new Date());
+    const gross = m.price * k;
+    let bestDisc = 0;
+    for (const p of (ST.flow.promos || [])) {
+      if (!p.active || (p.from_date && p.from_date > today) || (p.to_date && p.to_date < today)) continue;
+      if (audienceOf(p) !== 'all') continue;
+      const rules = Array.isArray(p.rules) ? p.rules : [{ discount_type: p.discount_type, value: p.value, min_qty: p.min_qty, min_money: p.min_money, item_ids: p.item_ids }];
+      for (const r of rules) {
+        if (Array.isArray(r.item_ids) && r.item_ids.length && !r.item_ids.includes(m.id)) continue;
+        if (k < (Number(r.min_qty) || 0) || gross < (Number(r.min_money) || 0)) continue;
+        const d = r.discount_type === 'percent' ? gross * Number(r.value || 0) / 100 : r.discount_type === 'amount' ? Number(r.value || 0) : 0;
+        if (d > bestDisc) bestDisc = Math.min(d, gross);
+      }
+    }
+    return (gross - bestDisc) / k;
+  }
+
+  const flowNum = (v, dec) => v == null || !isFinite(v) ? '—' : Number(v).toLocaleString('vi-VN', { maximumFractionDigits: dec || 0 });
+  const flowMoney = v => v == null || !isFinite(v) ? '—' : app.formatMoney(Math.round(v));
+  const flowPct = v => v == null || !isFinite(v) ? '—' : Math.round(v * 100) + '%';
+
+  function flowCompute() {
+    const f = ST.flow, groups = flowGroups();
+    const today = app.toVnYmd(new Date());
+    const k = Math.max(1, Number(f.targets.chai_don) || 2);
+    const menuGroup = new Map();
+    for (const g of groups) for (const x of g.menus) menuGroup.set(x.m.id, { g, x });
+    // thực tế: chai bán / tặng / doanh thu phân bổ theo từng dòng
+    const sold = new Map(), gift = new Map(), rev = new Map();
+    const lineSum = new Map();
+    for (const l of f.lines) if (!l.is_gift) lineSum.set(l.order_id, (lineSum.get(l.order_id) || 0) + l.price * l.qty);
+    const ordMap = new Map(f.orders.map(o => [o.id, o]));
+    for (const l of f.lines) {
+      const mg = menuGroup.get(l.item_id);
+      if (!mg) continue;
+      const gid = mg.g.id;
+      if (l.is_gift) { gift.set(gid, (gift.get(gid) || 0) + l.qty); continue; }
+      const o = ordMap.get(l.order_id), S = lineSum.get(l.order_id) || 0;
+      const net = o ? Math.max(0, (Number(o.total) || 0) - (Number(o.delivery_fee) || 0)) : 0;
+      sold.set(l.item_id, (sold.get(l.item_id) || 0) + l.qty);
+      sold.set(gid, (sold.get(gid) || 0) + l.qty);
+      rev.set(gid, (rev.get(gid) || 0) + (S > 0 ? l.price * l.qty * net / S : 0));
+    }
+    // sản lượng nấu hôm nay (ml): mẻ đã xong lấy thực tế, mẻ đang nấu lấy dự kiến
+    const made = new Map();
+    for (const b of ST.batches) {
+      if (app.toVnYmd(new Date(b.at)) !== today) continue;
+      const ml = b.status === 'cooking' ? Number(b.planned_qty || 0) : Number(b.out_qty || 0);
+      made.set(b.out_item_id, (made.get(b.out_item_id) || 0) + ml);
+    }
+    const mix = (g, useSold) => {
+      const tot = useSold ? g.menus.reduce((s, x) => s + (sold.get(x.m.id) || 0), 0) : 0;
+      const w = x => tot > 0 ? (sold.get(x.m.id) || 0) / tot : 1 / g.menus.length;
+      return {
+        ml: g.menus.reduce((s, x) => s + w(x) * x.ml, 0),
+        cost: g.menus.reduce((s, x) => s + w(x) * x.cost, 0),
+        net: g.menus.reduce((s, x) => s + w(x) * flowNetPrice(x.m, k), 0)
+      };
+    };
+    const plan = groups.map(g => {
+      const t = (f.targets.g && f.targets.g[g.id]) || {};
+      const sx = Math.max(0, Math.floor(Number(t.sx) || 0)), ban = Math.max(0, Math.floor(Number(t.ban) || 0));
+      const mx = mix(g, false);
+      const von = Math.round(sx * mx.cost), dt = Math.round(ban * mx.net);
+      return { g, sx, ban, lit: sx * mx.ml / 1000, von, dt, lai: dt - von, ratio: sx > 0 ? ban / sx : null, bo: sx - ban };
+    });
+    const act = groups.map(g => {
+      const mx = mix(g, true);
+      const ml = made.get(g.id) || 0;
+      const sx = mx.ml > 0 ? Math.floor(ml / mx.ml) : 0;
+      const ban = sold.get(g.id) || 0, tang = gift.get(g.id) || 0;
+      const von = Math.round(sx * mx.cost), dt = Math.round(rev.get(g.id) || 0);
+      return { g, sx, ban, lit: ml / 1000, von, dt, lai: dt - von, ratio: sx > 0 ? ban / sx : null, bo: sx - ban - tang };
+    });
+    const total = rows => {
+      const sx = rows.reduce((s, r) => s + r.sx, 0), ban = rows.reduce((s, r) => s + r.ban, 0);
+      const von = rows.reduce((s, r) => s + r.von, 0), dt = rows.reduce((s, r) => s + r.dt, 0);
+      return { sx, ban, lit: rows.reduce((s, r) => s + r.lit, 0), von, dt, lai: dt - von, ratio: sx > 0 ? ban / sx : null, bo: rows.reduce((s, r) => s + r.bo, 0) };
+    };
+    const tp = total(plan), ta = total(act);
+    tp.don = tp.ban > 0 ? Math.ceil(tp.ban / k) : 0;
+    ta.don = f.orders.length;
+    return { groups, plan, act, tp, ta, k };
+  }
+
+  function renderFlowTab() {
+    if (!ST.flow) { contentHost.replaceChildren(renderMetaBar('flow', async () => { await loadTabData('flow'); renderFlowTab(); }), el('div', { className: 'empty-state', text: 'Đang tải…' })); return; }
+    const f = ST.flow, C = flowCompute();
+    const cols = 'minmax(84px,1.2fr) ' + C.groups.map(() => 'minmax(0,1fr)').join(' ') + ' minmax(0,1fr)';
+    const cell = (txt, o) => el('div', { className: 'num', style: 'padding:7px 4px;text-align:' + ((o && o.left) ? 'left' : 'right') + ';font-size:13.5px;' + ((o && o.bold) ? 'font-weight:700;' : '') + ((o && o.sub) ? 'color:var(--text-sub);' : ''), text: txt });
+    const sect = txt => el('div', { style: 'grid-column:1/-1;margin-top:8px;padding:5px 8px;background:var(--surface-2,#eef1ec);border-radius:8px;font-weight:700;font-size:13px', text: txt });
+    const numCell = (gid, key) => {
+      const t = (f.targets.g && f.targets.g[gid]) || {};
+      return el('input', {
+        className: 'input num', type: 'number', min: 0, step: 1, inputMode: 'numeric', value: t[key] == null ? '' : t[key],
+        style: 'padding:6px 4px;min-height:34px;text-align:right;width:100%;font-size:13.5px',
+        onChange: e => {
+          f.targets.g = f.targets.g || {}; f.targets.g[gid] = f.targets.g[gid] || {};
+          const v = e.target.value === '' ? null : Math.max(0, Math.floor(Number(e.target.value) || 0));
+          f.targets.g[gid][key] = v;
+          saveFlow(); renderFlowTab();
+        }
+      });
+    };
+    const table = (title, rows, tot, editable) => {
+      const grid = el('div', { style: 'display:grid;grid-template-columns:' + cols + ';align-items:center;column-gap:2px' });
+      const head = el('div', { style: 'display:contents' }, cell('', {}), ...C.groups.map(g => cell(g.name, { bold: true })), cell('Tổng', { bold: true }));
+      const row = (label, vals, totTxt, o) => el('div', { style: 'display:contents' }, cell(label, { left: true, sub: true }), ...vals, cell(totTxt, { bold: true }));
+      const kids = [head, sect('Sản xuất'),
+        row('Nấu (lít)', rows.map(r => cell(flowNum(r.lit, 1))), flowNum(tot.lit, 1)),
+        row('Số chai sx', rows.map(r => editable ? numCell(r.g.id, 'sx') : cell(flowNum(r.sx))), flowNum(tot.sx)),
+        row('Vốn', rows.map(r => cell(flowMoney(r.von))), flowMoney(tot.von)),
+        sect('Bán hàng'),
+        row('Số chai bán', rows.map(r => editable ? numCell(r.g.id, 'ban') : cell(flowNum(r.ban))), flowNum(tot.ban)),
+        row('Đơn', rows.map(() => cell('')), flowNum(tot.don)),
+        row('Tỷ lệ bán hết', rows.map(r => cell(flowPct(r.ratio))), flowPct(tot.ratio)),
+        row('Doanh thu', rows.map(r => cell(flowMoney(r.dt))), flowMoney(tot.dt)),
+        row('Lãi gộp', rows.map(r => cell(flowMoney(r.lai))), flowMoney(tot.lai)),
+        row('Chai bỏ', rows.map(r => cell(flowNum(r.bo))), flowNum(tot.bo))];
+      grid.append(...kids);
+      return el('div', { className: 'card' }, el('b', { style: 'display:block;margin-bottom:6px', text: title }), grid);
+    };
+    const donNote = el('div', { className: 'row-between', style: 'margin-top:10px;font-size:13.5px' },
+      el('span', { style: 'color:var(--text-sub)', text: 'Chai mỗi đơn (tính số đơn)' }),
+      el('input', { className: 'input num', type: 'number', min: 1, step: 1, value: f.targets.chai_don || 2, style: 'width:64px;padding:6px 4px;min-height:34px;text-align:right',
+        onChange: e => { f.targets.chai_don = Math.max(1, Math.floor(Number(e.target.value) || 2)); saveFlow(); renderFlowTab(); } }));
+    const planCard = table('Mục tiêu một ngày', C.plan, C.tp, true);
+    planCard.append(donNote);
+    const actCard = table('Thực tế hôm nay', C.act, C.ta, false);
+    if (!C.groups.length) { actCard.append(el('div', { className: 'empty-state', text: 'Chưa có công thức sản xuất gắn với món trong định mức nên chưa tính được.' })); }
+    // Quy trình trong ngày (cố định, chỉ để tham chiếu)
+    const steps = f.steps.map((s, i) => ({ s, i })).sort((a, b) => (a.s.time || '99:99').localeCompare(b.s.time || '99:99'));
+    const stepsCard = el('div', { className: 'card' },
+      el('div', { className: 'row-between', style: 'margin-bottom:8px' },
+        el('b', { text: 'Quy trình trong ngày' }),
+        el('button', { type: 'button', className: 'btn btn-sm btn-primary', onClick: e => openStepModal(-1, e.currentTarget), text: '+ Thêm việc' })),
+      steps.length ? steps.map(({ s, i }) => el('div', { style: 'padding:8px 0;border-top:1px solid var(--border)' },
+        el('div', { style: 'display:flex;gap:10px;align-items:flex-start' },
+          el('div', { style: 'flex:1;min-width:0;font-weight:600;font-size:15px;overflow-wrap:anywhere', text: s.text }),
+          el('span', { className: 'num', style: 'flex:none;font-size:13px;color:var(--text-sub);padding-top:2px', text: s.time || '' }),
+          el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openStepModal(i, e.currentTarget), text: 'Sửa' })),
+        s.note ? el('div', { style: 'margin-top:4px;font-size:13px;color:var(--text-sub);overflow-wrap:anywhere;white-space:pre-wrap', text: s.note }) : null
+      )) : el('div', { className: 'empty-state', text: 'Chưa có việc nào. Bấm "+ Thêm việc" để ghi giờ làm từng việc trong ngày.' })
+    );
+    contentHost.replaceChildren(renderMetaBar('flow', async () => { await loadTabData('flow'); renderFlowTab(); }), planCard, actCard, stepsCard);
+  }
+
+  function openStepModal(idx, opener) {
+    const f = ST.flow;
+    const cur = idx >= 0 ? f.steps[idx] : null;
+    const v = { text: cur ? cur.text : '', time: cur ? (cur.time || '') : '', note: cur ? (cur.note || '') : '' };
+    const saveBtn = el('button', { type: 'button', className: 'btn btn-primary', text: 'Lưu' });
+    saveBtn.onclick = async () => {
+      const text = v.text.trim();
+      if (!text) { app.showToast('Chưa nhập nội dung công việc', 'error'); return; }
+      const item = { text: text.slice(0, 200), time: v.time || '', note: v.note.trim().slice(0, 500) };
+      if (idx >= 0) f.steps[idx] = item; else f.steps.push(item);
+      saveBtn.disabled = true;
+      await saveFlow();
+      closeModal(); renderFlowTab();
+    };
+    const btns = [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' })];
+    if (idx >= 0) btns.push(el('button', { type: 'button', className: 'btn btn-danger', text: 'Xóa', onClick: async () => { f.steps.splice(idx, 1); await saveFlow(); closeModal(); renderFlowTab(); } }));
+    btns.push(saveBtn);
+    openModal(idx >= 0 ? 'Sửa việc' : 'Thêm việc', el('div', null,
+      el('div', { className: 'field' }, el('label', { text: 'Nội dung công việc' }), el('input', { className: 'input', maxlength: 200, value: v.text, placeholder: 'Ví dụ: Nấu sâm mía lau', onInput: e => { v.text = e.target.value; } })),
+      el('div', { className: 'field' }, el('label', { text: 'Giờ' }), el('input', { className: 'input', type: 'time', value: v.time, onInput: e => { v.time = e.target.value; } })),
+      el('div', { className: 'field' }, el('label', {}, 'Ghi chú ', el('span', { className: 'opt', text: '(không bắt buộc)' })), el('textarea', { className: 'textarea', maxlength: 500, value: v.note, onInput: e => { v.note = e.target.value; } }))
+    ), btns, opener);
   }
 
   function resetBatchForm() {

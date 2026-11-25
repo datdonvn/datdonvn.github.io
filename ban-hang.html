@@ -3039,8 +3039,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
               el('small', { className: 'num', text: 'Tồn: ' + it.qty + ' ' + it.unit + ' · Giá BQ: ' + app.formatMoney(it.avg_cost) + ' · Giá trị: ' + app.formatMoney(it.qty * it.avg_cost) })
             ),
             low ? el('span', { className: 'badge badge-warn', text: 'Sắp hết' }) : null,
-            el('button', { type: 'button', className: 'btn btn-sm btn-primary', onClick: e => openAdjustStockModal(it, e.currentTarget), text: 'Kiểm kho' }),
-            kebab({ text: 'Sửa vật tư', fn: e => openInvItemModal(it, e.currentTarget) }, { text: 'Lịch sử nhập xuất', fn: e => openStockMovesModal(it, e.currentTarget) })
+            kebab({ text: 'Kiểm kho', fn: e => openAdjustStockModal(it, e.currentTarget) }, { text: 'Sửa vật tư', fn: e => openInvItemModal(it, e.currentTarget) }, { text: 'Lịch sử nhập xuất', fn: e => openStockMovesModal(it, e.currentTarget) })
           );
         }) : el('div', { className: 'empty-state', text: 'Chưa có vật tư khớp bộ lọc.' })
       )

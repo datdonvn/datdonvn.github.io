@@ -464,10 +464,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   /* ===== HỖ TRỢ CHUNG, HỘP THOẠI & ÂM THANH ===== */
   const NEEDS = {
     apt: { label: 'Giao tận căn', field: 'Số căn hộ', ph: 'Ví dụ: A0605', err: 'Chưa nhập số căn hộ.' },
-    lobby: { label: 'Giao ở sảnh', field: 'Sảnh nào', ph: 'Ví dụ: Sảnh B', err: 'Chưa nhập sảnh nhận hàng.' },
-    gate: { label: 'Giao ở cổng', field: 'Cổng nào', ph: 'Ví dụ: Cổng 2', err: 'Chưa nhập cổng nhận hàng.' },
-    address: { label: 'Giao theo địa chỉ', field: 'Địa chỉ giao hàng', ph: 'Số nhà, tên đường, phường/xã', err: 'Chưa nhập địa chỉ giao hàng.' }
+    spot: { label: 'Cổng/Sảnh/Địa chỉ cụ thể', field: 'Cổng / Sảnh / Địa chỉ cụ thể', ph: 'Ví dụ: Cổng 2, Sảnh B', err: 'Chưa nhập cổng, sảnh hoặc địa chỉ nhận hàng.' }
   };
+  const needKey = pl => (pl && pl.needs === 'apt') ? 'apt' : 'spot';
   const fold = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
   const toLocalDtValue = iso => {
     const d = iso ? new Date(iso) : new Date();
@@ -1148,9 +1147,10 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       shipPlaces.length ? shipPlacePicker(s, shipPlaces) : null,
       (() => {
         const pl = shipPlaces.find(x => x.name === s.shipPlace) || null;
-        const nd = NEEDS[(pl && pl.needs) || 'apt'] || NEEDS.apt;
-        return el('div', { className: 'field' }, el('label', { for: 'sl-shipaddr', text: nd.field }),
-          el('input', { id: 'sl-shipaddr', className: 'input', value: s.shipAddr || '', placeholder: nd.ph, onInput: e => { s.shipAddr = e.target.value; saveDraft(); } }));
+        const nd = NEEDS[needKey(pl)];
+        const out = s.shipScope === 'out';
+        return el('div', { className: 'field' }, el('label', { for: 'sl-shipaddr', text: out ? 'Địa chỉ nhận hàng (ngoài chung cư)' : nd.field }),
+          el('input', { id: 'sl-shipaddr', className: 'input', value: s.shipAddr || '', placeholder: out ? 'Số nhà, tên đường, phường/xã' : nd.ph, onInput: e => { s.shipAddr = e.target.value; saveDraft(); } }));
       })(),
       fPay,
       fNote
@@ -1388,7 +1388,10 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
   function shipPlacePicker(s, places) {
     const areas = [...new Set((Array.isArray(ST.shop.areas) ? ST.shop.areas : []).map(x => typeof x === 'string' ? x : x.name).concat(places.map(x => x.area).filter(Boolean)))];
-    const wrap = el('div', { className: 'field' }, el('label', { text: 'Nơi giao' }));
+    const out = s.shipScope === 'out';
+    const scopeBtn = (v, txt) => el('button', { type: 'button', className: 'chip', 'aria-pressed': String(out === (v === 'out')), onClick: () => { s.shipScope = v; saveDraft(); renderSaleTab(); }, text: txt });
+    const wrap = el('div', { className: 'field' }, el('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px' },
+      el('label', { style: 'margin:0', text: 'Nơi giao' }), el('div', { className: 'chips', style: 'margin:0' }, scopeBtn('in', 'Trong chung cư'), scopeBtn('out', 'Ngoài chung cư'))));
     const feeTxt = pl => (pl.fee > 0 ? ' (+' + app.formatMoney(pl.fee) + ')' : '');
     const pick = pl => { s.shipPlace = pl.name; saveDraft(); renderSaleTab(); };
     if (places.length <= 6 && areas.length <= 1) {
@@ -1411,7 +1414,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       draw();
     }
     const cur = places.find(x => x.name === s.shipPlace);
-    const lines = cur ? [cur.address, cur.promise ? 'Giao trong khoảng ' + cur.promise : '', cur.min_qty > 0 ? 'Tối thiểu ' + cur.min_qty + ' sản phẩm' : ''].filter(Boolean) : [];
+    const lines = cur ? [out ? 'Chọn chung cư gần nhất' : cur.address, cur.promise ? 'Giao trong khoảng ' + cur.promise : '', cur.min_qty > 0 ? 'Tối thiểu ' + cur.min_qty + ' sản phẩm' : ''].filter(Boolean) : [];
     if (lines.length) wrap.append(el('div', { style: 'font-size:12.5px;color:var(--text-sub);margin-top:6px', text: lines.join(' · ') }));
     return wrap;
   }
@@ -1423,13 +1426,13 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     if (!/^\+?[0-9]{8,15}$/.test(phone)) { app.showToast('Nhập số điện thoại khách để giao hàng.', 'error'); return; }
     const places = Array.isArray(ST.shop.places) ? ST.shop.places : [];
     const pl = places.find(p => p.name === s.shipPlace) || null;
-    const nd = NEEDS[(pl && pl.needs) || 'apt'] || NEEDS.apt;
-    if (!(s.shipAddr || '').trim()) { app.showToast(nd.err, 'error'); return; }
+    const nd = NEEDS[needKey(pl)];
+    const outside = s.shipScope === 'out';
+    if (!(s.shipAddr || '').trim()) { app.showToast(outside ? 'Chưa nhập địa chỉ nhận hàng ngoài chung cư.' : nd.err, 'error'); return; }
     const qtyAll = s.items.reduce((t, it) => t + (Number(it.qty) || 0), 0);
     if (pl && pl.min_qty > 0 && qtyAll < pl.min_qty) { app.showToast('Nơi giao này cần tối thiểu ' + pl.min_qty + ' sản phẩm.', 'error'); return; }
     let shipAddr = (s.shipAddr || '').trim();
-    if (pl && pl.needs === 'lobby' && !/^s[ảa]nh/i.test(shipAddr)) shipAddr = 'Sảnh ' + shipAddr;
-    if (pl && pl.needs === 'gate' && !/^c[ổo]ng/i.test(shipAddr)) shipAddr = 'Cổng ' + shipAddr;
+    if (outside) shipAddr = 'Ngoài chung cư: ' + shipAddr;
     btn.disabled = true; btn.textContent = 'Đang lên đơn…';
     try {
       if (!s.key) s.key = newKey();
@@ -2485,7 +2488,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: () => { st.places.splice(st.places.indexOf(pl), 1); drawPlaces(); }, text: 'Xóa' })),
       el('div', { className: 'field' }, el('label', { text: 'Kiểu giao' }),
         el('select', { className: 'select', onChange: e => { pl.needs = e.target.value; } },
-          Object.keys(NEEDS).map(k => el('option', { value: k, selected: (pl.needs || 'apt') === k, text: NEEDS[k].label })))),
+          Object.keys(NEEDS).map(k => el('option', { value: k, selected: needKey(pl) === k, text: NEEDS[k].label })))),
       modeField(pl, 'fee', 'Phí ship', 'fee_own', a => a.fee > 0 ? app.formatMoney(a.fee) : 'miễn phí',
         el('input', { className: 'input num', type: 'number', min: 0, max: 1000000, placeholder: 'Phí (đ)', value: pl.fee || 0, onInput: e => { pl.fee = Math.max(0, Math.round(Number(e.target.value) || 0)); } })),
       modeField(pl, 'eta', 'Thời gian giao ước tính', 'eta_own', a => a.eta || 'chưa nhập',
@@ -2548,7 +2551,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           const cleanPlaces = named.map(p => {
             const ar = st.areas.find(x => x.name === p.area) || null;
             const feeOwn = !ar || p.fee_own !== false, etaOwn = !ar || p.eta_own !== false, qtyOwn = !ar || p.qty_own !== false;
-            const o = { name: p.name.trim(), fee: Math.max(0, Math.round(Number(feeOwn ? p.fee : ar.fee) || 0)), needs: p.needs || 'apt', area: ar ? ar.name : '', address: (p.address || '').trim(), min_qty: Math.max(0, Math.round(Number(qtyOwn ? p.min_qty : ar.min_qty) || 0)), promise: (etaOwn ? (p.promise || '') : (ar.eta || '')).trim() };
+            const o = { name: p.name.trim(), fee: Math.max(0, Math.round(Number(feeOwn ? p.fee : ar.fee) || 0)), needs: needKey(p), area: ar ? ar.name : '', address: (p.address || '').trim(), min_qty: Math.max(0, Math.round(Number(qtyOwn ? p.min_qty : ar.min_qty) || 0)), promise: (etaOwn ? (p.promise || '') : (ar.eta || '')).trim() };
             o.hrs_own = !!p.hrs_own; if (o.hrs_own) o.slots = (p.slots || []).map(x => ({ from: x.from, to: x.to }));
             if (ar) { o.fee_own = feeOwn; o.eta_own = etaOwn; o.qty_own = qtyOwn; }
             return o;

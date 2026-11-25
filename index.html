@@ -377,6 +377,8 @@ span.shop-logo.shop-mono { display: inline-flex; align-items: center; justify-co
 .textarea { min-height: 76px; resize: vertical; }
 
 .choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.scope-btn { padding: 6px 12px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface); font-size: 13px; font-weight: 600; }
+.scope-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .choice-btn {
   flex: 1 1 130px;
   min-height: 44px;
@@ -682,10 +684,10 @@ function parseHm(str) {
 }
 const NEEDS = {
   apt: { label: 'Giao tận căn', field: 'Số căn hộ', ph: 'Ví dụ: A0605', err: 'Vui lòng nhập số căn hộ.' },
-  lobby: { label: 'Giao ở sảnh', field: 'Sảnh nào', ph: 'Ví dụ: Sảnh B', err: 'Vui lòng nhập sảnh nhận hàng.' },
-  gate: { label: 'Giao ở cổng', field: 'Cổng nào', ph: 'Ví dụ: Cổng 2', err: 'Vui lòng nhập cổng nhận hàng.' },
-  address: { label: 'Giao theo địa chỉ', field: 'Địa chỉ giao hàng', ph: 'Số nhà, tên đường, phường/xã', err: 'Vui lòng nhập địa chỉ giao hàng.' }
+  spot: { label: 'Cổng/Sảnh/Địa chỉ cụ thể', field: 'Cổng / Sảnh / Địa chỉ cụ thể', ph: 'Ví dụ: Cổng 2, Sảnh B', err: 'Vui lòng nhập cổng, sảnh hoặc địa chỉ nhận hàng.' }
 };
+const needKey = pl => (pl && pl.needs === 'apt') ? 'apt' : 'spot';
+const isOutside = () => ST.profile.scope === 'out';
 function fold(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase(); }
 function hmText(min) { return pad2(Math.floor(min / 60)) + ':' + pad2(min % 60); }
 function vnIso(y, m, d, min) {
@@ -1375,7 +1377,10 @@ function placeField(places, selPlace, shop) {
   const subText = pl => [feeText(pl), pl.promise ? 'Giao trong khoảng ' + pl.promise : ''].filter(Boolean).join(' · ');
   const subEl = pl => el('small', {}, subText(pl), placeOpenNow(shop, pl) ? null : el('span', { className: 'off-tag', text: ' · Ngoài giờ hoạt động' }));
   const pick = pl => { ST.profile.place = pl.name; ST.co.deliverAt = null; ST.co.dayIdx = 0; ST.co.placeOpen = false; ST.co.placeQ = ''; renderCheckoutContent(); };
-  const wrap = el('div', { className: 'field' }, el('label', { text: 'Nơi giao' }));
+  const scopeBtn = (v, txt) => el('button', { type: 'button', className: 'scope-btn', 'aria-pressed': String((ST.profile.scope === 'out') === (v === 'out')), onClick: () => { ST.profile.scope = v; saveProfile(); renderCheckoutContent(); }, text: txt });
+  const wrap = el('div', { className: 'field' }, el('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px' },
+    el('label', { style: 'margin:0', text: 'Nơi giao' }),
+    el('div', { style: 'display:flex;gap:6px' }, scopeBtn('in', 'Trong chung cư'), scopeBtn('out', 'Ngoài chung cư'))));
   if (places.length <= 6) {
     wrap.append(el('div', { className: 'choices' }, places.map(pl => el('button', {
       type: 'button', className: 'choice-btn', 'aria-pressed': String(ST.profile.place === pl.name), onClick: () => pick(pl)
@@ -1394,7 +1399,7 @@ function placeField(places, selPlace, shop) {
     }
   }
   if (selPlace) {
-    const lines = [selPlace.address, selPlace.min_qty > 0 ? 'Tối thiểu ' + selPlace.min_qty + ' sản phẩm' : ''].filter(Boolean);
+    const lines = [isOutside() ? 'Chọn chung cư gần nhất' : selPlace.address, selPlace.min_qty > 0 ? 'Tối thiểu ' + selPlace.min_qty + ' sản phẩm' : ''].filter(Boolean);
     if (lines.length) wrap.append(el('div', { style: 'font-size:12.5px;color:var(--text-sub);margin-top:6px', text: lines.join(' · ') }));
   }
   return wrap;
@@ -1523,16 +1528,16 @@ function renderCheckoutContentInner() {
       })
     ),
     places.length ? placeField(places, selPlace, shop) : null,
-    selPlace && selPlace.needs && selPlace.needs !== 'address' ? el('div', { className: 'field' },
-      el('label', { for: 'co-unit', text: (NEEDS[selPlace.needs] || NEEDS.apt).field }),
+    selPlace && !isOutside() ? el('div', { className: 'field' },
+      el('label', { for: 'co-unit', text: NEEDS[needKey(selPlace)].field }),
       el('input', {
-        id: 'co-unit', className: 'input', maxlength: 100, placeholder: (NEEDS[selPlace.needs] || NEEDS.apt).ph,
-        value: ST.profile[selPlace.needs] || '',
-        onInput: e => { ST.profile[selPlace.needs] = e.target.value; }
+        id: 'co-unit', className: 'input', maxlength: 100, placeholder: NEEDS[needKey(selPlace)].ph,
+        value: ST.profile[needKey(selPlace)] || '',
+        onInput: e => { ST.profile[needKey(selPlace)] = e.target.value; }
       })
     ) : null,
-    (selPlace && selPlace.needs === 'address') || !places.length ? el('div', { className: 'field' },
-      el('label', { for: 'co-addr' }, 'Địa chỉ giao hàng ', !places.length ? el('span', { className: 'opt', text: '(không bắt buộc)' }) : null),
+    (selPlace && isOutside()) || !places.length ? el('div', { className: 'field' },
+      el('label', { for: 'co-addr' }, isOutside() && places.length ? 'Địa chỉ nhận hàng (ngoài chung cư)' : 'Địa chỉ giao hàng', ' ', !places.length ? el('span', { className: 'opt', text: '(không bắt buộc)' }) : null),
       el('textarea', {
         id: 'co-addr', className: 'textarea', maxlength: 300,
         placeholder: 'Số nhà, tên đường, phường/xã',
@@ -1647,15 +1652,15 @@ async function submitOrder() {
   }
   let address = '';
   if (selPlace) {
-    const nd = NEEDS[selPlace.needs] || NEEDS.apt;
-    if (selPlace.needs === 'address') {
+    const nd = NEEDS[needKey(selPlace)];
+    if (isOutside()) {
       const addr = (ST.profile.address || '').trim();
-      if (!addr) { ST.co.error = nd.err; renderCheckoutContent(); return; }
-      address = addr;
+      if (!addr) { ST.co.error = 'Vui lòng nhập địa chỉ nhận hàng ngoài chung cư.'; renderCheckoutContent(); return; }
+      address = 'Ngoài chung cư: ' + addr;
     } else {
-      const v = (ST.profile[selPlace.needs] || '').trim();
+      const v = (ST.profile[needKey(selPlace)] || '').trim();
       if (!v) { ST.co.error = nd.err; renderCheckoutContent(); return; }
-      address = selPlace.needs === 'lobby' && !/^s[ảa]nh/i.test(v) ? 'Sảnh ' + v : selPlace.needs === 'gate' && !/^c[ổo]ng/i.test(v) ? 'Cổng ' + v : v;
+      address = v;
     }
   } else {
     address = (ST.profile.address || '').trim();

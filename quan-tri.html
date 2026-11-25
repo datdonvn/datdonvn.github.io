@@ -499,7 +499,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
         if (pro) {
           reqs.push(sb.rpc('report_goal', { p_shop: shopId, p_month: thisMonthStart }));
           reqs.push(sb.rpc('report_inventory', { p_shop: shopId }));
-          reqs.push(sb.from('batches').select('at,out_qty,out_item_id').eq('shop_id', shopId)
+          reqs.push(sb.from('batches').select('at,out_qty,out_item_id').eq('shop_id', shopId).eq('status', 'done')
             .gte('at', ST.from + 'T00:00:00+07:00').lte('at', ST.to + 'T23:59:59+07:00'));
           reqs.push(sb.from('inv_items').select('id,name,unit').eq('shop_id', shopId));
         }
@@ -863,7 +863,7 @@ table.qt-tbl tr.clickable:hover { background: var(--accent-soft); }
           const [d, t] = dtParts(b.at), out = invBy.get(b.out_item_id) || {};
           const ins = b.batch_inputs && b.batch_inputs.length ? b.batch_inputs : [{ inv_item_id: null, qty: '', cost: '' }];
           for (const x of ins) { const i = invBy.get(x.inv_item_id) || {};
-            mk.push([d, t, out.name || '', b.out_qty, out.unit || '', b.cost_total, b.out_qty ? Math.round(b.cost_total / b.out_qty * 100) / 100 : '', i.name || '', x.qty, i.unit || '', x.cost, b.note || '']); }
+            const cook = b.status === 'cooking'; mk.push([d, t, out.name || '', cook ? '' : b.out_qty, out.unit || '', b.cost_total, !cook && b.out_qty ? Math.round(b.cost_total / b.out_qty * 100) / 100 : '', i.name || '', x.qty, i.unit || '', x.cost, (cook ? 'Đang nấu, chưa nhập sản lượng thực tế. ' : '') + (b.note || '')]); }
         }
         sheets.push({ name: 'NK Sản xuất', rows: mk });
 

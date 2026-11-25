@@ -1553,20 +1553,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           el('div', { className: 'line-main' }, el('b', { style: 'color:var(--error)', text: 'Chưa thu' }), el('small', { className: 'num', text: unpaid.orders + ' đơn' })),
           el('b', { className: 'num', style: 'color:var(--error)', text: app.formatMoney(unpaid.amount) })
         ) : null
-      ),
-      el('div', { className: 'card' },
-        el('div', { style: 'font-weight:700;margin-bottom:8px', text: 'Đơn chưa thu trong ngày (' + ST.eodUnpaid.length + ')' }),
-        ST.eodUnpaid.length ? ST.eodUnpaid.map(o => el('div', { className: 'line-row' },
-          el('div', { className: 'line-main' },
-            el('b', { className: 'num', text: o.code + ' · ' + app.formatMoney(o.total) }),
-            el('small', { text: (o.customer_name || 'Khách lẻ') + ' · ' + app.formatVnDateTime(o.ordered_at) })
-          ),
-          el('button', {
-            type: 'button', className: 'btn btn-primary btn-sm',
-            onClick: e => openConfirmPaymentModal(o, async () => { await loadEod(); renderEodView(); }, e.currentTarget),
-            text: 'Xác nhận thu tiền'
-          })
-        )) : el('div', { className: 'empty-state', text: 'Tất cả đơn trong ngày đã được thu đủ.' })
       )
     ];
     const pro = eodProBlock();

@@ -1374,7 +1374,7 @@ function openCheckoutModal(opener) {
 
 function placeField(places, selPlace, shop) {
   const feeText = pl => (pl.fee > 0 ? 'Phí giao ' + formatMoney(pl.fee) : 'Miễn phí');
-  const subText = pl => [feeText(pl), pl.promise ? 'Giao trong khoảng ' + pl.promise : ''].filter(Boolean).join(' · ');
+  const subText = pl => [pl.promise ? 'Giao trong khoảng ' + pl.promise : ''].filter(Boolean).join(' · ');
   const subEl = pl => el('small', {}, subText(pl), placeOpenNow(shop, pl) ? null : el('span', { className: 'off-tag', text: ' · Ngoài giờ hoạt động' }));
   const pick = pl => { ST.profile.place = pl.name; ST.co.deliverAt = null; ST.co.dayIdx = 0; ST.co.placeOpen = false; ST.co.placeQ = ''; renderCheckoutContent(); };
   const scopeBtn = (v, txt) => el('button', { type: 'button', className: 'scope-btn', 'aria-pressed': String((ST.profile.scope === 'out') === (v === 'out')), onClick: () => { ST.profile.scope = v; saveProfile(); renderCheckoutContent(); }, text: txt });

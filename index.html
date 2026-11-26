@@ -1031,9 +1031,10 @@ function renderApp() {
   const foot = el('footer', { className: 'shop-foot' },
     shop.tagline ? el('div', { className: 'shop-tagline', text: shop.tagline }) : null,
     el('div', { className: 'shop-contact' },
-      shop.phone ? el('a', { href: 'tel:' + shop.phone, text: 'Gọi: ' + shop.phone }) : null,
-      shop.address ? el('span', { text: shop.address }) : null,
-      shopQr ? el('a', { href: '#', onClick: e => { e.preventDefault(); openShopQr(e); }, text: 'QR đặt hàng' }) : null));
+      el('div', { style: 'display:flex;justify-content:space-between;align-items:baseline;gap:12px' },
+        shop.phone ? el('a', { href: 'tel:' + shop.phone, text: 'Gọi: ' + shop.phone }) : el('span'),
+        shopQr ? el('a', { href: '#', onClick: e => { e.preventDefault(); openShopQr(e); }, text: 'QR đặt hàng' }) : null),
+      shop.address ? el('span', { text: shop.address }) : null));
 
   const main = el('main', { className: 'wrap' },
     el('div', { className: 'status-banner ' + st.cls, role: 'status', text: st.text }),

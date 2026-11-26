@@ -242,10 +242,18 @@ span.shop-logo.shop-mono { display: inline-flex; align-items: center; justify-co
 .item-price { font-weight: 700; font-size: 16.5px; color: var(--accent); }
 .item-unit { font-size: 13px; color: var(--text-sub); }
 .item-act { flex-shrink: 0; }
-.menu-item { align-items: flex-start; }
-.item-bottom { margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.menu-item { flex-direction: column; align-items: stretch; gap: 0; padding: 16px; }
+.mi-top { display: flex; gap: 14px; align-items: flex-start; }
+.mi-top .item-img { width: 92px; height: 92px; border-radius: 14px; }
+.mi-top .item-info { display: flex; flex-direction: column; align-items: flex-start; }
+.mi-top .item-img + .item-info { min-height: 92px; }
+.mi-top .item-name { font-size: 18px; letter-spacing: 0.1px; }
+.mi-top .item-more { margin-top: 2px; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; opacity: 0.85; }
+.mi-top .size-bar { margin-top: auto; padding-top: 8px; }
+.item-bottom { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.item-bottom .item-price { font-size: 20px; }
 .size-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-.size-chip { position: relative; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text-sub); font-size: 14px; font-weight: 600; }
+.size-chip { position: relative; min-height: 34px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text-sub); font-size: 14px; font-weight: 600; }
 .size-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .size-chip.off { text-decoration: line-through; opacity: 0.55; }
 .size-badge { position: absolute; top: -7px; right: -5px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; background: var(--accent); color: var(--accent-text); font-size: 11px; font-style: normal; font-weight: 700; line-height: 18px; text-align: center; }
@@ -1281,19 +1289,21 @@ function renderMenuView() {
           );
 
       wrap.append(el('article', { className: 'card menu-item', style: cur.sold_out && !multi ? 'opacity:.6' : null },
-        imgEl,
-        el('div', { className: 'item-info' },
-          el('div', { className: 'item-name', text: g.base }),
-          cur.description ? el('button', { type: 'button', className: 'item-more', text: 'Giới thiệu món',
-            onClick: e => openDialog(g.base, el('div', { style: 'white-space:pre-line;line-height:1.7;font-size:15.5px' }, richText(cur.description)), null, e.currentTarget) }) : null,
-          sizeBar,
-          el('div', { className: 'item-bottom' },
-            el('div', { className: 'item-price-row', style: 'margin-top:0' },
-              el('span', { className: 'item-price num', text: formatMoney(cur.price) }),
-              cur.unit ? el('span', { className: 'item-unit', text: '/ ' + cur.unit }) : null
-            ),
-            el('div', { className: 'item-act' }, actionEl)
+        el('div', { className: 'mi-top' },
+          imgEl,
+          el('div', { className: 'item-info' },
+            el('div', { className: 'item-name', text: g.base }),
+            cur.description ? el('button', { type: 'button', className: 'item-more', text: 'Giới thiệu món',
+              onClick: e => openDialog(g.base, el('div', { style: 'white-space:pre-line;line-height:1.7;font-size:15.5px' }, richText(cur.description)), null, e.currentTarget) }) : null,
+            sizeBar
           )
+        ),
+        el('div', { className: 'item-bottom' },
+          el('div', { className: 'item-price-row', style: 'margin-top:0' },
+            el('span', { className: 'item-price num', text: formatMoney(cur.price) }),
+            cur.unit ? el('span', { className: 'item-unit', text: '/ ' + cur.unit }) : null
+          ),
+          el('div', { className: 'item-act' }, actionEl)
         )
       ));
     }

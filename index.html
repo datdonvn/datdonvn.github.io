@@ -197,11 +197,22 @@ span.shop-logo.shop-mono { display: inline-flex; align-items: center; justify-co
 
 /* Danh sách món */
 .cat-title {
-  margin: 16px 0 8px;
-  font-size: 17px;
-  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 26px 0 14px;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  color: var(--accent);
   scroll-margin-top: 66px;
 }
+.cat-title::before, .cat-title::after { content: ''; flex: 1; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--accent) 80%); opacity: 0.45; }
+.cat-title::after { background: linear-gradient(270deg, transparent, var(--accent) 80%); }
+.cat-ornament { display: inline-flex; color: var(--accent); opacity: 0.85; }
+.cat-ornament.flip { transform: scaleX(-1); }
+.cat-title-text { white-space: nowrap; }
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -231,6 +242,17 @@ span.shop-logo.shop-mono { display: inline-flex; align-items: center; justify-co
 .item-price { font-weight: 700; font-size: 16.5px; color: var(--accent); }
 .item-unit { font-size: 13px; color: var(--text-sub); }
 .item-act { flex-shrink: 0; }
+.menu-item { align-items: flex-start; }
+.item-bottom { margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.size-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.size-chip { position: relative; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text-sub); font-size: 14px; font-weight: 600; }
+.size-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.size-chip.off { text-decoration: line-through; opacity: 0.55; }
+.size-badge { position: absolute; top: -7px; right: -5px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; background: var(--accent); color: var(--accent-text); font-size: 11px; font-style: normal; font-weight: 700; line-height: 18px; text-align: center; }
+.item-bottom .stepper button { width: 38px; height: 38px; font-size: 20px; }
+.item-bottom .stepper output { min-width: 26px; }
+.stepper.zero output { color: var(--text-sub); font-weight: 600; }
+.stepper.zero button:not(.plus) { opacity: 0.35; }
 
 .btn {
   display: inline-flex;
@@ -1190,47 +1212,89 @@ function renderMenuView() {
     ));
   }
 
+  // Gộp các size của cùng một món (vd "Sâm mía lau 330ml" + "Sâm mía lau 500ml") thành một thẻ
+  const sizeRe = /^(.*?)\s+(\d+(?:[.,]\d+)?\s?(?:ml|l|g|kg))$/i;
+  ST.sizePick = ST.sizePick || {};
+  const leaf = () => {
+    const ns = 'http://www.w3.org/2000/svg';
+    const s = document.createElementNS(ns, 'svg');
+    s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('width', '20'); s.setAttribute('height', '20'); s.setAttribute('aria-hidden', 'true');
+    const p = document.createElementNS(ns, 'path');
+    p.setAttribute('d', 'M4 20C4 9 10 4 21 3C20 14 15 20 4 20Z'); p.setAttribute('fill', 'currentColor');
+    const v = document.createElementNS(ns, 'path');
+    v.setAttribute('d', 'M5 19C9 14 13 10 18 6'); v.setAttribute('stroke', 'var(--surface)'); v.setAttribute('stroke-width', '1.4'); v.setAttribute('fill', 'none'); v.setAttribute('stroke-linecap', 'round');
+    s.append(p, v);
+    return s;
+  };
+
   catNames.forEach((cat, idx) => {
-    wrap.append(el('h2', { className: 'cat-title', id: 'cat-sec-' + idx, text: cat }));
+    wrap.append(el('h2', { className: 'cat-title', id: 'cat-sec-' + idx },
+      el('span', { className: 'cat-ornament' }, leaf()),
+      el('span', { className: 'cat-title-text', text: cat }),
+      el('span', { className: 'cat-ornament flip' }, leaf())
+    ));
+
+    const cards = [];
+    const byBase = new Map();
     for (const it of groups.get(cat)) {
-      const qty = ST.cart[it.id] || 0;
-      const safeImg = it.image_url && String(it.image_url).startsWith('https://') ? it.image_url : null;
+      const m = sizeRe.exec((it.name || '').trim());
+      if (!m) { cards.push({ base: it.name, variants: [it], size: [null] }); continue; }
+      const key = m[1].trim().toLowerCase();
+      let g = byBase.get(key);
+      if (!g) { g = { base: m[1].trim(), variants: [], size: [] }; byBase.set(key, g); cards.push(g); }
+      g.variants.push(it); g.size.push(m[2].replace(/\s+/g, ''));
+    }
+
+    for (const g of cards) {
+      const multi = g.variants.length > 1;
+      const gkey = cat + '|' + g.base;
+      let cur = g.variants.find(v => v.id === ST.sizePick[gkey]);
+      if (!cur) cur = g.variants.find(v => !v.sold_out) || g.variants[0];
+      const qty = ST.cart[cur.id] || 0;
+      const safeImg = [cur, ...g.variants].map(v => v.image_url).find(u => u && String(u).startsWith('https://')) || null;
       const imgEl = safeImg ? el('img', {
         className: 'item-img',
         src: safeImg,
-        alt: it.name,
+        alt: g.base,
         loading: 'lazy',
         onError: e => { e.target.classList.add('hidden'); }
       }) : null;
 
-      const actionEl = it.sold_out
-        ? el('span', { style: 'font-weight:700;font-size:13.5px;color:var(--error,#b3261e);white-space:nowrap', text: 'Hết hàng' })
-        : qty === 0
-        ? el('button', {
+      const sizeBar = multi ? el('div', { className: 'size-bar', role: 'group', 'aria-label': 'Chọn dung tích ' + g.base },
+        g.variants.map((v, i) => {
+          const inCart = ST.cart[v.id] || 0;
+          return el('button', {
             type: 'button',
-            className: 'btn btn-add',
-            disabled: !shop.accepting,
-            onClick: () => setCartQty(it.id, 1),
-            text: 'Thêm'
-          })
-        : el('div', { className: 'stepper', role: 'group', 'aria-label': 'Số lượng ' + it.name },
-            el('button', { type: 'button', 'aria-label': 'Giảm ' + it.name, onClick: () => setCartQty(it.id, qty - 1), text: '−' }),
+            className: 'size-chip' + (v.sold_out ? ' off' : ''),
+            'aria-pressed': String(v.id === cur.id),
+            onClick: () => { ST.sizePick[gkey] = v.id; renderApp(); }
+          }, g.size[i], inCart ? el('i', { className: 'size-badge num', text: String(inCart) }) : null);
+        })
+      ) : null;
+
+      const actionEl = cur.sold_out
+        ? el('span', { style: 'font-weight:700;font-size:13.5px;color:var(--error,#b3261e);white-space:nowrap', text: 'Hết hàng' })
+        : el('div', { className: 'stepper' + (qty === 0 ? ' zero' : ''), role: 'group', 'aria-label': 'Số lượng ' + cur.name },
+            el('button', { type: 'button', disabled: qty === 0, 'aria-label': 'Giảm ' + cur.name, onClick: () => setCartQty(cur.id, qty - 1), text: '−' }),
             el('output', { className: 'num', text: String(qty) }),
-            el('button', { type: 'button', className: 'plus', disabled: qty >= 99, 'aria-label': 'Tăng ' + it.name, onClick: () => setCartQty(it.id, qty + 1), text: '+' })
+            el('button', { type: 'button', className: 'plus', disabled: qty >= 99 || !shop.accepting, 'aria-label': 'Tăng ' + cur.name, onClick: () => setCartQty(cur.id, qty + 1), text: '+' })
           );
 
-      wrap.append(el('article', { className: 'card menu-item', style: it.sold_out ? 'opacity:.55' : null },
+      wrap.append(el('article', { className: 'card menu-item', style: cur.sold_out && !multi ? 'opacity:.6' : null },
         imgEl,
         el('div', { className: 'item-info' },
-          el('div', { className: 'item-name', text: it.name }),
-          it.description ? el('button', { type: 'button', className: 'item-more', text: 'Giới thiệu món',
-            onClick: e => openDialog(it.name, el('div', { style: 'white-space:pre-line;line-height:1.7;font-size:15.5px' }, richText(it.description)), null, e.currentTarget) }) : null,
-          el('div', { className: 'item-price-row' },
-            el('span', { className: 'item-price num', text: formatMoney(it.price) }),
-            it.unit ? el('span', { className: 'item-unit', text: '/ ' + it.unit }) : null
+          el('div', { className: 'item-name', text: g.base }),
+          cur.description ? el('button', { type: 'button', className: 'item-more', text: 'Giới thiệu món',
+            onClick: e => openDialog(g.base, el('div', { style: 'white-space:pre-line;line-height:1.7;font-size:15.5px' }, richText(cur.description)), null, e.currentTarget) }) : null,
+          sizeBar,
+          el('div', { className: 'item-bottom' },
+            el('div', { className: 'item-price-row', style: 'margin-top:0' },
+              el('span', { className: 'item-price num', text: formatMoney(cur.price) }),
+              cur.unit ? el('span', { className: 'item-unit', text: '/ ' + cur.unit }) : null
+            ),
+            el('div', { className: 'item-act' }, actionEl)
           )
-        ),
-        el('div', { className: 'item-act' }, actionEl)
+        )
       ));
     }
   });

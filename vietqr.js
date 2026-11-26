@@ -32,6 +32,25 @@
     var q = window.qrcode(0, 'M'); q.addData(text); q.make();
     return 'data:image/svg+xml;utf8,' + encodeURIComponent(q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }));
   }
+  // Tải mã QR về máy dưới dạng ảnh PNG (vẽ lại từ SVG để mở được trong Ảnh/Zalo)
+  function download(svgUrl, filename, btn) {
+    var label = btn ? btn.textContent : '';
+    function done(msg) { if (btn) { btn.textContent = msg; setTimeout(function () { btn.textContent = label; }, 2000); } }
+    var im = new Image();
+    im.onload = function () {
+      var S = 800, cv = document.createElement('canvas'); cv.width = S; cv.height = S;
+      var cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, S, S); cx.imageSmoothingEnabled = false; cx.drawImage(im, 0, 0, S, S);
+      cv.toBlob(function (b) {
+        if (!b) { done('Không tải được'); return; }
+        var url = URL.createObjectURL(b), a = document.createElement('a');
+        a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+        done('Đã tải về');
+      }, 'image/png');
+    };
+    im.onerror = function () { done('Không tải được'); };
+    im.src = svgUrl;
+  }
   function canShow(shop) { return !!(shop && shop.bank_bin && shop.bank_account); }
   function money(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + 'đ'; }
   function mk(tag, css, text) { var e = document.createElement(tag); if (css) e.style.cssText = css; if (text != null) e.textContent = text; return e; }
@@ -54,8 +73,12 @@
       catch (e) { cp.textContent = shop.bank_account; }
     };
     box.appendChild(cp);
+    var dl = mk('button', 'margin-top:8px;margin-left:8px;min-height:40px;padding:6px 14px;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:10px;font:inherit;font-weight:600', 'Tải mã QR');
+    dl.type = 'button';
+    dl.onclick = function () { download(im.src, 'qr-thanh-toan-' + String(code || 'don').replace(/[^A-Za-z0-9]/g, '') + '.png', dl); };
+    box.appendChild(dl);
     box.appendChild(mk('div', 'font-size:12.5px;opacity:.7;margin-top:6px', 'Mở app ngân hàng, chọn quét QR. Số tiền và nội dung đã điền sẵn.'));
     return box;
   }
-  window.DDQR = { BANKS: BANKS, bankName: bankName, payload: payload, crc16: crc16, img: img, canShow: canShow, block: block };
+  window.DDQR = { BANKS: BANKS, bankName: bankName, payload: payload, crc16: crc16, img: img, download: download, canShow: canShow, block: block };
 })();

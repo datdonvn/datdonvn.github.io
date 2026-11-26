@@ -4364,7 +4364,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     // món không có sản xuất (lương khô, sữa ngũ cốc...) vẫn thành 1 cột để đặt mục tiêu bán
     const inGroup = new Set(); for (const g of prodGroups) for (const x of g.menus) inGroup.add(x.m.id);
     const costOf = prodGroups.cost;
-    const extra = ST.menuItems.filter(m => m.active !== false && !inGroup.has(m.id)).map(m => ({ id: 'm:' + m.id, name: m.name, noProd: true, menus: [{ m, ml: 0, cost: costOf.get(m.id) || 0, nvl: 0 }] }));
+    const hasRecipe = ST.allRecipeMenuIds || new Set();
+    const extra = ST.menuItems.filter(m => m.active !== false && hasRecipe.has(m.id) && !inGroup.has(m.id)).map(m => ({ id: 'm:' + m.id, name: m.name, noProd: true, menus: [{ m, ml: 0, cost: costOf.get(m.id) || 0, nvl: 0 }] }));
     const allGroups = prodGroups.concat(extra);
     const hidden = new Set(Array.isArray(f.targets.hidden) ? f.targets.hidden : []);
     const groups = allGroups.filter(g => !hidden.has(g.id));

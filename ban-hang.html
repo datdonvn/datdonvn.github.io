@@ -1678,7 +1678,13 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const kpi = {
       rev: { act: rev, tgt: C.tp.dt }, don: { act: f.orders.length, tgt: C.tp.don },
       lit: C.groups.map((g, i) => ({ name: g.name, act: C.act[i].lit, tgt: C.plan[i].lit })),
-      litTot: { act: C.ta.lit, tgt: C.tp.lit }
+      litTot: { act: C.ta.lit, tgt: C.tp.lit },
+      bot: (() => {
+        const q = new Map();
+        for (const l of f.lines) if (!l.is_gift) q.set(l.item_id, (q.get(l.item_id) || 0) + (Number(l.qty) || 0));
+        const items = (ST.menuItems || []).filter(m => m.active || q.get(m.id)).map(m => ({ name: m.name, unit: m.unit || 'chai', act: q.get(m.id) || 0 }));
+        return { tot: items.reduce((a, x) => a + x.act, 0), items };
+      })()
     };
     const steps = f.steps.slice().sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99')).map(s => ({ text: s.text, time: s.time || '', note: s.note || '', done: !!st.checks[stepKey(s)] }));
     const accs = new Map(activePayMethods().map(m => [m.id, { id: m.id, name: m.name, sales: 0, buy: 0, other: 0 }]));
@@ -1739,6 +1745,12 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     };
     const cardA = el('div', { className: 'card' }, el('b', { style: 'display:block;margin-bottom:4px', text: 'A. KPI' + (dayLabel ? ' · ' + dayLabel : '') }),
       kbar('Doanh thu', K.rev.act, K.rev.tgt, true), kbar('Số đơn', K.don.act, K.don.tgt, false),
+      ...(K.bot ? [
+        el('div', { style: 'padding:8px 0;border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:8px;align-items:baseline' },
+          el('span', { style: 'font-weight:600', text: 'Tổng số chai bán' }), el('b', { className: 'num', style: 'font-size:13.5px', text: flowNum(K.bot.tot, 0) })),
+        ...K.bot.items.map(x => el('div', { style: 'padding:5px 0 5px 14px;display:flex;justify-content:space-between;gap:8px;align-items:baseline;color:var(--text-sub)' },
+          el('span', { text: x.name }), el('span', { className: 'num', style: 'font-size:13.5px' }, el('b', { style: 'color:var(--text)', text: flowNum(x.act, 0) }), ' ' + x.unit)))
+      ] : []),
       ...K.lit.map(l => kbar(l.name + ' (lít)', l.act, l.tgt, false, 1)), kbar('Tổng lít nấu', K.litTot.act, K.litTot.tgt, false, 1));
     // B. Check list
     const done = model.steps.filter(s => s.done).length;

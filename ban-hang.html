@@ -4316,8 +4316,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       const iv = invMap.get(r.inv_item_id);
       const line = Number(r.qty) * Number(iv ? iv.avg_cost || 0 : 0);
       cost.set(r.menu_item_id, (cost.get(r.menu_item_id) || 0) + line);
-      const rg = recipeGroupOf(iv); // CP NVL = nước cốt + siro (không tính đá, bao bì)
-      if (rg === 'Nước cốt' || rg === 'Siro') nvl.set(r.menu_item_id, (nvl.get(r.menu_item_id) || 0) + line);
+      const rg = recipeGroupOf(iv); // CP NVL = chỉ nước cốt (không tính siro, đá, bao bì)
+      if (rg === 'Nước cốt') nvl.set(r.menu_item_id, (nvl.get(r.menu_item_id) || 0) + line);
       if (outIds.has(r.inv_item_id)) {
         const cur = best.get(r.menu_item_id);
         if (!cur || Number(r.qty) > cur.ml) best.set(r.menu_item_id, { gid: r.inv_item_id, ml: Number(r.qty) });

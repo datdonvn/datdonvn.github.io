@@ -896,7 +896,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         await loadFlow();
         markLoaded('ov_actual');
       } else if (id === 'ov_stock' && app.hasPlan('pro')) {
-        await Promise.all([loadFlow(), loadStockBoard()]);
+        await loadStockBoard();
         markLoaded('ov_stock');
       } else if (id === 'cust') {
         await Promise.all([loadCustomersWithStats(), app.hasPlan('proplus') ? loadPromos() : Promise.resolve()]);
@@ -4071,10 +4071,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
   /* ===== TAB: Làm / Sản xuất (gói tối thiểu: pro, đặt cuối nhóm Pro) ===== */
   async function loadBatches() {
-    const { data, error } = await sb.from('batches').select('*').eq('shop_id', shopId).order('at', { ascending: false }).range(0, 39);
+    const [{ data, error }, fr] = await Promise.all([
+      sb.from('batches').select('*').eq('shop_id', shopId).order('at', { ascending: false }).range(0, 39),
+      sb.from('batch_formulas').select('*').eq('shop_id', shopId)]);
     if (error) throw error;
     ST.batches = data || [];
-    const fr = await sb.from('batch_formulas').select('*').eq('shop_id', shopId);
     ST.formulas = fr.data || [];
   }
 
@@ -4278,24 +4279,21 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
   /* ===== TAB: Quy trình làm việc (gói tối thiểu: pro) ===== */
   async function loadFlow() {
-    await Promise.all([loadMenu(), loadInvItems(), loadAllRecipeFlags(), loadBatches()]);
     const today = app.toVnYmd(new Date());
-    const wf = await sb.from('shop_workflow').select('targets,steps').eq('shop_id', shopId).maybeSingle();
+    const [, , , , wf, od, pr] = await Promise.all([loadMenu(), loadInvItems(), loadAllRecipeFlags(), loadBatches(),
+      sb.from('shop_workflow').select('targets,steps').eq('shop_id', shopId).maybeSingle(),
+      sb.from('orders').select('id,total,delivery_fee,paid,pay_method_id,pay_status,order_items(item_id,qty,price,is_gift)').eq('shop_id', shopId).neq('status', 'cancelled')
+        .gte('ordered_at', today + 'T00:00:00+07:00').lte('ordered_at', today + 'T23:59:59+07:00').limit(1000),
+      sb.from('promotions').select('*').eq('shop_id', shopId).then(r => r, () => ({ data: [] }))]);
     if (wf.error) throw wf.error;
-    const od = await sb.from('orders').select('id,total,delivery_fee,paid,pay_method_id,pay_status').eq('shop_id', shopId).neq('status', 'cancelled')
-      .gte('ordered_at', today + 'T00:00:00+07:00').lte('ordered_at', today + 'T23:59:59+07:00').limit(1000);
     if (od.error) throw od.error;
-    const orders = od.data || [];
-    let lines = [];
-    if (orders.length) {
-      const it = await sb.from('order_items').select('order_id,item_id,qty,price,is_gift').eq('shop_id', shopId).in('order_id', orders.map(o => o.id));
-      if (it.error) throw it.error;
-      lines = it.data || [];
+    const orders = [], lines = [];
+    for (const o of (od.data || [])) {
+      orders.push({ id: o.id, total: o.total, delivery_fee: o.delivery_fee, paid: o.paid, pay_method_id: o.pay_method_id, pay_status: o.pay_status });
+      for (const it of (o.order_items || [])) lines.push({ order_id: o.id, item_id: it.item_id, qty: it.qty, price: it.price, is_gift: it.is_gift });
     }
-    let promos = [];
-    try { const pr = await sb.from('promotions').select('*').eq('shop_id', shopId); promos = pr.data || []; } catch (e) {}
     const d = wf.data || {};
-    ST.flow = { targets: (d.targets && typeof d.targets === 'object') ? d.targets : {}, steps: Array.isArray(d.steps) ? d.steps : [], orders, lines, promos };
+    ST.flow = { targets: (d.targets && typeof d.targets === 'object') ? d.targets : {}, steps: Array.isArray(d.steps) ? d.steps : [], orders, lines, promos: (pr && pr.data) || [] };
   }
 
   let flowSaveChain = Promise.resolve();
@@ -4333,7 +4331,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       if (!groups.has(b.gid)) { const iv = invMap.get(b.gid); groups.set(b.gid, { id: b.gid, name: iv ? iv.name : 'Thành phẩm', menus: [] }); }
       groups.get(b.gid).menus.push({ m, ml: b.ml, cost: cost.get(m.id) || 0, nvl: nvl.get(m.id) || 0 });
     }
-    return [...groups.values()];
+    const out = [...groups.values()];
+    out.cost = cost; // giá vốn đủ định mức mỗi món, dùng lại cho món không sản xuất
+    return out;
   }
 
   // Giá thực thu mỗi chai khi mua k chai cùng món (đã trừ khuyến mãi đang chạy dành cho mọi người)
@@ -4363,7 +4363,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const f = ST.flow, prodGroups = flowGroups();
     // món không có sản xuất (lương khô, sữa ngũ cốc...) vẫn thành 1 cột để đặt mục tiêu bán
     const inGroup = new Set(); for (const g of prodGroups) for (const x of g.menus) inGroup.add(x.m.id);
-    const costOf = new Map(); { const invMap = new Map(ST.invItems.map(i => [i.id, i])); for (const r of (ST.allRecipes || [])) { const iv = invMap.get(r.inv_item_id); costOf.set(r.menu_item_id, (costOf.get(r.menu_item_id) || 0) + Number(r.qty) * Number(iv ? iv.avg_cost || 0 : 0)); } }
+    const costOf = prodGroups.cost;
     const extra = ST.menuItems.filter(m => m.active !== false && !inGroup.has(m.id)).map(m => ({ id: 'm:' + m.id, name: m.name, noProd: true, menus: [{ m, ml: 0, cost: costOf.get(m.id) || 0, nvl: 0 }] }));
     const allGroups = prodGroups.concat(extra);
     const hidden = new Set(Array.isArray(f.targets.hidden) ? f.targets.hidden : []);
@@ -5289,7 +5289,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   // 3. Tồn kho hàng bán
   function renderOvStock() {
     stickyHost.replaceChildren();
-    if (!ST.flow) { ovLoading('ov_stock', renderOvStock); return; }
+    if (!ST.stockBoard) { ovLoading('ov_stock', renderOvStock); return; }
     const stock = buildStockCard(renderOvStock) || el('div', { className: 'card empty-state', text: 'Chưa có hàng bán trong kho. Nấu mẻ ở tab Sản xuất để có số tồn.' });
     contentHost.replaceChildren(ovSubBar(), renderMetaBar('ov_stock', async () => { await loadTabData('ov_stock'); renderOvStock(); }), stock);
   }

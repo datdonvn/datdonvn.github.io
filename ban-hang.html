@@ -636,12 +636,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     { id: 'menu', label: 'Menu', minPlan: 'standard' },
     { id: 'settings', label: 'Cài đặt', minPlan: 'standard' },
     { id: 'buy', label: 'Mua', minPlan: 'pro' },
-    { id: 'inv', label: 'Kho', minPlan: 'pro' },
+    { id: 'inv', label: 'Tồn kho', minPlan: 'pro' },
     { id: 'recipe', label: 'Định mức', minPlan: 'pro' },
     { id: 'cash', label: 'Thu chi', minPlan: 'pro' },
     { id: 'batch', label: 'Sản xuất', minPlan: 'pro' },
-    { id: 'ov_stock', label: 'Tồn kho hàng bán', minPlan: 'pro' },
-    { id: 'ov_actual', label: 'Thực tế/Mục tiêu', minPlan: 'pro' },
+    { id: 'ov_stock', label: 'Tồn kho', minPlan: 'pro' },
     { id: 'cust', label: 'Khách', minPlan: 'standard' },
     { id: 'promo', label: 'Khuyến mãi', minPlan: 'proplus' },
     { id: 'feedback', label: 'Đánh giá', minPlan: 'proplus' }
@@ -696,6 +695,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     invSummary: null,
     invSearch: '',
     invKind: 'all',
+    invCat: 'nvl',
     invLowOnly: false,
     // Định mức (Pro)
     recipeMenuId: '',
@@ -784,7 +784,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   const wrapOuter = el('div', { className: 'dd-wrap' }, headerHost, navHost, contentHost, stickyHost);
   root.replaceChildren(wrapOuter);
 
-  const TAB_TITLES = { sale: 'Sửa đơn', online: 'XL Đơn', feedback: 'XL Đơn', promo: 'Khuyến mãi', cust: 'Khách', menu: 'Menu', settings: 'Cài đặt', ov_stock: 'Tổng quan', ov_actual: 'Tổng quan' };
+  const TAB_TITLES = { sale: 'Sửa đơn', online: 'XL Đơn', feedback: 'XL Đơn', promo: 'Khuyến mãi', cust: 'Khách', menu: 'Menu', settings: 'Cài đặt', ov_stock: 'Tổng quan', inv: 'Tổng quan' };
   function renderShopHeader() {
     const sh = ST.shop || app.shop;
     if (window.DDBrand && DDBrand.applyTheme) DDBrand.applyTheme(sh);
@@ -806,14 +806,14 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   // Bảng nổi lên cho tab gom nhiều chức năng (Hoạt động, Bán hàng)
   const NAV_GROUPS = [
     { id: 'online', label: 'XL Đơn', icon: 'online', tabs: ['online', 'feedback', 'sale'], go: 'online' },
-    { id: 'ops', label: 'Hoạt động', icon: 'ops', tabs: ['batch', 'buy', 'inv', 'cash'], panel: ['batch', 'buy', 'cash'] },
+    { id: 'ops', label: 'Hoạt động', icon: 'ops', tabs: ['batch', 'buy', 'cash'], panel: ['batch', 'buy', 'cash'] },
     { id: 'selling', label: 'Bán hàng', icon: 'sale', tabs: ['menu', 'recipe', 'promo', 'cust'], panel: ['menu', 'recipe', 'promo', 'cust'] },
-    { id: 'ov', label: 'Tổng quan', icon: 'ov', tabs: ['ov_stock', 'ov_actual'], go: 'ov_stock' }
+    { id: 'ov', label: 'Tổng quan', icon: 'ov', tabs: ['ov_stock', 'inv'], go: 'ov_stock' }
   ];
   function openPanel(g, opener) {
     const ts = g.panel.map(id => TABS.find(t => t.id === id)).filter(Boolean);
     openModal(g.label, el('div', { style: 'display:grid;gap:8px' }, ts.map(t => el('button', {
-      type: 'button', className: 'btn' + (g.tabs.includes(ST.tab) && (ST.tab === t.id || (t.id === 'buy' && ST.tab === 'inv')) ? ' btn-primary' : ''), style: 'width:100%;justify-content:flex-start;gap:12px',
+      type: 'button', className: 'btn' + (g.tabs.includes(ST.tab) && (ST.tab === t.id ) ? ' btn-primary' : ''), style: 'width:100%;justify-content:flex-start;gap:12px',
       onClick: () => { closeModal(); switchTab(t.id); }
     }, navIcon(t.id), el('span', { text: t.label })))), null, opener);
   }
@@ -876,7 +876,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         await Promise.all([loadInvItems(), loadPurchases(), loadDebts()]);
         markLoaded('buy');
       } else if (id === 'inv' && app.hasPlan('pro')) {
-        await loadInventoryReport();
+        await Promise.all([loadInventoryReport(), loadAllRecipeFlags()]);
         markLoaded('inv');
       } else if (id === 'recipe' && app.hasPlan('pro')) {
         await Promise.all([loadMenu(), loadInvItems(), loadAllRecipeFlags()]);
@@ -892,9 +892,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       } else if (id === 'cash' && app.hasPlan('pro')) {
         await loadCashEntries();
         markLoaded('cash');
-      } else if (id === 'ov_actual' && app.hasPlan('pro')) {
-        await loadFlow();
-        markLoaded('ov_actual');
       } else if (id === 'ov_stock' && app.hasPlan('pro')) {
         await loadStockBoard();
         markLoaded('ov_stock');
@@ -928,7 +925,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       cust: renderCustTab,
       promo: renderPromoTab,
       feedback: renderFeedbackTab,
-      ov_actual: renderOvActual,
       ov_stock: renderOvStock
     };
     if (ST.tab === 'sale' && ST.saleView !== 'order') ST.tab = 'online';
@@ -3200,8 +3196,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
 
   function renderBuyTab() {
-    const seg = buySubBar();
-
     const bf = ST.buyForm;
     const suppliers = [...new Set(ST.purchases.map(p => p.place).filter(Boolean))];
     const groups = buyGroups();
@@ -3315,7 +3309,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
     contentHost.replaceChildren(
       renderMetaBar('buy', async () => { await loadTabData('buy'); renderBuyTab(); }),
-      seg, formCard, listCard
+      formCard, listCard
     );
     updateBuySticky();
   }
@@ -3474,7 +3468,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
 
   /* ===== TAB: Kho (gói tối thiểu: pro) ===== */
-  const INV_KINDS = { nl: 'Nguyên liệu', bb: 'Bao bì', btp: 'Bán thành phẩm' };
+  const INV_KINDS = { nl: 'Nguyên liệu', bb: 'Bao bì', btp: 'Bán thành phẩm', ccdc: 'CCDC', khac: 'Khác' };
+  const INV_CAT_KINDS = { nvl: ['nl', 'btp'], bb: ['bb'], ccdc: ['ccdc'], khac: ['khac'] };
+  const INV_CAT_DEFAULT = { nvl: 'nl', bb: 'bb', ccdc: 'ccdc', khac: 'khac' };
   // Danh sách chọn vật tư: chỉ đúng loại cần, bỏ món đã chọn ở dòng khác, luôn giữ món đang chọn
   const invOpts = (kinds, selId, excludeIds, textFn) => ST.invItems
     .filter(i => i.id === selId || (kinds.includes(i.kind) && !(excludeIds || []).includes(i.id)))
@@ -3494,49 +3490,54 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
 
   function renderInvTab() {
-    const sum = ST.invSummary || { total_value: 0, low_count: 0 };
     const q = fold(ST.invSearch.trim());
-    const items = ST.invItems.filter(it => {
-      if (ST.invKind !== 'all' && it.kind !== ST.invKind) return false;
-      if (ST.invLowOnly && !(it.qty <= it.min_stock)) return false;
+    const cat = INV_CAT_KINDS[ST.invCat] ? ST.invCat : 'nvl';
+    // hàng bán lại (món chỉ có đúng 1 nguyên liệu, như lương khô) nằm ở Kho hàng bán, không lẫn vào Kho NVL
+    const perMenu = new Map();
+    for (const r of (ST.allRecipes || [])) { if (!perMenu.has(r.menu_item_id)) perMenu.set(r.menu_item_id, []); perMenu.get(r.menu_item_id).push(r.inv_item_id); }
+    const resale = new Set();
+    for (const ids of perMenu.values()) if (ids.length === 1) resale.add(ids[0]);
+    const inCat = ST.invItems.filter(it => INV_CAT_KINDS[cat].includes(it.kind) && !(cat === 'nvl' && it.kind === 'nl' && resale.has(it.id)));
+    const items = inCat.filter(it => {
+      if (ST.invLowOnly && !(it.min_stock > 0 && it.qty <= it.min_stock)) return false;
       if (q && !fold(it.name).includes(q)) return false;
       return true;
     });
+    const totalValue = inCat.filter(it => it.active).reduce((a, it) => a + Math.max(0, it.qty) * it.avg_cost, 0);
+    const lowCount = inCat.filter(it => it.active && it.min_stock > 0 && it.qty <= it.min_stock).length;
 
     contentHost.replaceChildren(
-      buySubBar(),
-      renderMetaBar('inv', async () => { await loadInventoryReport(); markLoaded('inv'); renderInvTab(); }),
+      ovSubBar(),
+      renderMetaBar('inv', async () => { await Promise.all([loadInventoryReport(), loadAllRecipeFlags()]); markLoaded('inv'); renderInvTab(); }),
       el('div', { className: 'kpi-row2', style: 'margin-bottom:12px' },
-        el('div', { className: 'kpi-box' }, el('small', { text: 'Tổng giá trị kho' }), el('b', { className: 'num', text: app.formatMoney(sum.total_value) })),
-        el('div', { className: 'kpi-box' }, el('small', { text: 'Vật tư sắp hết' }), el('b', { className: 'num', style: sum.low_count > 0 ? 'color:var(--error)' : '', text: String(sum.low_count) }))
+        el('div', { className: 'kpi-box' }, el('small', { text: 'Giá trị tồn' }), el('b', { className: 'num', text: app.formatMoney(Math.round(totalValue)) })),
+        el('div', { className: 'kpi-box' }, el('small', { text: 'Sắp hết' }), el('b', { className: 'num', style: lowCount > 0 ? 'color:var(--error)' : '', text: String(lowCount) }))
       ),
       el('div', { className: 'card' },
         el('div', { className: 'row-between', style: 'margin-bottom:10px' },
-          el('input', { className: 'input', style: 'flex:1 1 180px', type: 'search', placeholder: 'Tìm tên vật tư…', value: ST.invSearch, onInput: e => { ST.invSearch = e.target.value; renderInvTab(); refocusSearch(); } }),
-          el('button', { type: 'button', className: 'btn btn-primary', onClick: e => openInvItemModal(null, e.currentTarget), text: '+ Thêm vào kho' })
+          el('input', { className: 'input', style: 'flex:1 1 180px', type: 'search', placeholder: 'Tìm tên…', value: ST.invSearch, onInput: e => { ST.invSearch = e.target.value; renderInvTab(); refocusSearch(); } }),
+          el('button', { type: 'button', className: 'btn btn-primary', onClick: e => openInvItemModal(null, e.currentTarget, null, INV_CAT_DEFAULT[cat]), text: '+ Thêm' })
         ),
         el('div', { className: 'chips hscroll', style: 'margin-bottom:10px' },
-          el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.invKind === 'all'), onClick: () => { ST.invKind = 'all'; renderInvTab(); }, text: 'Tất cả' }),
-          Object.entries(INV_KINDS).map(([k, lbl]) => el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.invKind === k), onClick: () => { ST.invKind = k; renderInvTab(); }, text: lbl })),
           el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.invLowOnly), onClick: () => { ST.invLowOnly = !ST.invLowOnly; renderInvTab(); }, text: 'Chỉ sắp hết' })
         ),
         items.length ? items.map(it => {
-          const low = it.qty <= it.min_stock;
+          const low = it.min_stock > 0 && it.qty <= it.min_stock;
           return el('div', { className: 'line-row' + (low ? ' low-row' : ''), style: 'padding:10px 6px;border-radius:8px' },
             el('div', { className: 'line-main' },
-              el('b', { text: it.name + (it.active ? '' : ' (Ngưng dùng)') }),
+              el('b', { text: it.name + (it.active ? '' : ' (Ngưng dùng)') + (it.kind === 'btp' ? ' · bán thành phẩm' : '') }),
               el('small', { className: 'num', text: 'Tồn: ' + it.qty + ' ' + it.unit + ' · Giá BQ: ' + app.formatMoney(it.avg_cost) + ' · Giá trị: ' + app.formatMoney(it.qty * it.avg_cost) })
             ),
             low ? el('span', { className: 'badge badge-warn', text: 'Sắp hết' }) : null,
             kebab({ text: 'Kiểm kho', fn: e => openAdjustStockModal(it, e.currentTarget) }, { text: 'Sửa vật tư', fn: e => openInvItemModal(it, e.currentTarget) }, { text: 'Lịch sử nhập xuất', fn: e => openStockMovesModal(it, e.currentTarget) })
           );
-        }) : el('div', { className: 'empty-state', text: 'Chưa có vật tư khớp bộ lọc.' })
+        }) : el('div', { className: 'empty-state', text: 'Chưa có mục nào ở nhóm này.' })
       )
     );
   }
 
-  function openInvItemModal(item, opener, onSaved) {
-    const f = { name: item ? item.name : '', unit: item ? item.unit : 'kg', kind: item ? item.kind : 'nl', min_stock: item ? item.min_stock : 0, active: item ? item.active : true };
+  function openInvItemModal(item, opener, onSaved, defKind) {
+    const f = { name: item ? item.name : '', unit: item ? item.unit : 'kg', kind: item ? item.kind : (defKind || 'nl'), min_stock: item ? item.min_stock : 0, active: item ? item.active : true };
     const body = el('div', null,
       el('div', { className: 'field' }, el('label', { text: 'Tên vật tư' }), el('input', { className: 'input', value: f.name, onInput: e => { f.name = e.target.value; } })),
       el('div', { className: 'grid-2' },
@@ -5243,14 +5244,17 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
 
   /* ===== TỔNG QUAN (gói pro): 4 tab phụ ===== */
-  const OV_TABS = [['ov_stock', 'Tồn kho hàng bán'], ['ov_actual', 'Thực tế/Mục tiêu']];
+  // Tổng quan = Tồn kho, chia 5 mục: Kho hàng bán (bảng số có thể bán) và 4 nhóm vật tư
+  const OV_TABS = [['ov_stock', 'Kho hàng bán'], ['nvl', 'Kho NVL'], ['bb', 'Bao bì'], ['ccdc', 'CCDC'], ['khac', 'Khác']];
   function ovSubBar() {
-    return el('div', { className: 'chips ov-sub', style: 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px', role: 'group', 'aria-label': 'Tổng quan' },
-      OV_TABS.map(([id, txt]) => el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.tab === id), style: 'justify-content:center;text-align:center;white-space:nowrap;padding:9px 4px', onClick: () => { if (ST.tab !== id) switchTab(id); }, text: txt })));
-  }
-  function buySubBar() {
-    const mk = (id, txt) => el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.tab === id), onClick: () => { if (ST.tab !== id) switchTab(id); }, text: txt });
-    return el('div', { className: 'hscroll even', style: 'margin-bottom:10px' }, mk('buy', 'Phiếu mua'), mk('inv', 'Kho'));
+    const isOn = id => id === 'ov_stock' ? ST.tab === 'ov_stock' : (ST.tab === 'inv' && ST.invCat === id);
+    return el('div', { className: 'chips ov-sub', style: 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px', role: 'group', 'aria-label': 'Tồn kho' },
+      OV_TABS.map(([id, txt]) => el('button', { type: 'button', className: 'chip', 'aria-pressed': String(isOn(id)), style: 'justify-content:center;text-align:center;white-space:nowrap;padding:9px 4px', onClick: () => {
+        if (isOn(id)) return;
+        if (id === 'ov_stock') { switchTab('ov_stock'); return; }
+        ST.invCat = id; ST.invSearch = ''; ST.invLowOnly = false;
+        if (ST.tab === 'inv') renderInvTab(); else switchTab('inv');
+      }, text: txt })));
   }
   const ovLoading = (tab, redraw) => contentHost.replaceChildren(ovSubBar(), renderMetaBar(tab, async () => { await loadTabData(tab); redraw(); }), el('div', { className: 'empty-state', text: 'Đang tải…' }));
 

@@ -266,6 +266,14 @@ body .dd-wrap { max-width: none; padding: 0 0 40px; }
   flex-wrap: wrap;
 }
 .line-row:first-child { border-top: 0; }
+.menu-grp { padding: 10px 0; border-top: 1px solid var(--border); }
+.menu-grp:first-child { border-top: 0; }
+.menu-grp-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.menu-grp-head b { font-size: 16px; }
+.menu-var { display: flex; align-items: center; gap: 10px; padding: 4px 0 4px 8px; }
+.menu-size { flex: none; min-width: 58px; text-align: center; padding: 6px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 14px; }
+.menu-var-price { flex: 1 1 auto; min-width: 0; color: var(--text-sub); font-size: 15px; }
+.menu-var.off .menu-size { opacity: 0.5; text-decoration: line-through; }
 .line-main { flex: 1 1 140px; min-width: 0; }
 .line-main b { display: block; font-size: 15px; }
 .line-main small { color: var(--text-sub); font-size: 13px; }
@@ -2192,35 +2200,64 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       el('button', { type: 'button', className: 'btn', onClick: csvTools, text: 'Nhập / xuất' })
     );
 
-    const listNodes = ST.menuItems.length ? [...cats.entries()].map(([cat, list]) => el('div', { className: 'card' },
-      el('div', { style: 'font-weight:700;margin-bottom:6px', text: cat + ' (' + list.length + ')' }),
-      list.map(m => el('div', { className: 'line-row' },
-        m.image_url && String(m.image_url).startsWith('https://') ? el('img', { src: m.image_url, alt: '', loading: 'lazy', style: 'width:46px;height:46px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)' }) : null,
+    const menuKebab = m => kebab(
+      { text: 'Sửa', fn: e => openMenuModal(m, e.currentTarget) },
+      { text: m.active ? 'Không bán' : 'Bán lại', fn: async () => {
+        try {
+          const res = await sb.from('menu_items').update({ active: !m.active }).eq('id', m.id).eq('shop_id', shopId).select('id');
+          checkMutated(res);
+          m.active = !m.active;
+        } catch (err) { showErr(err); }
+        renderMenuTab();
+      } },
+      app.hasPlan('pro') ? { text: 'Định mức nguyên liệu', fn: () => { ST.recipeMenuId = m.id; switchTab('recipe'); } } : null,
+      { text: 'Xóa', danger: true, fn: e => confirmModal('Xóa món "' + m.name + '"?', 'Món sẽ bị xóa khỏi thực đơn.', 'Xóa món', async () => {
+        const res = await sb.from('menu_items').delete().eq('id', m.id).eq('shop_id', shopId).select('id');
+        checkMutated(res);
+        app.showToast('Đã xóa món ' + m.name, 'accent');
+        await loadMenu();
+        renderMenuTab();
+      }, e.currentTarget) }
+    );
+    const menuImg = m => m.image_url && String(m.image_url).startsWith('https://') ? el('img', { src: m.image_url, alt: '', loading: 'lazy', style: 'width:46px;height:46px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)' }) : null;
+    const sizeRe = /^(.*?)\s+(\d+(?:[.,]\d+)?\s?(?:ml|l|g|kg))$/i;
+
+    const listNodes = ST.menuItems.length ? [...cats.entries()].map(([cat, list]) => {
+      // Gộp các size của cùng một món thành một khối (giống trang đặt hàng của khách)
+      const blocks = [];
+      const byBase = new Map();
+      for (const m of list) {
+        const mt = sizeRe.exec((m.name || '').trim());
+        if (!mt) { blocks.push({ single: m }); continue; }
+        const key = mt[1].trim().toLowerCase();
+        let g = byBase.get(key);
+        if (!g) { g = { base: mt[1].trim(), vars: [] }; byBase.set(key, g); blocks.push(g); }
+        g.vars.push({ m, size: mt[2].replace(/\s+/g, '') });
+      }
+      const rowOf = m => el('div', { className: 'line-row' },
+        menuImg(m),
         el('div', { className: 'line-main' },
           el('b', { text: m.name }),
           el('small', { className: 'num', text: app.formatMoney(m.price) + ' / ' + (m.unit || 'phần') + (m.active ? '' : ' · Không bán') })
         ),
-        kebab(
-          { text: 'Sửa', fn: e => openMenuModal(m, e.currentTarget) },
-          { text: m.active ? 'Không bán' : 'Bán lại', fn: async () => {
-            try {
-              const res = await sb.from('menu_items').update({ active: !m.active }).eq('id', m.id).eq('shop_id', shopId).select('id');
-              checkMutated(res);
-              m.active = !m.active;
-            } catch (err) { showErr(err); }
-            renderMenuTab();
-          } },
-          app.hasPlan('pro') ? { text: 'Định mức nguyên liệu', fn: () => { ST.recipeMenuId = m.id; switchTab('recipe'); } } : null,
-          { text: 'Xóa', danger: true, fn: e => confirmModal('Xóa món "' + m.name + '"?', 'Món sẽ bị xóa khỏi thực đơn.', 'Xóa món', async () => {
-          const res = await sb.from('menu_items').delete().eq('id', m.id).eq('shop_id', shopId).select('id');
-          checkMutated(res);
-          app.showToast('Đã xóa món ' + m.name, 'accent');
-          await loadMenu();
-          renderMenuTab();
-        }, e.currentTarget) }
-        )
-      ))
-    )) : [el('div', { className: 'card empty-state' }, el('b', { text: 'Chưa có món nào' }), el('span', { text: 'Bấm "+ Thêm món" hoặc "Nhập CSV" để tạo thực đơn.' }))];
+        menuKebab(m)
+      );
+      return el('div', { className: 'card' },
+        el('div', { style: 'font-weight:700;margin-bottom:6px', text: cat + ' (' + list.length + ')' }),
+        blocks.map(bk => {
+          if (bk.single || bk.vars.length === 1) return rowOf(bk.single || bk.vars[0].m);
+          const img = bk.vars.map(v => menuImg(v.m)).find(Boolean) || null;
+          return el('div', { className: 'menu-grp' },
+            el('div', { className: 'menu-grp-head' }, img, el('b', { text: bk.base })),
+            bk.vars.map(v => el('div', { className: 'menu-var' + (v.m.active ? '' : ' off') },
+              el('span', { className: 'menu-size', text: v.size }),
+              el('span', { className: 'num menu-var-price', text: app.formatMoney(v.m.price) + ' / ' + (v.m.unit || 'phần') + (v.m.active ? '' : ' · Không bán') }),
+              menuKebab(v.m)
+            ))
+          );
+        })
+      );
+    }) : [el('div', { className: 'card empty-state' }, el('b', { text: 'Chưa có món nào' }), el('span', { text: 'Bấm "+ Thêm món" hoặc "Nhập CSV" để tạo thực đơn.' }))];
 
     contentHost.replaceChildren(
       renderMetaBar('menu', async () => { await loadMenu(); renderMenuTab(); }),

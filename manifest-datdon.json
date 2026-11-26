@@ -2,7 +2,7 @@
   "id": "/index.html",
   "name": "Đặt hàng",
   "short_name": "Đặt hàng",
-  "start_url": "/index.html",
+  "start_url": "/index.html?shop=samila",
   "scope": "/index.html",
   "display": "standalone",
   "background_color": "#EDF2EA",

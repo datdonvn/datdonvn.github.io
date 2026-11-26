@@ -723,6 +723,19 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     ST.menuItems = data || [];
     ST.loadedAt.menu = new Date();
   }
+  // Bảng tồn kho hàng bán (gói pro): bán thành phẩm + nguyên liệu dùng thẳng trong món (cam, sữa...)
+  async function loadStockBoard() {
+    if (!app.hasPlan('pro')) { ST.stockBoard = []; return; }
+    try {
+      const [inv, rec] = await Promise.all([
+        sb.from('inv_items').select('id,name,kind,unit,qty').eq('shop_id', shopId).eq('active', true),
+        sb.from('recipes').select('inv_item_id').eq('shop_id', shopId)]);
+      if (inv.error || rec.error) throw (inv.error || rec.error);
+      const used = new Set((rec.data || []).map(r => r.inv_item_id));
+      ST.stockBoard = (inv.data || []).filter(i => i.kind === 'btp' || (i.kind === 'nl' && used.has(i.id)))
+        .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'btp' ? -1 : 1) || String(a.name).localeCompare(String(b.name), 'vi'));
+    } catch (e) { ST.stockBoard = ST.stockBoard || []; }
+  }
   async function loadInvItems() {
     if (!app.hasPlan('pro')) return;
     const { data, error } = await sb.from('inv_items').select('*').eq('shop_id', shopId).order('name', { ascending: true });
@@ -819,7 +832,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   async function loadTabData(id) {
     try {
       if (id === 'sale') {
-        await Promise.all([loadMenu(), loadManualOrders(), loadCustomersBase()]);
+        await Promise.all([loadMenu(), loadManualOrders(), loadCustomersBase(), loadStockBoard()]);
         markLoaded('sale');
       } else if (id === 'eod') {
         await loadEod();
@@ -1045,7 +1058,19 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const seg = el('div', { className: 'bh-seg tight' },
       el('button', { type: 'button', 'aria-pressed': String(ST.saleList !== 'saved'), onClick: () => { ST.saleList = 'new'; renderSaleTab(); }, text: 'Nhập mới' }),
       el('button', { type: 'button', 'aria-pressed': String(ST.saleList === 'saved'), onClick: () => { ST.saleList = 'saved'; renderSaleTab(); }, text: 'Đơn gần đây' }));
+    const stockFmt = it => {
+      let q = Number(it.qty) || 0, u = it.unit;
+      if (u === 'ml') { q /= 1000; u = 'lít'; } else if (u === 'g') { q /= 1000; u = 'kg'; }
+      return Math.round(q * 100) / 100;
+    };
+    const stockUnit = it => it.unit === 'ml' ? 'lít' : it.unit === 'g' ? 'kg' : it.unit;
+    const stockCard = (ST.stockBoard || []).length ? el('div', { className: 'card', style: 'margin-bottom:12px' },
+      el('b', { style: 'display:block;margin-bottom:4px', text: 'Tồn kho hàng bán' }),
+      ST.stockBoard.map(it => el('div', { className: 'row-between', style: 'padding:5px 0;border-top:1px solid var(--border)' },
+        el('span', { text: it.name }),
+        el('span', { className: 'num', style: 'font-weight:700;' + (stockFmt(it) <= 0 ? 'color:var(--error)' : '') }, String(stockFmt(it)).replace('.', ',') + ' ', el('span', { style: 'font-weight:400;color:var(--text-sub)', text: stockUnit(it) }))))) : null;
     const pickNodes = [
+      stockCard,
       el('h2', { className: 'v1-h', text: 'Chọn món' }),
       ...(catEntries.length ? catEntries.map(([cat, list]) => el('div', { className: 'v1-group' },
         el('h3', { text: cat }),
@@ -1393,7 +1418,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       app.showToast((s.editId ? 'Đã cập nhật đơn ' : 'Đã lưu đơn ') + data.code + ' · ' + app.formatMoney(data.total), 'accent');
       const backToOrders = !!s.fromOnline;
       resetSaleForm();
-      await loadManualOrders();
+      await Promise.all([loadManualOrders(), loadStockBoard()]);
       if (backToOrders) { try { await loadOnlineOrders(false); } catch (e) {} await switchTab('online'); }
       else renderSaleTab();
     } catch (err) {

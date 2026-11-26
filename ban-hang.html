@@ -1080,7 +1080,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       el('option', { value: '', selected: !selMenu, text: 'Trung bình các món' }),
       (ST.stockMenus || []).map(m => el('option', { value: m.id, selected: !!selMenu && selMenu.id === m.id, text: m.name })));
     return (ST.stockBoard || []).length ? el('div', { className: 'card', style: 'margin-bottom:12px' },
-      el('b', { style: 'display:block;margin-bottom:8px', text: 'Tồn kho hàng bán' }),
+      el('b', { style: 'display:block;margin-bottom:8px', text: 'Kho bán thành phẩm' }),
       el('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:8px' },
         el('span', { style: 'flex:none;font-size:13.5px;color:var(--text-sub)', text: 'Tính theo' }), sortSel),
       el('div', { style: g3 + ';font-size:12.5px;color:var(--text-sub);padding:0 0 6px' },
@@ -5245,11 +5245,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
   /* ===== TỔNG QUAN (gói pro): 4 tab phụ ===== */
   // Tổng quan = Tồn kho, chia 5 mục: Kho hàng bán (bảng số có thể bán) và 4 nhóm vật tư
-  const OV_TABS = [['ov_stock', 'Kho hàng bán'], ['nvl', 'Kho NVL'], ['bb', 'Bao bì'], ['ccdc', 'CCDC'], ['khac', 'Khác']];
+  const OV_TABS = [['ov_stock', 'Kho bán thành phẩm'], ['nvl', 'Kho NVL'], ['bb', 'Bao bì'], ['ccdc', 'CCDC'], ['khac', 'Khác']];
   function ovSubBar() {
     const isOn = id => id === 'ov_stock' ? ST.tab === 'ov_stock' : (ST.tab === 'inv' && ST.invCat === id);
     return el('div', { className: 'chips ov-sub', style: 'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px', role: 'group', 'aria-label': 'Tồn kho' },
-      OV_TABS.map(([id, txt]) => el('button', { type: 'button', className: 'chip', 'aria-pressed': String(isOn(id)), style: 'justify-content:center;text-align:center;white-space:nowrap;padding:9px 4px', onClick: () => {
+      OV_TABS.map(([id, txt]) => el('button', { type: 'button', className: 'chip', 'aria-pressed': String(isOn(id)), style: 'justify-content:center;text-align:center;white-space:normal;line-height:1.2;padding:8px 4px', onClick: () => {
         if (isOn(id)) return;
         if (id === 'ov_stock') { switchTab('ov_stock'); return; }
         ST.invCat = id; ST.invSearch = ''; ST.invLowOnly = false;

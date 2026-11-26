@@ -875,7 +875,25 @@ const SLUG = (() => {
     if (s) localStorage.setItem('dd_last_shop', s);
     else s = (localStorage.getItem('dd_last_shop') || '').trim();
   } catch (e) {}
-  return s;
+  return s || 'samila'; // thiếu mã quán -> mở Sâmila (quán duy nhất hiện tại), không báo lỗi
+})();
+/* Icon cài ra màn hình chính luôn mở đúng quán: manifest riêng theo mã quán */
+(function () {
+  try {
+    const base = location.origin + '/';
+    const m = {
+      id: '/index.html?shop=' + SLUG, name: 'Đặt hàng', short_name: 'Đặt hàng',
+      start_url: base + 'index.html?shop=' + encodeURIComponent(SLUG), scope: base,
+      display: 'standalone', background_color: '#EDF2EA', theme_color: '#1E4D3A',
+      icons: [
+        { src: base + 'icon-datdon-192.png', sizes: '192x192', type: 'image/png' },
+        { src: base + 'icon-datdon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+        { src: base + 'icon-datdon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+      ]
+    };
+    const l = document.querySelector('link[rel="manifest"]');
+    if (l) l.href = URL.createObjectURL(new Blob([JSON.stringify(m)], { type: 'application/manifest+json' }));
+  } catch (e) {}
 })();
 const ST = {
   shop: null,

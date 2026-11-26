@@ -640,11 +640,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     { id: 'recipe', label: 'Định mức', minPlan: 'pro' },
     { id: 'cash', label: 'Thu chi', minPlan: 'pro' },
     { id: 'batch', label: 'Sản xuất', minPlan: 'pro' },
-    { id: 'ov_money', label: 'Tiền hôm nay', minPlan: 'pro' },
-    { id: 'ov_actual', label: 'Thực tế hôm nay', minPlan: 'pro' },
-    { id: 'ov_goal', label: 'Mục tiêu trong ngày', minPlan: 'pro' },
     { id: 'ov_stock', label: 'Tồn kho hàng bán', minPlan: 'pro' },
-    { id: 'ov_debt', label: 'Nợ nhà cung cấp', minPlan: 'pro' },
+    { id: 'ov_actual', label: 'Thực tế/Mục tiêu', minPlan: 'pro' },
     { id: 'cust', label: 'Khách', minPlan: 'standard' },
     { id: 'promo', label: 'Khuyến mãi', minPlan: 'proplus' },
     { id: 'feedback', label: 'Đánh giá', minPlan: 'proplus' }
@@ -787,7 +784,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   const wrapOuter = el('div', { className: 'dd-wrap' }, headerHost, navHost, contentHost, stickyHost);
   root.replaceChildren(wrapOuter);
 
-  const TAB_TITLES = { sale: 'Sửa đơn', online: 'XL Đơn', feedback: 'XL Đơn', promo: 'Khuyến mãi', cust: 'Khách', menu: 'Menu', settings: 'Cài đặt', ov_money: 'Tổng quan', ov_actual: 'Tổng quan', ov_goal: 'Tổng quan', ov_stock: 'Tổng quan', ov_debt: 'Tổng quan' };
+  const TAB_TITLES = { sale: 'Sửa đơn', online: 'XL Đơn', feedback: 'XL Đơn', promo: 'Khuyến mãi', cust: 'Khách', menu: 'Menu', settings: 'Cài đặt', ov_stock: 'Tổng quan', ov_actual: 'Tổng quan' };
   function renderShopHeader() {
     const sh = ST.shop || app.shop;
     if (window.DDBrand && DDBrand.applyTheme) DDBrand.applyTheme(sh);
@@ -811,7 +808,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     { id: 'online', label: 'XL Đơn', icon: 'online', tabs: ['online', 'feedback', 'sale'], go: 'online' },
     { id: 'ops', label: 'Hoạt động', icon: 'ops', tabs: ['batch', 'buy', 'inv', 'cash'], panel: ['batch', 'buy', 'cash'] },
     { id: 'selling', label: 'Bán hàng', icon: 'sale', tabs: ['menu', 'recipe', 'promo', 'cust'], panel: ['menu', 'recipe', 'promo', 'cust'] },
-    { id: 'ov', label: 'Tổng quan', icon: 'ov', tabs: ['ov_money', 'ov_actual', 'ov_goal', 'ov_stock', 'ov_debt'], go: 'ov_money' }
+    { id: 'ov', label: 'Tổng quan', icon: 'ov', tabs: ['ov_stock', 'ov_actual'], go: 'ov_stock' }
   ];
   function openPanel(g, opener) {
     const ts = g.panel.map(id => TABS.find(t => t.id === id)).filter(Boolean);
@@ -895,21 +892,12 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       } else if (id === 'cash' && app.hasPlan('pro')) {
         await loadCashEntries();
         markLoaded('cash');
-      } else if (id === 'ov_money' && app.hasPlan('pro')) {
-        await loadEodPro();
-        markLoaded('ov_money');
       } else if (id === 'ov_actual' && app.hasPlan('pro')) {
         await loadFlow();
         markLoaded('ov_actual');
-      } else if (id === 'ov_goal' && app.hasPlan('pro')) {
-        await loadFlow();
-        markLoaded('ov_goal');
       } else if (id === 'ov_stock' && app.hasPlan('pro')) {
         await Promise.all([loadFlow(), loadStockBoard()]);
         markLoaded('ov_stock');
-      } else if (id === 'ov_debt' && app.hasPlan('pro')) {
-        await loadDebts();
-        markLoaded('ov_debt');
       } else if (id === 'cust') {
         await Promise.all([loadCustomersWithStats(), app.hasPlan('proplus') ? loadPromos() : Promise.resolve()]);
         markLoaded('cust');
@@ -940,11 +928,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       cust: renderCustTab,
       promo: renderPromoTab,
       feedback: renderFeedbackTab,
-      ov_money: renderOvMoney,
       ov_actual: renderOvActual,
-      ov_goal: renderOvGoal,
-      ov_stock: renderOvStock,
-      ov_debt: renderOvDebt
+      ov_stock: renderOvStock
     };
     if (ST.tab === 'sale' && ST.saleView !== 'order') ST.tab = 'online';
     const fn = map[ST.tab];
@@ -1172,8 +1157,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
               el('output', { className: 'num', text: String(qty) }),
               el('button', { type: 'button', className: 'plus', disabled: out, 'aria-label': 'Tăng ' + mi.name, onClick: () => changeQty(mi, 1), text: '+' })));
         })
-      )) : [el('div', { className: 'empty-state', text: ST.menuItems.length ? 'Không tìm thấy món phù hợp.' : 'Chưa có món nào. Hãy thêm món ở Thêm → Menu trước.' })]),
-      ...(app.hasPlan('pro') ? [el('button', { type: 'button', className: 'btn', style: 'width:100%;margin:16px 0 8px', onClick: e => openKiemQuyModal(e.currentTarget), text: 'Kiểm quỹ · Hôm nay' })] : [])
+      )) : [el('div', { className: 'empty-state', text: ST.menuItems.length ? 'Không tìm thấy món phù hợp.' : 'Chưa có món nào. Hãy thêm món ở Thêm → Menu trước.' })])
     ];
 
     // Các dòng trong đơn
@@ -1874,26 +1858,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           m ? el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openEodPastModal({ data: { model: m } }, d, e.currentTarget), text: 'Xem' }) : null);
       }));
     return [...eodCards(model, true, 'Hôm nay'), histCard];
-  }
-
-  // Kiểm quỹ hôm nay: mở dạng cửa sổ nhỏ ở cuối tab Bán hàng
-  async function openKiemQuyModal(opener) {
-    const body = el('div', null, el('div', { className: 'empty-state', text: 'Đang tải…' }));
-    const saveKq = el('button', { type: 'button', className: 'btn btn-primary', text: 'Lưu' });
-    saveKq.onclick = async () => {
-      saveKq.disabled = true;
-      const ok = await eodPersist(true);
-      if (ok) { app.showToast('Đã lưu kiểm quỹ', 'accent'); closeModal(); } else saveKq.disabled = false;
-    };
-    openModal('Kiểm quỹ · Hôm nay', body, [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' }), saveKq], opener);
-    try { await loadEodPro(); } catch (err) { showErr(err); closeModal(); return; }
-    const draw = () => {
-      const card = eodCards(eodModel(), true, 'Hôm nay', draw)[2];
-      if (card.firstChild) card.firstChild.remove();
-      card.style.cssText = 'border:0;box-shadow:none;padding:0;margin:0';
-      body.replaceChildren(card);
-    };
-    draw();
   }
 
   function openEodPastModal(sn, day, opener) {
@@ -3335,9 +3299,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       ST.purchases.length ? ST.purchases.map(p => el('div', { className: 'line-row' },
         el('div', { className: 'line-main' },
           el('b', { className: 'num', text: p.code + ' · ' + app.formatMoney(p.total) }),
-          el('small', { text: app.formatVnDateTime(p.at) + ' · ' + p.place })
+          el('small', null, app.formatVnDateTime(p.at) + ' · ' + p.place, p.on_credit && p.paid < p.total ? el('b', { style: 'color:var(--error);margin-left:6px', text: 'Nợ NCC' }) : null)
         ),
-        p.on_credit ? el('span', { className: 'badge ' + (p.paid < p.total ? 'badge-warn' : ''), text: p.paid < p.total ? 'Trả sau' : 'Đã trả đủ' }) : null,
+        p.on_credit && p.paid >= p.total ? el('span', { className: 'badge', text: 'Đã trả đủ' }) : null,
         el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openPurchaseDetailModal(p, e.currentTarget), text: 'Xem' }),
         kebab({ text: 'Xóa', danger: true, fn: e => confirmModal('Xóa phiếu ' + p.code + '?', 'Kho sẽ được hoàn lại tương ứng.', 'Xóa phiếu', async () => {
           const { error } = await sb.rpc('delete_purchase', { p_purchase: p.id });
@@ -3929,6 +3893,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       .order('at', { ascending: false });
     if (error) throw error;
     ST.cashEntries = data || [];
+    const tdy = app.toVnYmd(new Date());
+    const td = await sb.from('cash_entries').select('dir,amount').eq('shop_id', shopId).gte('at', tdy + 'T00:00:00+07:00').lte('at', tdy + 'T23:59:59+07:00');
+    if (td.error) throw td.error;
+    ST.cashToday = { in: 0, out: 0 };
+    for (const c of (td.data || [])) { if (c.dir === 'in') ST.cashToday.in += c.amount; else ST.cashToday.out += c.amount; }
     await Promise.all([loadCashCats(), app.hasPlan('pro') ? loadDebts() : Promise.resolve()]);
   }
 
@@ -3937,6 +3906,16 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const cashPresets = [['Hôm nay', tdy, tdy], ['7 ngày', app.shiftYmd(tdy, -6), tdy], ['Tháng này', mStart, tdy], ['Tháng trước', pmEnd.slice(0, 8) + '01', pmEnd]];
     let totalIn = 0, totalOut = 0;
     for (const c of ST.cashEntries) { if (c.dir === 'in') totalIn += c.amount; else totalOut += c.amount; }
+    const debtNcc = (ST.debts || []).reduce((a, p) => a + (p.total - p.paid), 0);
+    const tIn = (ST.cashToday && ST.cashToday.in) || 0, tOut = (ST.cashToday && ST.cashToday.out) || 0;
+    const statRow = (label, val, o) => {
+      o = o || {};
+      const r = el('div', { style: 'padding:8px 0;display:flex;justify-content:space-between;gap:8px;align-items:baseline;' + (o.sub ? 'padding-left:14px;color:var(--text-sub);border-top:1px solid var(--border);' : '') },
+        el('span', { style: (o.sub ? '' : 'font-weight:600') , text: label + (o.onClick ? ' ›' : '') }),
+        el('b', { className: 'num', style: 'font-size:' + (o.big ? '20px' : '14.5px') + (o.color ? ';color:' + o.color : ''), text: val }));
+      if (o.onClick) { r.style.cursor = 'pointer'; r.setAttribute('role', 'button'); r.tabIndex = 0; r.onclick = o.onClick; r.onkeydown = e => { if (e.key === 'Enter') o.onClick(e); }; }
+      return r;
+    };
 
     contentHost.replaceChildren(
       renderMetaBar('cash', async () => { await loadCashEntries(); markLoaded('cash'); renderCashTab(); }),
@@ -3956,6 +3935,14 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('div', { className: 'kpi-box' }, el('small', { text: 'Tổng chi' }), el('b', { className: 'num', style: 'color:var(--error)', text: app.formatMoney(totalOut) })),
         el('div', { className: 'kpi-box' }, el('small', { text: 'Chênh lệch' }), el('b', { className: 'num', text: app.formatMoney(totalIn - totalOut) }))
       ),
+      app.hasPlan('pro') ? el('div', { className: 'card' },
+        statRow('Tổng nợ', app.formatMoney(debtNcc), { big: true, color: debtNcc > 0 ? 'var(--error)' : null }),
+        statRow('Nợ NCC', app.formatMoney(debtNcc), { sub: true, onClick: e => openDebtListModal(e.currentTarget) }),
+        statRow('Nợ khác', '—', { sub: true })) : null,
+      app.hasPlan('pro') ? el('div', { className: 'card' },
+        statRow('Thu hôm nay', app.formatMoney(tIn), { color: 'var(--accent)' }),
+        statRow('Chi hôm nay', app.formatMoney(tOut), { color: 'var(--error)' }),
+        statRow('Chênh lệch', app.formatMoney(tIn - tOut), { bold: true })) : null,
       el('div', { className: 'card' },
         ST.cashEntries.length ? ST.cashEntries.map(c => {
           const catObj = cashCatOf(c.cat);
@@ -4074,8 +4061,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           }
           closeModal();
           app.showToast('Đã lưu khoản thu chi', 'accent');
-          if (ST.tab === 'ov_debt') { await loadDebts(); renderOvDebt(); }
-          else { await loadCashEntries(); renderCashTab(); }
+          await loadCashEntries(); renderCashTab();
         } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = 'Lưu'; }
       },
       text: 'Lưu'
@@ -5224,7 +5210,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
 
   /* ===== TỔNG QUAN (gói pro): 4 tab phụ ===== */
-  const OV_TABS = [['ov_money', 'Tiền hôm nay'], ['ov_actual', 'Thực tế hôm nay'], ['ov_goal', 'Mục tiêu trong ngày'], ['ov_stock', 'Tồn kho hàng bán'], ['ov_debt', 'Nợ nhà cung cấp']];
+  const OV_TABS = [['ov_stock', 'Tồn kho hàng bán'], ['ov_actual', 'Thực tế/Mục tiêu']];
   function ovSubBar() {
     return el('div', { className: 'chips ov-sub', style: 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px', role: 'group', 'aria-label': 'Tổng quan' },
       OV_TABS.map(([id, txt]) => el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.tab === id), style: 'justify-content:center;text-align:center;white-space:nowrap;padding:9px 4px', onClick: () => { if (ST.tab !== id) switchTab(id); }, text: txt })));
@@ -5235,34 +5221,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
   const ovLoading = (tab, redraw) => contentHost.replaceChildren(ovSubBar(), renderMetaBar(tab, async () => { await loadTabData(tab); redraw(); }), el('div', { className: 'empty-state', text: 'Đang tải…' }));
 
-  // 1. Tiền hôm nay
-  function renderOvMoney() {
-    stickyHost.replaceChildren();
-    if (!ST.flow || !ST.eodPro || !ST.eodState) { ovLoading('ov_money', renderOvMoney); return; }
-    const model = eodModel(), K = model.kpi, today = app.toVnYmd(new Date());
-    const row = (label, val, o) => el('div', { style: 'padding:8px 0;border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:8px;align-items:baseline' + ((o && o.sub) ? ';padding-left:14px;color:var(--text-sub)' : '') },
-      el('span', { style: (o && o.sub) ? '' : 'font-weight:600', text: label }),
-      el('b', { className: 'num', style: 'font-size:' + ((o && o.big) ? '20px' : '14px') + ((o && o.sub) ? ';color:var(--text)' : ''), text: val }));
-    const card = el('div', { className: 'card' }, el('b', { style: 'display:block;margin-bottom:4px', text: 'Tiền hôm nay' }),
-      row('Doanh thu', flowMoney(K.rev.act), { big: true }), row('Số đơn', flowNum(K.don.act, 0)), row('Tổng số chai bán', flowNum(K.bot.tot, 0)),
-      ...K.bot.items.map(x => row(x.name, flowNum(x.act, 0) + ' ' + x.unit, { sub: true })));
-    const kq = el('button', { type: 'button', className: 'btn btn-primary', style: 'width:100%;margin-bottom:12px', onClick: e => openKiemQuyModal(e.currentTarget), text: 'Kiểm quỹ · Hôm nay' });
-    const saved = d => { const sn = (ST.eodPro.snaps || []).find(x => x.day === d); return sn && sn.data && sn.data.model ? sn : null; };
-    const vtxt = { 'Đạt': 'Đúng', 'Không đạt': 'Lệch' };
-    const vcol = v => v === 'Đạt' ? 'var(--accent)' : v === 'Không đạt' ? 'var(--error)' : 'var(--text-sub)';
-    const hist = el('div', { className: 'card' }, el('b', { style: 'display:block;margin-bottom:6px', text: 'Lịch sử' }),
-      [today, app.shiftYmd(today, -1), app.shiftYmd(today, -2)].map(d => {
-        const m = d === today ? model : (saved(d) ? saved(d).data.model : null);
-        const v = m ? eodVerdict(m).C : null;
-        return el('div', { className: 'line-row' },
-          el('div', { className: 'line-main' }, el('b', { text: d.slice(8, 10) + '/' + d.slice(5, 7) + (d === today ? ' · Hôm nay' : '') }),
-            m ? el('small', { className: 'num' }, el('span', null, 'Doanh thu ' + flowMoney(m.kpi.rev.act) + ' · Kiểm quỹ: ', el('b', { style: 'color:' + vcol(v), text: vtxt[v] || 'Chưa kiểm' }))) : el('small', { text: 'Chưa có dữ liệu' })),
-          m ? el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openEodPastModal({ data: { model: m } }, d, e.currentTarget), text: 'Xem' }) : null);
-      }));
-    contentHost.replaceChildren(ovSubBar(), renderMetaBar('ov_money', async () => { await loadTabData('ov_money'); renderOvMoney(); }), card, kq, hist);
-  }
-
-  // 2. Thực tế hôm nay: bảng + biểu đồ cột hôm nay / mục tiêu
+  // 2. Thực tế/Mục tiêu: bảng mục tiêu một ngày, bảng thực tế, biểu đồ cột hôm nay / mục tiêu
   function ovChartCard(C) {
     const metrics = [
       ['Nấu (lít)', C.ta.lit, C.tp.lit, v => flowNum(v, 1)],
@@ -5293,15 +5252,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     stickyHost.replaceChildren();
     if (!ST.flow) { ovLoading('ov_actual', renderOvActual); return; }
     const F = flowCards(renderOvActual);
-    contentHost.replaceChildren(ovSubBar(), renderMetaBar('ov_actual', async () => { await loadTabData('ov_actual'); renderOvActual(); }), F.actCard, ovChartCard(F.C));
-  }
-
-  // 3a. Mục tiêu trong ngày
-  function renderOvGoal() {
-    stickyHost.replaceChildren();
-    if (!ST.flow) { ovLoading('ov_goal', renderOvGoal); return; }
-    const F = flowCards(renderOvGoal);
-    contentHost.replaceChildren(ovSubBar(), renderMetaBar('ov_goal', async () => { await loadTabData('ov_goal'); renderOvGoal(); }), F.planCard);
+    contentHost.replaceChildren(ovSubBar(), renderMetaBar('ov_actual', async () => { await loadTabData('ov_actual'); renderOvActual(); }), F.planCard, F.actCard, ovChartCard(F.C));
   }
 
   // 3. Tồn kho hàng bán
@@ -5312,32 +5263,22 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     contentHost.replaceChildren(ovSubBar(), renderMetaBar('ov_stock', async () => { await loadTabData('ov_stock'); renderOvStock(); }), stock);
   }
 
-  // 4. Nợ nhà cung cấp
-  function renderOvDebt() {
-    stickyHost.replaceChildren();
+  // Danh sách nợ nhà cung cấp (mở từ tab Thu chi)
+  function openDebtListModal(opener) {
     const today = app.toVnYmd(new Date());
     const byPlace = new Map();
-    let grand = 0;
     for (const p of ST.debts) {
       const left = p.total - p.paid;
-      grand += left;
       if (!byPlace.has(p.place)) byPlace.set(p.place, { total: 0, list: [], overdue: false });
       const g = byPlace.get(p.place);
       g.total += left; g.list.push(p);
       if (p.due_date && p.due_date < today) g.overdue = true;
     }
-    contentHost.replaceChildren(ovSubBar(),
-      renderMetaBar('ov_debt', async () => { await loadDebts(); markLoaded('ov_debt'); renderOvDebt(); }),
-      el('div', { className: 'card row-between' },
-        el('span', { style: 'font-weight:700', text: 'Tổng nợ nhà cung cấp' }),
-        el('b', { className: 'num', style: 'font-size:20px;color:' + (grand > 0 ? 'var(--error)' : 'inherit'), text: app.formatMoney(grand) })),
-      byPlace.size ? el('div', { className: 'card' }, [...byPlace.entries()].map(([place, grp]) => el('div', { className: 'line-row' },
-        el('div', { className: 'line-main' },
-          el('b', { text: place }),
-          el('small', { className: 'num', text: grp.list.length + ' phiếu · Còn nợ ' + app.formatMoney(grp.total) })),
-        grp.overdue ? el('span', { className: 'badge badge-err', text: 'Quá hạn' }) : null,
-        el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openDebtDetailModal(place, grp, e.currentTarget), text: 'Xem' })
-      ))) : el('div', { className: 'card empty-state', text: 'Không còn khoản nợ nhà cung cấp nào.' }));
+    openModal('Nợ nhà cung cấp', byPlace.size ? el('div', null, [...byPlace.entries()].map(([place, grp]) => el('div', { className: 'line-row' },
+      el('div', { className: 'line-main' }, el('b', { text: place }), el('small', { className: 'num', text: grp.list.length + ' phiếu · Còn nợ ' + app.formatMoney(grp.total) })),
+      grp.overdue ? el('span', { className: 'badge badge-err', text: 'Quá hạn' }) : null,
+      el('button', { type: 'button', className: 'btn btn-sm', onClick: e => { closeModal(); openDebtDetailModal(place, grp, e.currentTarget); }, text: 'Xem' })
+    ))) : el('div', { className: 'empty-state', text: 'Không còn khoản nợ nhà cung cấp nào.' }), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' })], opener);
   }
   function openDebtDetailModal(place, grp, opener) {
     const today = app.toVnYmd(new Date());

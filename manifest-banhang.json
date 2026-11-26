@@ -1,7 +1,7 @@
 {
   "id": "/ban-hang.html",
-  "name": "Bán hàng",
-  "short_name": "Bán hàng",
+  "name": "Vận hành",
+  "short_name": "Vận hành",
   "start_url": "/ban-hang.html",
   "scope": "/ban-hang.html",
   "display": "standalone",

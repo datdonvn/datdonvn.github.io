@@ -20,7 +20,7 @@
 
   // Danh sách các trang mở rộng. Thêm một dòng khi một trang mới được đẩy lên.
   const PAGES = [
-    { id: 'ban-hang', label: 'Bán hàng', href: 'ban-hang.html', plan: 'standard' },
+    { id: 'ban-hang', label: 'Vận hành', href: 'ban-hang.html', plan: 'standard' },
     { id: 'quan-tri', label: 'Quản trị', href: 'quan-tri.html', plan: 'standard' }
   ];
 

@@ -1051,14 +1051,28 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('h3', { text: cat }),
         list.map(mi => {
           const it = stepOf(mi), qty = it ? it.qty : 0;
-          return el('div', { className: 'v1-item' + (qty ? ' on' : '') },
-            el('div', { style: 'min-width:0' },
+          const out = !!mi.sold_out;
+          const setOut = on => {
+            renderSaleTab();
+            confirmModal(on ? 'Báo hết hàng?' : 'Bán lại món này?',
+              on ? '"' + mi.name + '" sẽ hiện "Hết hàng" ở cả app bán hàng và app đặt hàng, không ai đặt được nữa.' : '"' + mi.name + '" sẽ bán lại ở cả app bán hàng và app đặt hàng.',
+              on ? 'Báo hết hàng' : 'Bán lại', async () => {
+                const res = await sb.from('menu_items').update({ sold_out: on }).eq('id', mi.id).eq('shop_id', shopId).select('id');
+                checkMutated(res);
+                mi.sold_out = on;
+                if (on) { const ci = s.items.findIndex(x => x.item_id === mi.id); if (ci >= 0) { s.items.splice(ci, 1); s.paidCustom = null; saveDraft(); } }
+                renderSaleTab();
+              });
+          };
+          return el('div', { className: 'v1-item' + (qty ? ' on' : ''), style: out ? 'opacity:.6' : null },
+            app.toggle(out, setOut),
+            el('div', { style: 'min-width:0;flex:1' },
               el('div', { className: 'nm', text: mi.name }),
-              el('div', { className: 'pr num', text: app.formatMoney(mi.price) + (mi.unit ? ' / ' + mi.unit : '') })),
+              el('div', { className: 'pr num' }, app.formatMoney(mi.price) + (mi.unit ? ' / ' + mi.unit : ''), out ? el('b', { style: 'color:var(--error);margin-left:6px', text: 'Hết hàng' }) : null)),
             el('div', { className: 'stepper' },
               el('button', { type: 'button', disabled: !qty, 'aria-label': 'Giảm ' + mi.name, onClick: () => changeQty(mi, -1), text: '−' }),
               el('output', { className: 'num', text: String(qty) }),
-              el('button', { type: 'button', className: 'plus', 'aria-label': 'Tăng ' + mi.name, onClick: () => changeQty(mi, 1), text: '+' })));
+              el('button', { type: 'button', className: 'plus', disabled: out, 'aria-label': 'Tăng ' + mi.name, onClick: () => changeQty(mi, 1), text: '+' })));
         })
       )) : [el('div', { className: 'empty-state', text: ST.menuItems.length ? 'Không tìm thấy món phù hợp.' : 'Chưa có món nào. Hãy thêm món ở Thêm → Menu trước.' })])
     ];

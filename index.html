@@ -1202,7 +1202,7 @@ function renderMenuView() {
         imgEl,
         el('div', { className: 'item-info' },
           el('div', { className: 'item-name', text: it.name }),
-          it.description ? el('button', { type: 'button', className: 'item-more', text: 'Xem mô tả',
+          it.description ? el('button', { type: 'button', className: 'item-more', text: 'Giới thiệu món',
             onClick: e => openDialog(it.name, el('p', { style: 'margin:0;white-space:pre-line;line-height:1.55', text: it.description }), null, e.currentTarget) }) : null,
           el('div', { className: 'item-price-row' },
             el('span', { className: 'item-price num', text: formatMoney(it.price) }),

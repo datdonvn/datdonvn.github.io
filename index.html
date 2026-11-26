@@ -882,6 +882,23 @@ function saveOrderLocal(code, phone, at) {
 }
 
 /* ===== HỘP THOẠI TIỆN ÍCH (TRUY CẬP ĐƯỢC, ESC ĐÓNG, TRẢ FOCUS) ===== */
+// Định dạng mô tả: **đậm**, *nghiêng*, __gạch chân__ (an toàn, không dùng innerHTML)
+function richText(str) {
+  const frag = document.createDocumentFragment();
+  const re = /\*\*(.+?)\*\*|__(.+?)__|\*(.+?)\*/g;
+  let last = 0, m;
+  str = String(str || '');
+  while ((m = re.exec(str))) {
+    if (m.index > last) frag.append(str.slice(last, m.index));
+    const node = document.createElement(m[1] != null ? 'strong' : m[2] != null ? 'u' : 'em');
+    node.textContent = m[1] != null ? m[1] : m[2] != null ? m[2] : m[3];
+    frag.append(node);
+    last = re.lastIndex;
+  }
+  if (last < str.length) frag.append(str.slice(last));
+  return frag;
+}
+
 function openDialog(title, bodyNode, footerNode, opener) {
   ST.lastModalOpener = opener || document.activeElement;
   const root = document.getElementById('modal-root');
@@ -1203,7 +1220,7 @@ function renderMenuView() {
         el('div', { className: 'item-info' },
           el('div', { className: 'item-name', text: it.name }),
           it.description ? el('button', { type: 'button', className: 'item-more', text: 'Giới thiệu món',
-            onClick: e => openDialog(it.name, el('p', { style: 'margin:0;white-space:pre-line;line-height:1.55', text: it.description }), null, e.currentTarget) }) : null,
+            onClick: e => openDialog(it.name, el('div', { style: 'white-space:pre-line;line-height:1.7;font-size:15.5px' }, richText(it.description)), null, e.currentTarget) }) : null,
           el('div', { className: 'item-price-row' },
             el('span', { className: 'item-price num', text: formatMoney(it.price) }),
             it.unit ? el('span', { className: 'item-unit', text: '/ ' + it.unit }) : null

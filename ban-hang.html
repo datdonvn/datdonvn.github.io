@@ -4136,13 +4136,15 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         net: g.menus.reduce((s, x) => s + w(x) * flowNetPrice(x.m, k), 0)
       };
     };
+    // số chai hoà vốn = vốn cả mẻ / doanh thu trung bình mỗi chai bán
+    const breakEven = (von, dt, ban) => ban > 0 && dt > 0 ? Math.ceil(von / (dt / ban) - 1e-9) : null;
     const plan = groups.map(g => {
       const t = (f.targets.g && f.targets.g[g.id]) || {};
       const lit = Math.max(0, Number(t.lit) || 0), ban = Math.max(0, Math.floor(Number(t.ban) || 0));
       const mx = mix(g, false);
       const sx = mx.ml > 0 ? Math.floor(lit * 1000 / mx.ml) : 0;
       const von = Math.round(sx * mx.cost), dt = Math.round(ban * mx.net);
-      return { g, sx, ban, lit, von, dt, lai: dt - von, ratio: sx > 0 ? ban / sx : null, bo: sx - ban };
+      return { g, sx, ban, lit, von, dt, lai: dt - von, ratio: sx > 0 ? ban / sx : null, bo: sx - ban, hv: breakEven(von, dt, ban) };
     });
     const act = groups.map(g => {
       const mx = mix(g, true);
@@ -4150,12 +4152,12 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       const sx = mx.ml > 0 ? Math.floor(ml / mx.ml) : 0;
       const ban = sold.get(g.id) || 0, tang = gift.get(g.id) || 0;
       const von = Math.round(sx * mx.cost), dt = Math.round(rev.get(g.id) || 0);
-      return { g, sx, ban, lit: ml / 1000, von, dt, lai: dt - von, ratio: sx > 0 ? ban / sx : null, bo: sx - ban - tang };
+      return { g, sx, ban, lit: ml / 1000, von, dt, lai: dt - von, ratio: sx > 0 ? ban / sx : null, bo: sx - ban - tang, hv: breakEven(von, dt, ban) };
     });
     const total = rows => {
       const sx = rows.reduce((s, r) => s + r.sx, 0), ban = rows.reduce((s, r) => s + r.ban, 0);
       const von = rows.reduce((s, r) => s + r.von, 0), dt = rows.reduce((s, r) => s + r.dt, 0);
-      return { sx, ban, lit: rows.reduce((s, r) => s + r.lit, 0), von, dt, lai: dt - von, ratio: sx > 0 ? ban / sx : null, bo: rows.reduce((s, r) => s + r.bo, 0) };
+      return { sx, ban, lit: rows.reduce((s, r) => s + r.lit, 0), von, dt, lai: dt - von, ratio: sx > 0 ? ban / sx : null, bo: rows.reduce((s, r) => s + r.bo, 0), hv: breakEven(von, dt, ban) };
     };
     const tp = total(plan), ta = total(act);
     tp.don = tp.ban > 0 ? Math.ceil(tp.ban / k) : 0;
@@ -4191,6 +4193,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         row('Số chai sx', rows.map(r => cell(flowNum(r.sx))), flowNum(tot.sx)),
         row('Vốn', rows.map(r => cell(flowMoney(r.von))), flowMoney(tot.von)),
         sect('Bán hàng'),
+        row('Số chai hoà vốn', rows.map(r => cell(r.hv == null ? '—' : flowNum(r.hv))), tot.hv == null ? '—' : flowNum(tot.hv)),
         row('Số chai bán', rows.map(r => editable ? numCell(r.g.id, 'ban') : cell(flowNum(r.ban))), flowNum(tot.ban)),
         row('Đơn', rows.map(() => cell('')), flowNum(tot.don)),
         row('Tỷ lệ bán hết', rows.map(r => cell(flowPct(r.ratio))), flowPct(tot.ratio)),

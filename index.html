@@ -226,7 +226,7 @@ span.shop-logo.shop-mono { display: inline-flex; align-items: center; justify-co
 .item-info { flex: 1; min-width: 0; }
 .item-name { font-weight: 700; font-size: 16px; line-height: 1.3; word-break: break-word; }
 .item-desc { color: var(--text-sub); font-size: 13.5px; margin-top: 3px; line-height: 1.35; }
-.item-more { margin-top: 4px; padding: 4px 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: 13.5px; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.item-more { display: block; margin-top: 1px; padding: 2px 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: 12px; font-style: italic; font-weight: 500; text-decoration: none; text-align: left; }
 .item-price-row { margin-top: 6px; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
 .item-price { font-weight: 700; font-size: 16.5px; color: var(--accent); }
 .item-unit { font-size: 13px; color: var(--text-sub); }
@@ -834,6 +834,7 @@ const ST = {
     dayIdx: 0,
     deliverAt: null,
     payMethodId: null,
+    counter: false,
     voucherId: null,
     vouchers: [],
     vouchersPhone: '',
@@ -1377,6 +1378,26 @@ async function fetchMyVouchers(phone) {
 
 /* ===== HỘP XÁC NHẬN ĐƠN ===== */
 let checkoutRefs = null;
+// Popup nhỏ nằm trên hộp xác nhận đơn: đánh dấu đơn mua tại quầy
+function openCounterPop(opener) {
+  const root = document.getElementById('modal-root');
+  const layer = el('div', { className: 'modal-backdrop', style: 'z-index:30' });
+  const close = () => { layer.remove(); if (opener && opener.focus) opener.focus(); };
+  const cb = el('input', { type: 'checkbox', checked: !!ST.co.counter, style: 'width:22px;height:22px;flex:none',
+    onChange: e => { ST.co.counter = e.target.checked; renderCheckoutContent(); } });
+  const sheet = el('div', { className: 'modal-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Mua tại quầy', style: 'max-width:420px' },
+    el('div', { style: 'display:flex;justify-content:flex-end;padding:10px 12px 0' },
+      el('button', { className: 'modal-close', type: 'button', 'aria-label': 'Đóng', onClick: close, text: '×' })),
+    el('div', { style: 'padding:4px 20px 22px;display:grid;gap:16px' },
+      el('label', { style: 'display:flex;gap:12px;align-items:center;font-weight:700;font-size:16px;color:#14532d;cursor:pointer' }, cb, el('span', { text: 'Tick vào đây nếu mua tại quầy' })),
+      el('div', { style: 'font-weight:700;font-size:16px;color:#e5171f', text: 'Bỏ qua nếu đặt online' })));
+  layer.addEventListener('click', e => { if (e.target === layer) close(); });
+  layer.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } });
+  layer.append(sheet);
+  root.append(layer);
+  cb.focus();
+}
+
 function openCheckoutModal(opener) {
   ST.co.open = true;
   ST.co.error = '';
@@ -1633,6 +1654,11 @@ function renderCheckoutContentInner() {
         onClick: () => { ST.co.payMethodId = m.id; renderCheckoutContent(); },
         text: m.name
       }))
+    ),
+    el('div', { className: 'choices', style: 'margin-top:8px' },
+      el('button', { type: 'button', className: 'choice-btn', 'aria-label': 'Ghi chú nội bộ',
+        style: 'flex:0 0 calc(50% - 4px);border-color:var(--accent);color:var(--accent);font-size:18px;line-height:1;text-align:center',
+        onClick: e => openCounterPop(e.currentTarget), text: ST.co.counter ? '✓' : '' })
     )
   ) : null;
 
@@ -1706,7 +1732,8 @@ async function submitOrder() {
     p_pay_method: (window.__lastPayId = ST.co.payMethodId || null, window.__lastPayCash = /tiền mặt/i.test(((ST.shop.payment_methods || []).find(m => m.id === ST.co.payMethodId) || {}).name || ''), ST.co.payMethodId || null),
     p_voucher: ST.co.voucherId || null,
     p_place: selPlace ? selPlace.name : null,
-    p_deliver_at: ST.co.asap ? null : ST.co.deliverAt
+    p_deliver_at: ST.co.asap ? null : ST.co.deliverAt,
+    p_counter: !!ST.co.counter
   };
 
   ST.co.submitting = true;
@@ -1719,6 +1746,7 @@ async function submitOrder() {
     ST.co.open = false;
     ST.cart = {};
     ST.co.note = '';
+    ST.co.counter = false;
     ST.co.voucherId = null;
     ST.co.quote = null;
     const nowIso = new Date().toISOString();

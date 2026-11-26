@@ -1026,7 +1026,7 @@ function renderApp() {
         )
       );
 
-  const shopLink = location.origin + location.pathname + '?shop=' + encodeURIComponent(SLUG);
+  const shopLink = location.origin + location.pathname.replace(/index\.html$/, '') + '?shop=' + encodeURIComponent(SLUG);
   const shopQr = window.DDQR ? DDQR.img(shopLink) : null;
   const qrBox = shopQr ? el('div', { className: 'shop-qr' },
     el('img', { src: shopQr, alt: 'Mã QR đặt hàng của quán' }),

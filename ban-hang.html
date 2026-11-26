@@ -1835,7 +1835,10 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             onClick: () => { sel = m.id; draw(); }, text: m.name
           }))
         ),
-        order.pay_status === 'paid' ? el('small', { style: 'display:block;margin-top:10px;color:var(--text-sub)', text: 'Đơn đã thu tiền, chỉ đổi cách thanh toán đã ghi.' }) : null
+        order.pay_status === 'paid' ? el('small', { style: 'display:block;margin-top:10px;color:var(--text-sub)', text: 'Đơn đã thu tiền, chỉ đổi cách thanh toán đã ghi.' }) : null,
+        // Chọn cách không phải tiền mặt: hiện luôn QR để khách quét ngay
+        (sel && !/tiền mặt/i.test(payMethodName(sel) || '') && window.DDQR && DDQR.canShow(ST.shop))
+          ? el('div', { style: 'margin-top:14px;padding-top:12px;border-top:1px solid var(--border)' }, DDQR.block(ST.shop, order.total, order.code)) : null
       );
     };
     draw();

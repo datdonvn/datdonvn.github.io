@@ -91,11 +91,6 @@ button {
 .shop-banner { background: var(--surface); border-bottom: 1px solid var(--border); padding-top: env(safe-area-inset-top); }
 .shop-banner img { display: block; width: 100%; max-width: 600px; margin: 0 auto; aspect-ratio: 1200 / 450; object-fit: cover; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.shop-foot-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
-.shop-foot-row .shop-contact { flex: 1; min-width: 0; }
-.shop-qr { flex: none; width: 50%; max-width: 260px; text-align: center; }
-.shop-qr img { width: 100%; height: auto; aspect-ratio: 1; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 4px; box-sizing: border-box; display: block; }
-.shop-qr .btn { margin-top: 6px; width: 100%; white-space: nowrap; padding-left: 6px; padding-right: 6px; font-size: 14px; }
 .shop-foot { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 13.5px; color: var(--text-sub); }
 .shop-tagline { text-align: center; margin-bottom: 12px; }
 .shop-contact { text-align: left; display: flex; flex-direction: column; gap: 3px; }
@@ -1028,16 +1023,17 @@ function renderApp() {
 
   const shopLink = location.origin + location.pathname.replace(/index\.html$/, '') + '?shop=' + encodeURIComponent(SLUG);
   const shopQr = window.DDQR ? DDQR.img(shopLink) : null;
-  const qrBox = shopQr ? el('div', { className: 'shop-qr' },
-    el('img', { src: shopQr, alt: 'Mã QR đặt hàng của quán' }),
-    el('button', { type: 'button', className: 'btn btn-sm', onClick: e => DDQR.download(shopQr, 'qr-dat-hang-' + SLUG + '.png', e.currentTarget), text: 'Tải mã QR đặt hàng' })) : null;
+  const openShopQr = e => openDialog('QR đặt hàng',
+    el('div', { style: 'text-align:center' },
+      el('img', { src: shopQr, alt: 'Mã QR đặt hàng của quán', style: 'width:min(78vw,320px);height:auto;aspect-ratio:1;background:#fff;border:1px solid var(--border);border-radius:12px;padding:8px;box-sizing:border-box' }),
+      el('div', { style: 'margin-top:12px' }, el('button', { type: 'button', className: 'btn btn-primary', onClick: ev => DDQR.download(shopQr, 'qr-dat-hang-' + SLUG + '.png', ev.currentTarget), text: 'Tải QR đặt hàng' }))),
+    null, e.currentTarget);
   const foot = el('footer', { className: 'shop-foot' },
     shop.tagline ? el('div', { className: 'shop-tagline', text: shop.tagline }) : null,
-    el('div', { className: 'shop-foot-row' },
-      el('div', { className: 'shop-contact' },
-        shop.phone ? el('a', { href: 'tel:' + shop.phone, text: 'Gọi: ' + shop.phone }) : null,
-        shop.address ? el('span', { text: shop.address }) : null),
-      qrBox));
+    el('div', { className: 'shop-contact' },
+      shop.phone ? el('a', { href: 'tel:' + shop.phone, text: 'Gọi: ' + shop.phone }) : null,
+      shop.address ? el('span', { text: shop.address }) : null,
+      shopQr ? el('a', { href: '#', onClick: e => { e.preventDefault(); openShopQr(e); }, text: 'QR đặt hàng' }) : null));
 
   const main = el('main', { className: 'wrap' },
     el('div', { className: 'status-banner ' + st.cls, role: 'status', text: st.text }),

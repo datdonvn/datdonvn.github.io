@@ -615,7 +615,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   const ALL_TABS = [
     { id: 'sale', label: 'Bán', minPlan: 'standard' },
     { id: 'online', label: 'Đơn', minPlan: 'standard' },
-    { id: 'eod', label: 'Cuối ngày', minPlan: 'standard' },
     { id: 'menu', label: 'Menu', minPlan: 'standard' },
     { id: 'settings', label: 'Cài đặt', minPlan: 'standard' },
     { id: 'buy', label: 'Mua', minPlan: 'pro' },
@@ -623,7 +622,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     { id: 'recipe', label: 'Định mức', minPlan: 'pro' },
     { id: 'cash', label: 'Thu chi', minPlan: 'pro' },
     { id: 'batch', label: 'Sản xuất', minPlan: 'pro' },
-    { id: 'flow', label: 'Mục tiêu trong ngày', minPlan: 'pro' },
+    { id: 'flow', label: 'Trong ngày', minPlan: 'pro' },
     { id: 'cust', label: 'Khách', minPlan: 'standard' },
     { id: 'promo', label: 'Khuyến mãi', minPlan: 'proplus' },
     { id: 'feedback', label: 'Đánh giá', minPlan: 'proplus' }
@@ -790,7 +789,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   function markLoaded(tab) { ST.loadedAt[tab] = new Date(); }
   function openMoreModal(opener) {
     const rest = TABS.filter(t => !NAV_MAIN.includes(t.id) && t.id !== 'settings');
-    openModal('Thêm', el('div', {}, [['Bán hàng', ['menu']], ['Kho và sản xuất', ['buy', 'inv', 'recipe', 'batch', 'flow']], ['Tiền', ['cash']]].map(([gt, ids]) => {
+    openModal('Thêm', el('div', {}, [['Bán hàng', ['menu']], ['Kho và sản xuất', ['buy', 'inv', 'recipe', 'batch']], ['Tiền', ['cash']]].map(([gt, ids]) => {
       const ts = rest.filter(t => ids.includes(t.id));
       return ts.length ? el('div', { style: 'margin-bottom:12px' },
         el('div', { style: 'font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:6px', text: gt }),
@@ -816,7 +815,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     document.title = newOnlineCount > 0 ? '(' + newOnlineCount + ') Đơn mới – ' + ST.shop.name : 'Bán hàng – ' + ST.shop.name;
     const navBtns = NAV_MAIN.map(id => TABS.find(t => t.id === id)).filter(Boolean).map(t => el('button', {
       type: 'button',
-      'aria-current': (ST.tab === t.id || (t.id === 'online' && ST.tab === 'feedback') || (t.id === 'sale' && ST.tab === 'eod')) ? 'page' : null,
+      'aria-current': (ST.tab === t.id || (t.id === 'online' && ST.tab === 'feedback') || (t.id === 'sale' && ST.tab === 'flow')) ? 'page' : null,
       onClick: () => switchTab(t.id)
     },
       navIcon(t.id),
@@ -1128,7 +1127,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
               el('output', { className: 'num', text: String(qty) }),
               el('button', { type: 'button', className: 'plus', disabled: out, 'aria-label': 'Tăng ' + mi.name, onClick: () => changeQty(mi, 1), text: '+' })));
         })
-      )) : [el('div', { className: 'empty-state', text: ST.menuItems.length ? 'Không tìm thấy món phù hợp.' : 'Chưa có món nào. Hãy thêm món ở Thêm → Menu trước.' })])
+      )) : [el('div', { className: 'empty-state', text: ST.menuItems.length ? 'Không tìm thấy món phù hợp.' : 'Chưa có món nào. Hãy thêm món ở Thêm → Menu trước.' })]),
+      ...(app.hasPlan('pro') ? [el('button', { type: 'button', className: 'btn', style: 'width:100%;margin:16px 0 8px', onClick: e => openKiemQuyModal(e.currentTarget), text: 'Kiểm quỹ · Hôm nay' })] : [])
     ];
 
     // Các dòng trong đơn
@@ -1630,7 +1630,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   /* ===== CUỐI NGÀY (gói pro): A. KPI, B. Check list, C. Kiểm quỹ; lưu ảnh chụp 3 ngày ===== */
   function saleSubBar() {
     const mk = (id, txt) => el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.tab === id), onClick: () => { if (ST.tab !== id) switchTab(id); }, text: txt });
-    return el('div', { className: 'hscroll even', style: 'margin-bottom:10px' }, mk('sale', 'Bán hàng'), mk('eod', 'Cuối ngày'));
+    if (!app.hasPlan('pro')) return el('div');
+    return el('div', { className: 'hscroll even', style: 'margin-bottom:10px' }, mk('sale', 'Bán hàng'), mk('flow', 'Trong ngày'));
   }
 
   async function loadEodPro() {
@@ -1717,9 +1718,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     };
   }
 
-  function eodCards(model, editable, dayLabel) {
+  function eodCards(model, editable, dayLabel, redraw) {
     const st = ST.eodState;
-    const again = () => { eodPersist(false); renderEodView(); };
+    const again = () => { eodPersist(false); (redraw || renderEodView)(); };
     const g4 = (cols, kids) => el('div', { style: 'display:grid;grid-template-columns:' + cols + ';align-items:center;column-gap:4px' }, kids);
     const c = (txt, o) => el('div', { className: 'num', style: 'padding:6px 2px;font-size:13.5px;text-align:' + ((o && o.left) ? 'left' : 'right') + ';' + ((o && o.bold) ? 'font-weight:700;' : '') + ((o && o.sub) ? 'color:var(--text-sub);' : '') + ((o && o.color) ? 'color:' + o.color + ';' : ''), text: txt });
     const sect = txt => el('div', { style: 'margin:10px 0 4px;padding:5px 8px;background:var(--surface-2,#eef1ec);border-radius:8px;font-weight:700;font-size:13px', text: txt });
@@ -1827,6 +1828,20 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           m ? el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openEodPastModal({ data: { model: m } }, d, e.currentTarget), text: 'Xem' }) : null);
       }));
     return [...eodCards(model, true, 'Hôm nay'), histCard];
+  }
+
+  // Kiểm quỹ hôm nay: mở dạng cửa sổ nhỏ ở cuối tab Bán hàng
+  async function openKiemQuyModal(opener) {
+    const body = el('div', null, el('div', { className: 'empty-state', text: 'Đang tải…' }));
+    openModal('Kiểm quỹ · Hôm nay', body, [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' })], opener);
+    try { await loadEodPro(); } catch (err) { showErr(err); closeModal(); return; }
+    const draw = () => {
+      const card = eodCards(eodModel(), true, 'Hôm nay', draw)[2];
+      if (card.firstChild) card.firstChild.remove();
+      card.style.cssText = 'border:0;box-shadow:none;padding:0;margin:0';
+      body.replaceChildren(card);
+    };
+    draw();
   }
 
   function openEodPastModal(sn, day, opener) {
@@ -4166,7 +4181,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
 
   function renderFlowTab() {
-    if (!ST.flow) { contentHost.replaceChildren(renderMetaBar('flow', async () => { await loadTabData('flow'); renderFlowTab(); }), el('div', { className: 'empty-state', text: 'Đang tải…' })); return; }
+    if (!ST.flow) { contentHost.replaceChildren(saleSubBar(), renderMetaBar('flow', async () => { await loadTabData('flow'); renderFlowTab(); }), el('div', { className: 'empty-state', text: 'Đang tải…' })); return; }
     const f = ST.flow, C = flowCompute();
     const cols = 'minmax(84px,1.2fr) ' + C.groups.map(() => 'minmax(0,1fr)').join(' ') + ' minmax(0,1fr)';
     const cell = (txt, o) => el('div', { className: 'num', style: 'padding:7px 4px;text-align:' + ((o && o.left) ? 'left' : 'right') + ';font-size:13.5px;' + ((o && o.bold) ? 'font-weight:700;' : '') + ((o && o.sub) ? 'color:var(--text-sub);' : ''), text: txt });
@@ -4225,7 +4240,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         s.note ? el('div', { style: 'margin-top:4px;font-size:13px;color:var(--text-sub);overflow-wrap:anywhere;white-space:pre-wrap', text: s.note }) : null
       )) : el('div', { className: 'empty-state', text: 'Chưa có việc nào. Bấm "+ Thêm việc" để ghi giờ làm từng việc trong ngày.' })
     );
-    contentHost.replaceChildren(renderMetaBar('flow', async () => { await loadTabData('flow'); renderFlowTab(); }), planCard, actCard, stepsCard);
+    contentHost.replaceChildren(saleSubBar(), renderMetaBar('flow', async () => { await loadTabData('flow'); renderFlowTab(); }), planCard, actCard, stepsCard);
   }
 
   function openStepModal(idx, opener) {

@@ -4445,10 +4445,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   function flowCards(redraw) {
     const f = ST.flow, C = flowCompute();
     const nCol = C.groups.length;
-    const cols = 'minmax(96px,1.1fr) ' + C.groups.map(() => 'minmax(84px,1fr)').join(' ') + ' minmax(92px,1fr)';
-    const labelStyle = 'position:sticky;left:0;z-index:1;background:var(--surface,#fff);';
+    const LBL = 96, COLW = 84, TOTW = 92;
+    const cols = LBL + 'px ' + C.groups.map(() => 'minmax(' + COLW + 'px,1fr)').join(' ') + ' minmax(' + TOTW + 'px,1fr)';
+    const labelStyle = 'position:sticky;left:0;z-index:2;background:var(--surface,#fff);box-shadow:1px 0 0 var(--border);align-self:stretch;display:flex;align-items:center;';
     const cell = (txt, o) => el('div', { className: 'num', style: 'padding:7px 4px;text-align:' + ((o && o.left) ? 'left' : 'right') + ';font-size:13.5px;' + ((o && o.bold) ? 'font-weight:700;' : '') + ((o && o.sub) ? 'color:var(--text-sub);' : '') + ((o && o.left) ? labelStyle : ''), text: txt });
-    const sect = txt => el('div', { style: 'grid-column:1/-1;margin-top:8px;padding:5px 8px;background:var(--surface-2,#eef1ec);border-radius:8px;font-weight:700;font-size:13px;position:sticky;left:0', text: txt });
+    const sect = txt => el('div', { style: 'grid-column:1/-1;margin-top:8px;padding:5px 8px;background:var(--surface-2,#eef1ec);border-radius:8px;font-weight:700;font-size:13px' }, el('span', { style: 'position:sticky;left:8px;z-index:1', text: txt }));
     const numCell = (gid, key) => {
       const t = (f.targets.g && f.targets.g[gid]) || {};
       return el('input', {
@@ -4482,8 +4483,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       openModal('Thêm/Xoá món trong bảng', body, [el('button', { type: 'button', className: 'btn btn-primary', onClick: closeModal, text: 'Xong' })], opener);
     };
     const table = (title, rows, tot, editable) => {
-      const grid = el('div', { style: 'display:grid;grid-template-columns:' + cols + ';align-items:center;column-gap:2px;min-width:' + (96 + nCol * 84 + 92) + 'px' });
-      const head = el('div', { style: 'display:contents' }, cell('', { left: true }), ...C.groups.map(g => el('div', { style: 'padding:7px 4px;text-align:right;font-size:12.5px;font-weight:700;line-height:1.25;overflow-wrap:anywhere', text: g.name })), cell('Tổng', { bold: true }));
+      const grid = el('div', { style: 'display:grid;grid-template-columns:' + cols + ';align-items:center;column-gap:2px;min-width:' + (LBL + nCol * COLW + TOTW) + 'px' });
+      const head = el('div', { style: 'display:contents' }, cell('', { left: true }), ...C.groups.map(g => el('div', { style: 'padding:7px 4px;text-align:right;align-self:end;font-size:12.5px;font-weight:700;line-height:1.25;overflow-wrap:anywhere;scroll-snap-align:start', text: g.name })), el('div', { className: 'num', style: 'padding:7px 4px;text-align:right;align-self:end;font-size:13.5px;font-weight:700;scroll-snap-align:start', text: 'Tổng' }));
       const row = (label, fn, totTxt, prodOnly) => el('div', { style: 'display:contents' }, cell(label, { left: true, sub: true }), ...rows.map(r => (prodOnly && r.g.noProd) ? cell('') : fn(r)), cell(totTxt, { bold: true }));
       const kids = [head, sect('Sản xuất'),
         row('Nấu (lít)', r => editable ? numCell(r.g.id, 'lit') : cell(flowNum(r.lit, 1)), flowNum(tot.lit, 1), true),
@@ -4500,7 +4501,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         row('Chai bỏ', r => cell(flowNum(r.bo)), flowNum(tot.bo), true),
         row('Chi phí chai bỏ', r => cell(flowMoney(r.cpBo)), flowMoney(tot.cpBo), true)];
       grid.append(...kids);
-      return el('div', { className: 'card' }, el('div', { className: 'row-between', style: 'margin-bottom:6px' }, el('b', { text: title }), el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openFlowColsModal(e.currentTarget), text: 'Thêm/Xoá món' })), el('div', { style: 'overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px' }, grid));
+      return el('div', { className: 'card' }, el('div', { className: 'row-between', style: 'margin-bottom:6px' }, el('b', { text: title }), el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openFlowColsModal(e.currentTarget), text: 'Thêm/Xoá món' })), el('div', { style: 'overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;scroll-padding-left:' + LBL + 'px' }, grid));
     };
     const donNote = el('div', { className: 'row-between', style: 'margin-top:10px;font-size:13.5px' },
       el('span', { style: 'color:var(--text-sub)', text: 'Chai mỗi đơn (tính số đơn)' }),

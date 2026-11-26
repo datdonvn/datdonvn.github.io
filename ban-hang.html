@@ -1055,7 +1055,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           const setOut = on => {
             renderSaleTab();
             confirmModal(on ? 'Báo hết hàng?' : 'Bán lại món này?',
-              on ? '"' + mi.name + '" sẽ hiện "Hết hàng" ở cả app bán hàng và app đặt hàng, không ai đặt được nữa.' : '"' + mi.name + '" sẽ bán lại ở cả app bán hàng và app đặt hàng.',
+              on ? '"' + mi.name + '" sẽ hiện "Hết hàng" ở cả app bán hàng và app đặt hàng, không ai đặt được nữa. Tự bán lại vào 0h hôm sau.' : '"' + mi.name + '" sẽ bán lại ở cả app bán hàng và app đặt hàng.',
               on ? 'Báo hết hàng' : 'Bán lại', async () => {
                 const res = await sb.from('menu_items').update({ sold_out: on }).eq('id', mi.id).eq('shop_id', shopId).select('id');
                 checkMutated(res);
@@ -1065,7 +1065,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
               });
           };
           return el('div', { className: 'v1-item' + (qty ? ' on' : ''), style: out ? 'opacity:.6' : null },
-            app.toggle(out, setOut),
+            app.toggle(!out, on => setOut(!on)),
             el('div', { style: 'min-width:0;flex:1' },
               el('div', { className: 'nm', text: mi.name }),
               el('div', { className: 'pr num' }, app.formatMoney(mi.price) + (mi.unit ? ' / ' + mi.unit : ''), out ? el('b', { style: 'color:var(--error);margin-left:6px', text: 'Hết hàng' }) : null)),

@@ -266,6 +266,14 @@ body .dd-wrap { max-width: none; padding: 0 0 40px; }
   flex-wrap: wrap;
 }
 .line-row:first-child { border-top: 0; }
+.opt-card { border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 10px; background: var(--surface); }
+.opt-card.removed { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text-sub); background: var(--bg); }
+.opt-row { display: flex; gap: 10px; align-items: flex-end; }
+.opt-act { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.opt-on { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-right: auto; }
+.opt-on input { width: 20px; height: 20px; }
+.menu-prod.off .line-main b { opacity: 0.6; }
+.menu-set { flex: none; }
 .menu-grp { padding: 10px 0; border-top: 1px solid var(--border); }
 .menu-grp:first-child { border-top: 0; }
 .menu-grp-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
@@ -2196,64 +2204,29 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       }, text: 'Tải file mẫu để nhập' })
     ), null, e.currentTarget);
     const toolbar = el('div', { className: 'toolbar', style: 'display:flex;gap:8px;margin-bottom:12px' },
-      el('button', { type: 'button', className: 'btn btn-primary', style: 'flex:1', onClick: e => openMenuModal(null, e.currentTarget), text: '+ Thêm món' }),
+      el('button', { type: 'button', className: 'btn btn-primary', style: 'flex:1', onClick: e => openProductModal(null, e.currentTarget), text: '+ Thêm món' }),
       el('button', { type: 'button', className: 'btn', onClick: csvTools, text: 'Nhập / xuất' })
     );
 
-    const menuKebab = m => kebab(
-      { text: 'Sửa', fn: e => openMenuModal(m, e.currentTarget) },
-      { text: m.active ? 'Không bán' : 'Bán lại', fn: async () => {
-        try {
-          const res = await sb.from('menu_items').update({ active: !m.active }).eq('id', m.id).eq('shop_id', shopId).select('id');
-          checkMutated(res);
-          m.active = !m.active;
-        } catch (err) { showErr(err); }
-        renderMenuTab();
-      } },
-      app.hasPlan('pro') ? { text: 'Định mức nguyên liệu', fn: () => { ST.recipeMenuId = m.id; switchTab('recipe'); } } : null,
-      { text: 'Xóa', danger: true, fn: e => confirmModal('Xóa món "' + m.name + '"?', 'Món sẽ bị xóa khỏi thực đơn.', 'Xóa món', async () => {
-        const res = await sb.from('menu_items').delete().eq('id', m.id).eq('shop_id', shopId).select('id');
-        checkMutated(res);
-        app.showToast('Đã xóa món ' + m.name, 'accent');
-        await loadMenu();
-        renderMenuTab();
-      }, e.currentTarget) }
-    );
-    const menuImg = m => m.image_url && String(m.image_url).startsWith('https://') ? el('img', { src: m.image_url, alt: '', loading: 'lazy', style: 'width:46px;height:46px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)' }) : null;
-    const sizeRe = /^(.*?)\s+(\d+(?:[.,]\d+)?\s?(?:ml|l|g|kg))$/i;
+    const menuImg = m => m.image_url && String(m.image_url).startsWith('https://') ? el('img', { src: m.image_url, alt: '', loading: 'lazy', style: 'width:52px;height:52px;border-radius:12px;object-fit:cover;flex-shrink:0;border:1px solid var(--border)' }) : null;
 
     const listNodes = ST.menuItems.length ? [...cats.entries()].map(([cat, list]) => {
-      // Gộp các size của cùng một món thành một khối (giống trang đặt hàng của khách)
-      const blocks = [];
-      const byBase = new Map();
-      for (const m of list) {
-        const mt = sizeRe.exec((m.name || '').trim());
-        if (!mt) { blocks.push({ single: m }); continue; }
-        const key = mt[1].trim().toLowerCase();
-        let g = byBase.get(key);
-        if (!g) { g = { base: mt[1].trim(), vars: [] }; byBase.set(key, g); blocks.push(g); }
-        g.vars.push({ m, size: mt[2].replace(/\s+/g, '') });
-      }
-      const rowOf = m => el('div', { className: 'line-row' },
-        menuImg(m),
-        el('div', { className: 'line-main' },
-          el('b', { text: m.name }),
-          el('small', { className: 'num', text: app.formatMoney(m.price) + ' / ' + (m.unit || 'phần') + (m.active ? '' : ' · Không bán') })
-        ),
-        menuKebab(m)
-      );
+      const blocks = menuBlocks(list);
       return el('div', { className: 'card' },
-        el('div', { style: 'font-weight:700;margin-bottom:6px', text: cat + ' (' + list.length + ')' }),
+        el('div', { style: 'font-weight:700;margin-bottom:6px', text: cat + ' (' + blocks.length + ')' }),
         blocks.map(bk => {
-          if (bk.single || bk.vars.length === 1) return rowOf(bk.single || bk.vars[0].m);
           const img = bk.vars.map(v => menuImg(v.m)).find(Boolean) || null;
-          return el('div', { className: 'menu-grp' },
-            el('div', { className: 'menu-grp-head' }, img, el('b', { text: bk.base })),
-            bk.vars.map(v => el('div', { className: 'menu-var' + (v.m.active ? '' : ' off') },
-              el('span', { className: 'menu-size', text: v.size }),
-              el('span', { className: 'num menu-var-price', text: app.formatMoney(v.m.price) + ' / ' + (v.m.unit || 'phần') + (v.m.active ? '' : ' · Không bán') }),
-              menuKebab(v.m)
-            ))
+          const multi = bk.vars.length > 1 || bk.vars[0].size;
+          const parts = bk.vars.map(v => (multi && v.size ? v.size + ' ' : '') + app.formatMoney(v.m.price) + (v.m.active ? '' : ' (không bán)'));
+          const sub = multi ? parts.join(' · ') : app.formatMoney(bk.vars[0].m.price) + ' / ' + (bk.vars[0].m.unit || 'phần') + (bk.vars[0].m.active ? '' : ' · Không bán');
+          const allOff = bk.vars.every(v => !v.m.active);
+          return el('div', { className: 'line-row menu-prod' + (allOff ? ' off' : '') },
+            img,
+            el('div', { className: 'line-main' },
+              el('b', { text: bk.base }),
+              el('small', { className: 'num', text: sub })
+            ),
+            el('button', { type: 'button', className: 'btn btn-sm menu-set', onClick: e => openProductModal(bk, e.currentTarget), text: 'Cài đặt' })
           );
         })
       );
@@ -2264,6 +2237,199 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       toolbar,
       ...listNodes
     );
+  }
+
+  /* ===== MÓN = một sản phẩm gồm nhiều lựa chọn (size). Mỗi lựa chọn vẫn là một dòng menu_items riêng ===== */
+  const SIZE_RE = /^(.*?)\s+(\d+(?:[.,]\d+)?\s?(?:ml|l|g|kg))$/i;
+  function menuBlocks(list) {
+    const out = [], by = new Map();
+    for (const m of list) {
+      const mt = SIZE_RE.exec((m.name || '').trim());
+      if (!mt) { out.push({ base: (m.name || '').trim(), vars: [{ m, size: '' }] }); continue; }
+      const key = mt[1].trim().toLowerCase();
+      let g = by.get(key);
+      if (!g) { g = { base: mt[1].trim(), vars: [] }; by.set(key, g); out.push(g); }
+      g.vars.push({ m, size: mt[2].replace(/\s+/g, '') });
+    }
+    return out;
+  }
+
+  function openProductModal(block, opener) {
+    const first = block ? block.vars[0].m : null;
+    const f = {
+      base: block ? block.base : '',
+      unit: first ? (first.unit || 'phần') : 'phần',
+      category: first ? (first.category || '') : '',
+      description: block ? ((block.vars.find(v => v.m.description) || { m: first }).m.description || '') : '',
+      image_url: block ? ((block.vars.find(v => v.m.image_url) || { m: first }).m.image_url || '') : '',
+      sort: first ? Math.min(...block.vars.map(v => v.m.sort || 0)) : ST.menuItems.length * 10,
+      blob: null
+    };
+    const sort0 = f.sort;
+    const opts = block
+      ? block.vars.map(v => ({ id: v.m.id, size: v.size, price: v.m.price, active: v.m.active, wasActive: v.m.active, sort: v.m.sort || 0, removed: false }))
+      : [{ id: null, size: '', price: '', active: false, wasActive: false, sort: 0, removed: false }];
+    const pro = app.hasPlan('pro');
+    const existingCats = [...new Set(ST.menuItems.map(m => (m.category || '').trim()).filter(Boolean))];
+    const unitSuggestions = ['chai', 'ly', 'thanh', 'tô', 'đĩa', 'cái', 'chiếc', 'kg', 'phần'];
+
+    const imgPrev = el('img', { className: 'img-preview' + (f.image_url.startsWith('https://') ? '' : ' hidden'), src: f.image_url.startsWith('https://') ? f.image_url : '', alt: 'Xem trước' });
+    const imgFile = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
+    imgFile.addEventListener('change', async () => {
+      const file = imgFile.files && imgFile.files[0]; imgFile.value = '';
+      if (!file) return;
+      try { f.blob = await makeDishImage(file); imgPrev.src = URL.createObjectURL(f.blob); imgPrev.classList.remove('hidden'); }
+      catch (err) { app.showToast(err.message || 'Không dùng được ảnh này', 'error'); }
+    });
+
+    const optsHost = el('div');
+    const drawOpts = () => {
+      const live = opts.filter(o => !o.removed);
+      optsHost.replaceChildren(...opts.map((o, i) => o.removed
+        ? el('div', { className: 'opt-card removed' },
+            el('span', { text: 'Sẽ xóa lựa chọn ' + (o.size || 'này') + ' khi lưu' }),
+            el('button', { type: 'button', className: 'btn btn-sm', onClick: () => { o.removed = false; drawOpts(); }, text: 'Hoàn tác' }))
+        : el('div', { className: 'opt-card' },
+            el('div', { className: 'opt-row' },
+              el('div', { className: 'field', style: 'margin:0;flex:0 0 38%' },
+                el('label', { text: 'Size / loại' }),
+                el('input', { className: 'input', maxlength: 20, value: o.size, placeholder: live.length > 1 ? 'vd 330ml' : 'bỏ trống nếu chỉ 1 loại', onInput: e => { o.size = e.target.value; } })),
+              el('div', { className: 'field', style: 'margin:0;flex:1' },
+                el('label', { text: 'Giá bán (đ)' }),
+                el('input', { className: 'input num', type: 'number', min: 0, value: o.price, onInput: e => { o.price = e.target.value; } }))
+            ),
+            el('div', { className: 'opt-act' },
+              el('label', { className: 'opt-on' },
+                el('input', { type: 'checkbox', checked: o.active, onChange: e => { o.active = e.target.checked; } }),
+                'Đang bán'),
+              o.id && pro ? el('button', { type: 'button', className: 'btn btn-sm', onClick: () => { ST.recipeMenuId = o.id; closeModal(); switchTab('recipe'); }, text: 'Định mức' }) : null,
+              live.length > 1 ? el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: () => { if (o.id) { o.removed = true; } else { opts.splice(i, 1); } drawOpts(); }, text: 'Xóa' }) : null
+            )
+          )
+      ));
+    };
+    drawOpts();
+
+    const body = el('div', null,
+      el('div', { className: 'field' },
+        el('label', { for: 'pm-name', text: 'Tên món' }),
+        el('input', { id: 'pm-name', className: 'input', maxlength: 100, value: f.base, placeholder: 'vd Sâm mía lau (không ghi size)', onInput: e => { f.base = e.target.value; } })
+      ),
+      el('div', { className: 'grid-2' },
+        el('div', { className: 'field' },
+          el('label', { for: 'pm-cat', text: 'Nhóm món' }),
+          el('input', { id: 'pm-cat', className: 'input', list: 'dl-cats', value: f.category, placeholder: 'Ví dụ: Đồ uống', onInput: e => { f.category = e.target.value; } }),
+          el('datalist', { id: 'dl-cats' }, existingCats.map(c => el('option', { value: c })))
+        ),
+        el('div', { className: 'field' },
+          el('label', { for: 'pm-unit', text: 'Đơn vị' }),
+          el('input', { id: 'pm-unit', className: 'input', list: 'dl-units', value: f.unit, onInput: e => { f.unit = e.target.value; } }),
+          el('datalist', { id: 'dl-units' }, unitSuggestions.map(u => el('option', { value: u })))
+        )
+      ),
+      el('div', { className: 'field' },
+        el('label', { text: 'Các lựa chọn (size) và giá' }),
+        optsHost,
+        el('button', { type: 'button', className: 'btn btn-sm', style: 'margin-top:2px', onClick: () => {
+          opts.push({ id: null, size: '', price: '', active: false, wasActive: false, sort: 0, removed: false }); drawOpts();
+        }, text: '+ Thêm lựa chọn' }),
+        pro ? el('small', { style: 'display:block;margin-top:6px;color:var(--text-sub)', text: 'Lựa chọn mới để "Không bán". Nhập định mức xong mới bật "Đang bán" được.' }) : null
+      ),
+      el('div', { className: 'field' },
+        el('label', { for: 'pm-desc', text: 'Mô tả (dùng chung cho các size)' }),
+        el('textarea', { id: 'pm-desc', className: 'textarea', value: f.description, onInput: e => { f.description = e.target.value; } })
+      ),
+      el('div', { className: 'field' },
+        el('label', { text: 'Ảnh món (không bắt buộc)' }),
+        imgPrev,
+        el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
+          el('button', { type: 'button', className: 'btn btn-sm', onClick: () => imgFile.click(), text: 'Chọn ảnh từ máy' }),
+          el('button', { type: 'button', className: 'btn btn-sm', onClick: () => { f.image_url = ''; f.blob = null; imgPrev.classList.add('hidden'); }, text: 'Bỏ ảnh' })
+        ),
+        el('small', { style: 'color:var(--text-sub)', text: 'Ảnh tự cắt vuông, dùng chung cho các size.' }),
+        imgFile
+      ),
+      el('div', { className: 'field' },
+        el('label', { for: 'pm-sort', text: 'Thứ tự hiển thị' }),
+        el('input', { id: 'pm-sort', className: 'input num', type: 'number', value: f.sort, onInput: e => { f.sort = e.target.value; } })
+      ),
+      block ? el('button', { type: 'button', className: 'btn btn-danger btn-block', style: 'margin-top:6px', onClick: () => {
+        closeModal();
+        confirmModal('Xóa món "' + block.base + '"?', block.vars.length > 1 ? 'Xóa món và cả ' + block.vars.length + ' lựa chọn (size) khỏi thực đơn.' : 'Món sẽ bị xóa khỏi thực đơn.', 'Xóa món', async () => {
+          const ids = block.vars.map(v => v.m.id);
+          const res = await sb.from('menu_items').delete().in('id', ids).eq('shop_id', shopId).select('id');
+          checkMutated(res);
+          app.showToast('Đã xóa món ' + block.base, 'accent');
+          await loadMenu();
+          renderMenuTab();
+        });
+      }, text: 'Xóa cả món' }) : null
+    );
+
+    const saveBtn = el('button', {
+      type: 'button', className: 'btn btn-primary',
+      onClick: async () => {
+        const base = f.base.trim();
+        const live = opts.filter(o => !o.removed);
+        if (!base || base.length > 100) { app.showToast('Tên món từ 1–100 ký tự', 'error'); return; }
+        if (!live.length) { app.showToast('Cần ít nhất một lựa chọn', 'error'); return; }
+        const seen = new Set();
+        for (const o of live) {
+          const price = Math.round(Number(o.price));
+          if (o.price === '' || Number.isNaN(price) || price < 0) { app.showToast('Giá bán phải là số ≥ 0', 'error'); return; }
+          const sz = o.size.trim();
+          if (live.length > 1 && !sz) { app.showToast('Mỗi lựa chọn cần ghi size, vd 330ml', 'error'); return; }
+          if (seen.has(sz.toLowerCase())) { app.showToast('Có hai lựa chọn trùng size ' + sz, 'error'); return; }
+          seen.add(sz.toLowerCase());
+        }
+        saveBtn.disabled = true; saveBtn.textContent = 'Đang lưu…';
+        let err0 = null;
+        try {
+          if (f.blob) {
+            const path = shopId + '/mon-' + Date.now() + '.jpg';
+            const up = await sb.storage.from('shop-logos').upload(path, f.blob, { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' });
+            if (up.error) throw up.error;
+            f.image_url = ((window.DATDON && window.DATDON.SUPABASE_URL) || '') + '/storage/v1/object/public/shop-logos/' + path;
+          }
+          const common = {
+            unit: f.unit.trim() || 'phần', category: f.category.trim() || null,
+            description: f.description.trim() || null, image_url: f.image_url || null
+          };
+          const sortChanged = Math.round(Number(f.sort) || 0) !== sort0;
+          const sortBase = Math.round(Number(f.sort) || 0);
+          for (const o of opts.filter(x => x.removed && x.id)) {
+            const res = await sb.from('menu_items').delete().eq('id', o.id).eq('shop_id', shopId).select('id');
+            checkMutated(res);
+          }
+          let idx = 0;
+          for (const o of live) {
+            const sz = o.size.trim();
+            const rec = Object.assign({ name: sz ? base + ' ' + sz : base, price: Math.round(Number(o.price)) }, common);
+            if (sortChanged || !o.id) rec.sort = sortBase + idx;
+            if (o.id) {
+              if (o.active !== o.wasActive) rec.active = o.active;
+              const res = await sb.from('menu_items').update(rec).eq('id', o.id).eq('shop_id', shopId).select('id');
+              checkMutated(res);
+            } else {
+              rec.active = pro ? false : o.active;
+              const { error } = await sb.from('menu_items').insert(Object.assign({ shop_id: shopId }, rec));
+              if (error) throw error;
+            }
+            idx++;
+          }
+        } catch (err) { err0 = err; }
+        closeModal();
+        await loadMenu();
+        renderMenuTab();
+        if (err0) { showErr(err0); return; }
+        app.showToast(block ? 'Đã lưu món' : (pro ? 'Đã thêm món. Nhập định mức rồi mở "Đang bán" trong Cài đặt món.' : 'Đã thêm món mới'), 'accent');
+      },
+      text: 'Lưu món'
+    });
+    openModal(block ? 'Cài đặt món' : 'Thêm món mới', body, [
+      el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }),
+      saveBtn
+    ], opener);
   }
 
   function openMenuModal(item, opener) {

@@ -732,7 +732,6 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         sb.from('recipes').select('menu_item_id,inv_item_id,qty').eq('shop_id', shopId),
         sb.from('menu_items').select('id,name,unit,sort').eq('shop_id', shopId).eq('active', true).order('sort', { ascending: true }).order('name', { ascending: true })]);
       if (inv.error || rec.error || mn.error) throw (inv.error || rec.error || mn.error);
-      const used = new Set((rec.data || []).map(r => r.inv_item_id));
       // Định mức 1 chai = trung bình định mức của các món đang bán dùng vật tư đó
       const activeMenu = new Set((mn.data || []).map(m => m.id));
       const per = {};
@@ -741,7 +740,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       ST.stockRec = (rec.data || []).filter(r => activeMenu.has(r.menu_item_id));
       ST.stockPer = {};
       for (const k of Object.keys(per)) ST.stockPer[k] = per[k].reduce((s, x) => s + x, 0) / per[k].length;
-      ST.stockBoard = (inv.data || []).filter(i => i.kind === 'btp' || (i.kind === 'nl' && used.has(i.id)))
+      // Chỉ hiện vật tư dùng trong các món đang bán
+      const used = new Set(ST.stockRec.map(r => r.inv_item_id));
+      ST.stockBoard = (inv.data || []).filter(i => (i.kind === 'btp' || i.kind === 'nl') && used.has(i.id))
         .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'btp' ? -1 : 1) || String(a.name).localeCompare(String(b.name), 'vi'));
     } catch (e) { ST.stockBoard = ST.stockBoard || []; }
   }

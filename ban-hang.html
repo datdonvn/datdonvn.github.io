@@ -4365,7 +4365,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const inGroup = new Set(); for (const g of prodGroups) for (const x of g.menus) inGroup.add(x.m.id);
     const costOf = new Map(); { const invMap = new Map(ST.invItems.map(i => [i.id, i])); for (const r of (ST.allRecipes || [])) { const iv = invMap.get(r.inv_item_id); costOf.set(r.menu_item_id, (costOf.get(r.menu_item_id) || 0) + Number(r.qty) * Number(iv ? iv.avg_cost || 0 : 0)); } }
     const extra = ST.menuItems.filter(m => m.active !== false && !inGroup.has(m.id)).map(m => ({ id: 'm:' + m.id, name: m.name, noProd: true, menus: [{ m, ml: 0, cost: costOf.get(m.id) || 0, nvl: 0 }] }));
-    const groups = prodGroups.concat(extra);
+    const allGroups = prodGroups.concat(extra);
+    const hidden = new Set(Array.isArray(f.targets.hidden) ? f.targets.hidden : []);
+    const groups = allGroups.filter(g => !hidden.has(g.id));
     const today = app.toVnYmd(new Date());
     const k = Math.max(1, Number(f.targets.chai_don) || 2);
     const menuGroup = new Map();
@@ -4437,7 +4439,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const tp = total(plan), ta = total(act);
     tp.don = tp.ban > 0 ? Math.ceil(tp.ban / k) : 0;
     ta.don = f.orders.length;
-    return { groups, prodGroups, plan, act, tp, ta, k };
+    return { groups, allGroups, hidden, plan, act, tp, ta, k };
   }
 
   function flowCards(redraw) {
@@ -4461,6 +4463,24 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       });
     };
     // prodOnly: dòng chỉ có ở món có sản xuất -> món không sản xuất để trắng
+    const openFlowColsModal = opener => {
+      const body = el('div');
+      const draw = () => body.replaceChildren(
+        el('div', { className: 'alert', style: 'margin-bottom:10px', text: 'Bật món muốn hiện trong bảng, tắt món không cần. Tổng chỉ tính các món đang bật.' }),
+        ...C.allGroups.map(g => {
+          const on = !(Array.isArray(f.targets.hidden) && f.targets.hidden.includes(g.id));
+          return el('div', { className: 'line-row' },
+            el('div', { className: 'line-main' }, el('b', { text: g.name }), el('small', { text: g.noProd ? 'Hàng bán, không sản xuất' : 'Có sản xuất' })),
+            app.toggle(on, v => {
+              const h = new Set(Array.isArray(f.targets.hidden) ? f.targets.hidden : []);
+              if (v) h.delete(g.id); else h.add(g.id);
+              f.targets.hidden = [...h];
+              saveFlow(); redraw();
+            }));
+        }));
+      draw();
+      openModal('Thêm/Xoá món trong bảng', body, [el('button', { type: 'button', className: 'btn btn-primary', onClick: closeModal, text: 'Xong' })], opener);
+    };
     const table = (title, rows, tot, editable) => {
       const grid = el('div', { style: 'display:grid;grid-template-columns:' + cols + ';align-items:center;column-gap:2px;min-width:' + (96 + nCol * 84 + 92) + 'px' });
       const head = el('div', { style: 'display:contents' }, cell('', { left: true }), ...C.groups.map(g => el('div', { style: 'padding:7px 4px;text-align:right;font-size:12.5px;font-weight:700;line-height:1.25;overflow-wrap:anywhere', text: g.name })), cell('Tổng', { bold: true }));
@@ -4480,7 +4500,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         row('Chai bỏ', r => cell(flowNum(r.bo)), flowNum(tot.bo), true),
         row('Chi phí chai bỏ', r => cell(flowMoney(r.cpBo)), flowMoney(tot.cpBo), true)];
       grid.append(...kids);
-      return el('div', { className: 'card' }, el('b', { style: 'display:block;margin-bottom:6px', text: title }), el('div', { style: 'overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px' }, grid));
+      return el('div', { className: 'card' }, el('div', { className: 'row-between', style: 'margin-bottom:6px' }, el('b', { text: title }), el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openFlowColsModal(e.currentTarget), text: 'Thêm/Xoá món' })), el('div', { style: 'overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px' }, grid));
     };
     const donNote = el('div', { className: 'row-between', style: 'margin-top:10px;font-size:13.5px' },
       el('span', { style: 'color:var(--text-sub)', text: 'Chai mỗi đơn (tính số đơn)' }),

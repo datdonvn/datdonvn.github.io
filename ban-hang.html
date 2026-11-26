@@ -3667,6 +3667,31 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     ST.recipes = data || [];
   }
 
+  // Nhóm thành phần định mức theo thứ tự: Nước cốt, Siro, Đá, Bao bì
+  const RECIPE_GROUPS = ['Nước cốt', 'Siro', 'Đá', 'Bao bì'];
+  function recipeGroupOf(iv) {
+    const n = String((iv && iv.name) || '').toLowerCase();
+    if (/siro|xi\s?rô|xirô|syrup/.test(n)) return 'Siro';
+    if (/(^|\s)đá(\s|$)/.test(n)) return 'Đá';
+    if ((iv && iv.kind === 'bb') || /chai|nắp|tem|nhãn|ống hút|bịch|túi|hộp|muỗng|bao bì/.test(n)) return 'Bao bì';
+    return 'Nước cốt';
+  }
+  function recipeGroupedRows(invMap, rowOf) {
+    const buckets = new Map(RECIPE_GROUPS.map(g => [g, []]));
+    for (const r of ST.recipes) buckets.get(recipeGroupOf(invMap.get(r.inv_item_id))).push(r);
+    const out = [];
+    for (const g of RECIPE_GROUPS) {
+      const list = buckets.get(g);
+      if (!list.length) continue;
+      const sub = list.reduce((a, r) => { const iv = invMap.get(r.inv_item_id); return a + (iv ? Number(r.qty) * Number(iv.avg_cost || 0) : 0); }, 0);
+      out.push(el('div', { className: 'row-between', style: 'margin:14px 0 2px;padding-bottom:4px;border-bottom:2px solid var(--accent)' },
+        el('b', { style: 'color:var(--accent)', text: g }),
+        el('small', { className: 'num', style: 'color:var(--text-sub)', text: app.formatMoney(sub) })));
+      for (const r of list) out.push(rowOf(r));
+    }
+    return out;
+  }
+
   function renderRecipeTab() {
     const selMenu = ST.menuItems.find(m => m.id === ST.recipeMenuId) || null;
     const invMap = new Map(ST.invItems.map(i => [i.id, i]));
@@ -3732,7 +3757,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       ),
       selMenu ? el('div', { className: 'card' },
         el('div', { style: 'font-weight:700;margin-bottom:6px', text: 'Thành phần cho 1 ' + (selMenu.unit || 'đơn vị') + ' ' + selMenu.name }),
-        ST.recipes.length ? ST.recipes.map(r => {
+        ST.recipes.length ? recipeGroupedRows(invMap, r => {
           const iv = invMap.get(r.inv_item_id);
           const lineCost = iv ? Number(r.qty) * Number(iv.avg_cost || 0) : 0;
           const qInp = el('input', { className: 'input num', style: 'width:100px', type: 'number', step: 'any', value: r.qty });

@@ -2264,6 +2264,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const first = block ? block.vars[0].m : null;
     const f = {
       base: block ? block.base : '',
+      disp: block ? (() => { const dn = (block.vars.find(v => (v.m.display_name || '').trim()) || { m: {} }).m.display_name || ''; const mt = SIZE_RE.exec(dn.trim()); return mt ? mt[1].trim() : dn.trim(); })() : '',
       unit: first ? (first.unit || 'phần') : 'phần',
       category: first ? (first.category || '') : '',
       description: block ? ((block.vars.find(v => v.m.description) || { m: first }).m.description || '') : '',
@@ -2318,8 +2319,13 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
     const body = el('div', null,
       el('div', { className: 'field' },
-        el('label', { for: 'pm-name', text: 'Tên món' }),
-        el('input', { id: 'pm-name', className: 'input', maxlength: 100, value: f.base, placeholder: 'vd Sâm mía lau (không ghi size)', onInput: e => { f.base = e.target.value; } })
+        el('label', { for: 'pm-name', text: 'Tên nội bộ (dùng ở định mức, kho, báo cáo)' }),
+        el('input', { id: 'pm-name', className: 'input', maxlength: 100, value: f.base, placeholder: 'vd Sâm mía lau chai (không ghi size)', onInput: e => { f.base = e.target.value; } })
+      ),
+      el('div', { className: 'field' },
+        el('label', { for: 'pm-disp', text: 'Tên khách thấy (nhập tay, không ghi size)' }),
+        el('input', { id: 'pm-disp', className: 'input', maxlength: 100, value: f.disp, placeholder: 'vd Sâm mía lau', onInput: e => { f.disp = e.target.value; } }),
+        el('small', { style: 'color:var(--text-sub)', text: 'Tên này hiện ở trang đặt đơn và trong đơn. Bỏ trống thì khách thấy tên nội bộ. Đổi tên nội bộ thì tên khách thấy không tự đổi.' })
       ),
       el('div', { className: 'grid-2' },
         el('div', { className: 'field' },
@@ -2410,7 +2416,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           let idx = 0;
           for (const o of live) {
             const sz = o.size.trim();
-            const rec = Object.assign({ name: sz ? base + ' ' + sz : base, price: Math.round(Number(o.price)) }, common);
+            const disp = f.disp.trim();
+            const rec = Object.assign({ name: sz ? base + ' ' + sz : base, display_name: disp ? (sz ? disp + ' ' + sz : disp) : null, price: Math.round(Number(o.price)) }, common);
             if (sortChanged || !o.id) rec.sort = sortBase + idx;
             if (o.id) {
               if (o.active !== o.wasActive) rec.active = o.active;
@@ -3686,15 +3693,15 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           checkMutated(res);
           m.name = nn;
           closeModal();
-          app.showToast('Đã đổi tên món', 'accent');
+          app.showToast('Đã đổi tên nội bộ', 'accent');
           renderRecipeTab();
         } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = 'Lưu tên'; }
       },
       text: 'Lưu tên'
     });
-    openModal('Sửa tên món', el('div', null,
-      el('div', { className: 'field' }, el('label', { text: 'Tên món' }), inp),
-      el('small', { style: 'color:var(--text-sub)', text: 'Tên mới hiện ở trang đặt đơn của khách. Đơn đã đặt trước đó vẫn giữ tên cũ.' })
+    openModal('Sửa tên nội bộ', el('div', null,
+      el('div', { className: 'field' }, el('label', { text: 'Tên nội bộ' }), inp),
+      el('small', { style: 'color:var(--text-sub)', text: 'Chỉ đổi tên dùng trong quản lý. Tên khách thấy không đổi, muốn đổi thì sửa ở tab Menu.' })
     ), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), okBtn], opener);
     setTimeout(() => { try { inp.focus(); inp.select(); } catch (e) { /* bỏ qua */ } }, 50);
   }
@@ -3871,7 +3878,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('span', { text: 'Lãi (giá bán ' + app.formatMoney(m.price) + ')' }), el('span', { className: 'num', text: app.formatMoney(m.price - cost) }))
     ), [
       el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' }),
-      el('button', { type: 'button', className: 'btn', onClick: e => openRenameMenuModal(m, e.currentTarget), text: '✎ Sửa tên' }),
+      el('button', { type: 'button', className: 'btn', onClick: e => openRenameMenuModal(m, e.currentTarget), text: '✎ Sửa tên nội bộ' }),
       el('button', { type: 'button', className: 'btn btn-primary', onClick: goEdit, text: 'Sửa định mức' })
     ], opener);
   }

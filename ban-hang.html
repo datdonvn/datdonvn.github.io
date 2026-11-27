@@ -5549,8 +5549,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     stickyHost.replaceChildren();
     if (!ST.loadedAt.ov_stock) { ovLoading('ov_stock', renderOvStock); return; }
     const q = fold(ST.invSearch.trim());
-    const isLow = it => it.min_stock > 0 && it.qty <= it.min_stock;
-    const match = it => (!ST.invLowOnly || isLow(it)) && (!q || fold(it.name).includes(q));
+    const isOut = it => it.active && it.qty <= 0;
+    const isLow = it => it.active && it.qty > 0 && it.min_stock > 0 && it.qty <= it.min_stock;
+    const match = it => (!ST.invLowOnly || isLow(it) || isOut(it)) && (!q || fold(it.name).includes(q));
     const acts = it => kebab({ text: 'Kiểm kho', fn: e => openAdjustStockModal(it, e.currentTarget) }, { text: 'Sửa vật tư', fn: e => openInvItemModal(it, e.currentTarget) }, { text: 'Lịch sử nhập xuất', fn: e => openStockMovesModal(it, e.currentTarget) });
     const value = list => list.filter(i => i.active).reduce((a, i) => a + Math.max(0, i.qty) * i.avg_cost, 0);
     const secHead = (title, list, defKind) => el('div', { className: 'row-between', style: 'margin:16px 2px 8px' },
@@ -5558,24 +5559,27 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('small', { className: 'num', style: 'display:block;color:var(--text-sub)', text: 'Giá trị: ' + app.formatMoney(Math.round(value(list))) })),
       el('button', { type: 'button', className: 'btn', onClick: e => openInvItemModal(null, e.currentTarget, null, defKind), text: '+ Thêm' }));
     const listCard = items => el('div', { className: 'card' }, items.length ? items.map(it => {
-      const low = isLow(it);
-      return el('div', { className: 'line-row' + (low ? ' low-row' : ''), style: 'padding:10px 6px;border-radius:8px' },
+      const low = isLow(it), out = isOut(it);
+      return el('div', { className: 'line-row' + ((low || out) ? ' low-row' : ''), style: 'padding:10px 6px;border-radius:8px' },
         el('div', { className: 'line-main' },
           el('b', { text: it.name + (it.active ? '' : ' (Ngưng dùng)') }),
           el('small', { className: 'num', text: 'Tồn: ' + it.qty + ' ' + it.unit + ' · Giá BQ: ' + app.formatMoney(it.avg_cost) + ' · Giá trị: ' + app.formatMoney(it.qty * it.avg_cost) })),
-        low ? el('span', { className: 'badge badge-warn', text: 'Sắp hết' }) : null,
+        out ? el('span', { className: 'badge badge-err', text: 'Hết hàng' }) : (low ? el('span', { className: 'badge badge-warn', text: 'Sắp hết' }) : null),
         acts(it));
     }) : el('div', { className: 'empty-state', text: 'Không có mục nào.' }));
     const kindList = k => ST.invItems.filter(i => i.kind === k);
     const sec = (title, k) => [secHead(title, kindList(k), k), listCard(kindList(k).filter(match))];
-    const total = value(ST.invItems);
+    const total = value(ST.invItems), nLow = ST.invItems.filter(isLow).length, nOut = ST.invItems.filter(isOut).length;
 
     contentHost.replaceChildren(
       renderMetaBar('ov_stock', async () => { await loadTabData('ov_stock'); renderOvStock(); }),
-      el('div', { className: 'kpi-box', style: 'margin-bottom:10px' }, el('small', { text: 'Tổng giá trị kho' }), el('b', { className: 'num', text: app.formatMoney(Math.round(total)) })),
+      el('div', { className: 'kpi-box', style: 'margin-bottom:8px' }, el('small', { text: 'Tổng giá trị kho' }), el('b', { className: 'num', text: app.formatMoney(Math.round(total)) })),
+      el('div', { className: 'kpi-row2', style: 'margin-bottom:10px' },
+        el('div', { className: 'kpi-box' }, el('small', { text: 'Sắp hết' }), el('b', { className: 'num', style: nLow > 0 ? 'color:var(--error)' : '', text: String(nLow) })),
+        el('div', { className: 'kpi-box' }, el('small', { text: 'Hết hàng' }), el('b', { className: 'num', style: nOut > 0 ? 'color:var(--error)' : '', text: String(nOut) }))),
       el('div', { className: 'row-between', style: 'gap:8px' },
         el('input', { className: 'input', style: 'flex:1 1 180px', type: 'search', placeholder: 'Tìm tên…', value: ST.invSearch, onInput: e => { ST.invSearch = e.target.value; renderOvStock(); refocusSearch(); } }),
-        el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.invLowOnly), onClick: () => { ST.invLowOnly = !ST.invLowOnly; renderOvStock(); }, text: 'Chỉ sắp hết' })),
+        el('button', { type: 'button', className: 'chip', 'aria-pressed': String(ST.invLowOnly), onClick: () => { ST.invLowOnly = !ST.invLowOnly; renderOvStock(); }, text: 'Sắp hết / hết' })),
       ...sec('Bán thành phẩm', 'btp'), ...sec('Hàng hóa', 'hh'), ...sec('NVL', 'nl'), ...sec('Bao bì', 'bb'), ...sec('CCDC', 'ccdc'), ...sec('Khác', 'khac')
     );
   }

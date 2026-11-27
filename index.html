@@ -2151,52 +2151,10 @@ function renderOrdersView() {
   const wrap = el('div');
   wrap.append(el('h2', { className: 'cat-title', text: 'Đơn của tôi' }));
 
-  // Form tra cứu đơn không có trong máy
-  const codeInp = el('input', { className: 'input', id: 'lk-code', placeholder: 'Mã đơn (ví dụ: D3F9A1)', autocomplete: 'off' });
-  const phoneInp = el('input', { className: 'input', id: 'lk-phone', type: 'tel', inputmode: 'tel', placeholder: 'Số điện thoại đặt đơn', value: ST.profile.phone || '' });
-  const errBox = el('div');
-  const lkBtn = el('button', {
-    type: 'button', className: 'btn btn-block', style: 'margin-top:12px',
-    onClick: async () => {
-      errBox.replaceChildren();
-      const code = codeInp.value.trim().toUpperCase();
-      const phone = normalizePhone(phoneInp.value);
-      if (!code || !isValidPhone(phone)) {
-        errBox.replaceChildren(el('div', { className: 'msg msg-err', text: 'Vui lòng nhập mã đơn và số điện thoại hợp lệ.' }));
-        return;
-      }
-      lkBtn.disabled = true; lkBtn.textContent = 'Đang tra cứu…';
-      try {
-        const res = await rpc('track_order', { p_slug: SLUG, p_code: code, p_phone: phone });
-        if (!res) {
-          errBox.replaceChildren(el('div', { className: 'msg msg-err', text: 'Không tìm thấy đơn khớp mã và số điện thoại này.' }));
-        } else {
-          ST.lookupOrder = Object.assign({ phone }, res);
-          saveOrderLocal(res.code, phone, res.created_at);
-          ST.tracked[res.code] = ST.lookupOrder;
-          renderApp();
-        }
-      } catch (err) {
-        errBox.replaceChildren(el('div', { className: 'msg msg-err', text: err.message }));
-      } finally {
-        lkBtn.disabled = false; lkBtn.textContent = 'Tra cứu đơn';
-      }
-    },
-    text: 'Tra cứu đơn'
-  });
-
-  wrap.append(el('div', { className: 'card' },
-    el('div', { style: 'font-weight:700', text: 'Tra cứu bằng mã đơn + số điện thoại' }),
-    el('div', { className: 'field' }, el('label', { for: 'lk-code', text: 'Mã đơn' }), codeInp),
-    el('div', { className: 'field' }, el('label', { for: 'lk-phone', text: 'Số điện thoại' }), phoneInp),
-    errBox,
-    lkBtn
-  ));
-
   if (!ST.savedOrders.length) {
     wrap.append(el('div', { className: 'card empty-box' },
       el('b', { text: 'Chưa có đơn nào trên máy này' }),
-      el('p', { text: 'Bạn đặt đơn ở mục Thực đơn hoặc nhập mã đơn phía trên để theo dõi trạng thái.' })
+      el('p', { text: 'Bạn đặt đơn ở mục Thực đơn, đơn sẽ hiện ở đây để theo dõi trạng thái.' })
     ));
     return wrap;
   }

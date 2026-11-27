@@ -3720,14 +3720,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const heroCard = el('div', { className: 'card rc-hero' },
       ST.menuItems.length ? el('div', { className: 'field', style: 'margin-bottom:10px' }, el('label', { text: 'Món đang cài định mức' }), menuSelect) : el('div', { className: 'empty-state', text: 'Hãy thêm món ở tab Menu trước.' }),
       selMenu ? el('div', null,
-        el('div', { className: 'rc-title' },
-          el('div', { style: 'min-width:0' },
-            el('h3', { text: selMenu.name }),
-            el('small', { text: 'Giá bán ' + app.formatMoney(selMenu.price) + ' / ' + (selMenu.unit || 'đơn vị') })),
-          el('div', { className: 'rc-title-act' },
-            el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openRenameMenuModal(selMenu, e.currentTarget), text: '✎ Sửa tên' }),
-            ST.menuItems.length > 1 ? el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openCopyRecipeModal(selMenu, e.currentTarget), text: 'Sao chép' }) : null)),
-        el('div', { className: 'kpi-row3', style: 'margin-top:12px' },
+        el('div', { className: 'kpi-row3' },
           el('div', { className: 'kpi-box' }, el('small', { text: 'Giá vốn' }), el('b', { className: 'num', text: app.formatMoney(estCost) })),
           el('div', { className: 'kpi-box' }, el('small', { text: 'Lãi gộp' }), el('b', { className: 'num', style: 'color:' + (profit < 0 ? 'var(--error)' : 'var(--accent)'), text: app.formatMoney(profit) })),
           el('div', { className: 'kpi-box' }, el('small', { text: 'Tỉ lệ lãi' }), el('b', { className: 'num', style: 'color:' + (profit < 0 ? 'var(--error)' : 'var(--accent)'), text: margin == null ? '—' : margin + '%' }))),
@@ -3810,7 +3803,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     };
 
     const listCard = selMenu ? el('div', { className: 'card' },
-      el('b', { style: 'display:block;margin-bottom:2px', text: 'Nguyên liệu cho 1 ' + (selMenu.unit || 'đơn vị') }),
+      el('div', { className: 'row-between' },
+        el('b', { text: 'Nguyên liệu cho 1 ' + (selMenu.unit || 'đơn vị') }),
+        ST.menuItems.length > 1 ? el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openCopyRecipeModal(selMenu, e.currentTarget), text: 'Sao chép từ món khác' }) : null),
       ST.recipes.length ? RECIPE_GROUPS.map(g => {
         const list = byGroup.get(g);
         if (!list.length) return null;
@@ -3876,6 +3871,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('span', { text: 'Lãi (giá bán ' + app.formatMoney(m.price) + ')' }), el('span', { className: 'num', text: app.formatMoney(m.price - cost) }))
     ), [
       el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Đóng' }),
+      el('button', { type: 'button', className: 'btn', onClick: e => openRenameMenuModal(m, e.currentTarget), text: '✎ Sửa tên' }),
       el('button', { type: 'button', className: 'btn btn-primary', onClick: goEdit, text: 'Sửa định mức' })
     ], opener);
   }

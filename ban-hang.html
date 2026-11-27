@@ -5380,13 +5380,14 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     // 1. Tồn kho hàng bán theo lô
     const lotsOf = id => K.lots.filter(l => l.inv_item_id === id);
     const lotRow = (l, it) => {
-      const exp = l.expiry, days = exp ? Math.round((new Date(exp + 'T00:00:00+07:00') - new Date(today + 'T00:00:00+07:00')) / 86400000) : null;
-      const over = days != null && days < 0, soon = days != null && days >= 0 && days <= 3;
+      const expAt = l.expiry_at ? new Date(l.expiry_at) : null, ms = expAt ? expAt - new Date() : null;
+      const over = ms != null && ms < 0, soon = ms != null && ms >= 0 && ms <= 3 * 86400000;
+      const expTxt = expAt ? (l.source === 'batch' ? app.formatVnDateTime(l.expiry_at) : dmy(l.expiry)) : 'chưa khai';
       const used = l.qty_in - l.qty_left - l.qty_expired;
       return el('div', { className: 'line-row', style: 'padding:10px 6px;flex-wrap:wrap;gap:6px' },
         el('div', { className: 'line-main', style: 'flex:1 1 100%' },
           el('b', { text: it.name + ' · ' + l.code }),
-          el('small', { className: 'num', text: 'Còn ' + kkNum(l.qty_left) + ' ' + it.unit + ' · Nhập ' + dm(app.toVnYmd(new Date(l.received_at))) + ' (' + kkNum(l.qty_in) + ', đã dùng ' + kkNum(used) + ') · HSD ' + (exp ? dmy(exp) : 'chưa khai') })),
+          el('small', { className: 'num', text: 'Còn ' + kkNum(l.qty_left) + ' ' + it.unit + ' · Nhập ' + dm(app.toVnYmd(new Date(l.received_at))) + ' (' + kkNum(l.qty_in) + ', đã dùng ' + kkNum(used) + ') · HSD ' + expTxt })),
         over ? el('span', { className: 'badge badge-err', text: 'Hết hạn' }) : (soon ? el('span', { className: 'badge badge-warn', text: 'Sắp hết hạn' }) : null),
         el('button', { type: 'button', className: 'btn btn-sm' + (over ? ' btn-danger' : ''), text: 'Hết HSD', onClick: e => confirmModal('Báo hết HSD lô ' + l.code + '?', 'Còn ' + kkNum(l.qty_left) + ' ' + it.unit + ' ' + it.name + ' sẽ bỏ khỏi kho và ghi là hao hụt.', 'Hết HSD', async () => {
           const { error } = await sb.rpc('expire_lot', { p_lot: l.id });
@@ -5407,7 +5408,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const group = (title, items, showUnl) => {
       const rows = [];
       for (const it of items) {
-        K.lots.filter(l => l.inv_item_id === it.id && l.qty_left > 0).sort((a, b) => (a.expiry || '9999') < (b.expiry || '9999') ? -1 : 1).forEach(l => rows.push(lotRow(l, it)));
+        K.lots.filter(l => l.inv_item_id === it.id && l.qty_left > 0).sort((a, b) => (a.expiry_at || '9999') < (b.expiry_at || '9999') ? -1 : 1).forEach(l => rows.push(lotRow(l, it)));
         if (showUnl) { const r = unlRow(it); if (r) rows.push(r); }
       }
       return el('div', { className: 'card', style: 'margin-bottom:10px' }, el('b', { style: 'display:block;margin-bottom:4px', text: title }), rows.length ? rows : empty('Không có hàng trong kho.'));

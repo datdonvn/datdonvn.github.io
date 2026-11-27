@@ -1681,7 +1681,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       if (pl.error) throw pl.error;
       lines = pl.data || [];
     }
-    const ce = await sb.from('cash_entries').select('dir,cat,amount,pay_method_id').eq('shop_id', shopId).gte('at', from).lte('at', to);
+    const ce = await sb.from('cash_entries').select('dir,cat,amount,pay_method_id').eq('shop_id', shopId).neq('cat', 'von_kho').gte('at', from).lte('at', to);
     if (ce.error) throw ce.error;
     const sn = await sb.from('eod_snapshots').select('day,data').eq('shop_id', shopId).gte('day', app.shiftYmd(today, -2)).order('day', { ascending: false });
     if (sn.error) throw sn.error;
@@ -3855,6 +3855,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     { id: 'thu_khac', label: 'Thu khác', dir: 'in' }
   ];
   const AUTO_CATS = [
+    { id: 'von_kho', label: 'Vốn hàng tồn kho', dir: 'in' },
     { id: 'ban_hang', label: 'Tiền bán hàng', dir: 'in' },
     { id: 'mua_hang', label: 'Tiền mua hàng', dir: 'out' }
   ];
@@ -3871,7 +3872,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     if (error) throw error;
     ST.cashEntries = data || [];
     const tdy = app.toVnYmd(new Date());
-    const td = await sb.from('cash_entries').select('dir,amount').eq('shop_id', shopId).gte('at', tdy + 'T00:00:00+07:00').lte('at', tdy + 'T23:59:59+07:00');
+    const td = await sb.from('cash_entries').select('dir,amount').eq('shop_id', shopId).neq('cat', 'von_kho').gte('at', tdy + 'T00:00:00+07:00').lte('at', tdy + 'T23:59:59+07:00');
     if (td.error) throw td.error;
     ST.cashToday = { in: 0, out: 0 };
     for (const c of (td.data || [])) { if (c.dir === 'in') ST.cashToday.in += c.amount; else ST.cashToday.out += c.amount; }
@@ -3882,7 +3883,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const tdy = app.toVnYmd(new Date()), mStart = tdy.slice(0, 8) + '01', pmEnd = app.shiftYmd(mStart, -1);
     const cashPresets = [['Hôm nay', tdy, tdy], ['7 ngày', app.shiftYmd(tdy, -6), tdy], ['Tháng này', mStart, tdy], ['Tháng trước', pmEnd.slice(0, 8) + '01', pmEnd]];
     let totalIn = 0, totalOut = 0;
-    for (const c of ST.cashEntries) { if (c.dir === 'in') totalIn += c.amount; else totalOut += c.amount; }
+    for (const c of ST.cashEntries) { if (c.cat === 'von_kho') continue; if (c.dir === 'in') totalIn += c.amount; else totalOut += c.amount; }
     const debtNcc = (ST.debts || []).reduce((a, p) => a + (p.total - p.paid), 0);
     const tIn = (ST.cashToday && ST.cashToday.in) || 0, tOut = (ST.cashToday && ST.cashToday.out) || 0;
     const statRow = (label, val, o) => {
@@ -3926,7 +3927,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           return el('div', { className: 'line-row' },
             el('div', { className: 'line-main' },
               el('b', { text: catObj.label + (c.supplier ? ' · ' + c.supplier : '') + (c.note ? ' · ' + c.note : '') }),
-              el('small', { text: app.formatVnDateTime(c.at) + ' · ' + payMethodName(c.pay_method_id) })
+              el('small', { text: app.formatVnDateTime(c.at) + ' · ' + (c.cat === 'von_kho' ? 'Hàng tồn kho' : payMethodName(c.pay_method_id)) })
             ),
             el('b', { className: 'num', style: 'color:' + (c.dir === 'in' ? 'var(--accent)' : 'var(--error)'), text: (c.dir === 'in' ? '+' : '−') + app.formatMoney(c.amount) }),
             c.ref_type ? el('span', { className: 'badge', text: 'Tự động' }) : kebab({ text: 'Sửa khoản này', fn: e => openCashModal(c, e.currentTarget) }, { text: 'Xóa', danger: true, fn: e => confirmModal('Xóa khoản thu chi?', 'Khoản này sẽ bị xóa khỏi sổ.', 'Xóa', async () => {
@@ -5275,7 +5276,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const since = app.shiftYmd(app.toVnYmd(new Date()), -13);
     const [lots, cash, chk] = await Promise.all([
       sb.from('inv_lots').select('*').eq('shop_id', shopId).gt('qty_left', 0).order('received_at', { ascending: false }).limit(800),
-      sb.from('cash_entries').select('at,dir,amount,pay_method_id').eq('shop_id', shopId).gte('at', since + 'T00:00:00+07:00').limit(5000),
+      sb.from('cash_entries').select('at,dir,amount,pay_method_id').eq('shop_id', shopId).neq('cat', 'von_kho').gte('at', since + 'T00:00:00+07:00').limit(5000),
       sb.from('cash_checks').select('*').eq('shop_id', shopId).gte('day', since),
       loadInvItems(), loadDebts()
     ]);
@@ -5483,7 +5484,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const [ord, pur, cash, bat, mv, inv] = await Promise.all([
       sb.from('orders').select('id,code,total,status,order_items(name,qty,is_gift)').eq('shop_id', sh).neq('status', 'cancelled').gte('ordered_at', from).lte('ordered_at', to).limit(1000),
       sb.from('purchases').select('id,code,at,place,total,on_credit,purchase_lines(name,qty,unit,cost)').eq('shop_id', sh).gte('at', from).lte('at', to).order('at', { ascending: true }),
-      sb.from('cash_entries').select('dir,amount').eq('shop_id', sh).gte('at', from).lte('at', to).limit(2000),
+      sb.from('cash_entries').select('dir,amount').eq('shop_id', sh).neq('cat', 'von_kho').gte('at', from).lte('at', to).limit(2000),
       sb.from('batches').select('id,code,at,out_item_id,out_qty,cost_total,status,note').eq('shop_id', sh).gte('at', from).lte('at', to).order('at', { ascending: true }),
       sb.from('stock_moves').select('inv_item_id,at,kind,qty').eq('shop_id', sh).gte('at', from).limit(5000),
       sb.from('inv_items').select('id,name,unit,kind,qty').eq('shop_id', sh)

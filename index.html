@@ -904,6 +904,7 @@ const ST = {
   profile: storageGet('dd_profile_' + SLUG, { name: '', phone: '', place: '', apt: '', address: '' }),
   savedOrders: storageGet('dd_orders_' + SLUG, []), // [{ code, phone, at }]
   tracked: {}, // { code: track_order_result }
+  gone: {}, // { code: true } đơn không còn trên hệ thống
   lookupOrder: null,
   // Trạng thái hộp xác nhận đơn
   co: {
@@ -1396,7 +1397,7 @@ async function submitAdd(btn) {
     const code = a.code;
     stopAdd();
     showToast('Đã thêm món vào đơn ' + code + '. Quán sẽ xác nhận lại đơn của bạn.');
-    ST.tracked = {};
+    delete ST.tracked[code];
     switchTab('orders');
   } catch (err) {
     a.busy = false;
@@ -2075,7 +2076,8 @@ async function refreshSavedOrders() {
   await Promise.all(ST.savedOrders.map(async o => {
     try {
       const data = await rpc('track_order', { p_slug: SLUG, p_code: o.code, p_phone: o.phone });
-      if (data) ST.tracked[o.code] = Object.assign({ phone: o.phone }, data);
+      if (data) { ST.tracked[o.code] = Object.assign({ phone: o.phone }, data); delete ST.gone[o.code]; }
+      else { delete ST.tracked[o.code]; ST.gone[o.code] = true; }
     } catch (e) {}
   }));
   if (ST.tab === 'orders') renderApp();
@@ -2197,11 +2199,18 @@ function renderOrdersView() {
     if (info) {
       wrap.append(renderOrderCard(info, o.phone));
     } else {
+      const gone = ST.gone[o.code];
       wrap.append(el('div', { className: 'card' },
-        el('div', { style: 'display:flex;justify-content:space-between' },
+        el('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:8px' },
           el('b', { className: 'num', text: o.code }),
-          el('span', { style: 'font-size:13.5px;color:var(--text-sub)', text: 'Đang kiểm tra…' })
-        )
+          gone ? el('button', { type: 'button', className: 'btn btn-ghost', style: 'padding:6px 12px;font-size:13px', onClick: () => {
+            ST.savedOrders = ST.savedOrders.filter(x => x.code !== o.code);
+            delete ST.gone[o.code];
+            storageSet('dd_orders_' + SLUG, ST.savedOrders);
+            renderApp();
+          }, text: 'Xóa khỏi máy' }) : el('span', { style: 'font-size:13.5px;color:var(--text-sub)', text: 'Đang kiểm tra…' })
+        ),
+        gone ? el('div', { style: 'font-size:13px;color:var(--text-sub);margin-top:4px', text: 'Quán không còn đơn này trên hệ thống.' }) : null
       ));
     }
   }

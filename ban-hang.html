@@ -4076,7 +4076,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
 
   function openFormulaModal(f, opener) {
-    const g = { shelf_days: f && f.shelf_days ? f.shelf_days : '', out_item_id: f ? f.out_item_id : '', out_qty: f ? f.out_qty : '', lines: f ? (f.lines || []).map(l => ({ inv_item_id: l.inv_item_id, qty: l.qty })) : [{ inv_item_id: '', qty: '' }] };
+    const g = { shelf_hours: f && f.shelf_hours ? f.shelf_hours : '', out_item_id: f ? f.out_item_id : '', out_qty: f ? f.out_qty : '', lines: f ? (f.lines || []).map(l => ({ inv_item_id: l.inv_item_id, qty: l.qty })) : [{ inv_item_id: '', qty: '' }] };
     if (!g.lines.length) g.lines = [{ inv_item_id: '', qty: '' }];
     const body = el('div');
     const draw = () => {
@@ -4088,8 +4088,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             invOpts(['btp'], g.out_item_id, [], i => i.name + ' (' + i.unit + ')'))),
         el('div', { className: 'field' }, el('label', { text: 'Mỗi mẻ làm ra được bao nhiêu' }),
           el('input', { className: 'input num', type: 'number', step: 'any', min: 0, value: g.out_qty, onInput: e => { g.out_qty = e.target.value; } })),
-        el('div', { className: 'field' }, el('label', { text: 'Hạn sử dụng (số ngày kể từ ngày nấu, không bắt buộc)' }),
-          el('input', { className: 'input num', type: 'number', min: 1, step: 1, placeholder: 'Ví dụ: 3', value: g.shelf_days, onInput: e => { g.shelf_days = e.target.value; } })),
+        el('div', { className: 'field' }, el('label', { text: 'Hạn sử dụng (số giờ kể từ lúc nhập thực tế, không bắt buộc)' }),
+          el('input', { className: 'input num', type: 'number', min: 1, step: 1, placeholder: 'Ví dụ: 72 (= 3 ngày)', value: g.shelf_hours, onInput: e => { g.shelf_hours = e.target.value; } })),
         el('div', { style: 'font-weight:700;margin:12px 0 6px', text: 'Nguyên liệu và định lượng mỗi mẻ' }),
         g.lines.map((l, idx) => {
           const iv = ST.invItems.find(i => i.id === l.inv_item_id);
@@ -4109,7 +4109,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       if (!g.out_item_id || !(Number(g.out_qty) > 0) || !lines.length) { app.showToast('Chọn vật tư làm ra, sản lượng > 0 và ít nhất 1 nguyên liệu', 'error'); return; }
       ok.disabled = true; ok.textContent = 'Đang lưu…';
       try {
-        const { error } = await sb.rpc('save_formula', { p_shop: shopId, p_out_item: g.out_item_id, p_out_qty: Number(g.out_qty), p_lines: lines, p_shelf_days: Number(g.shelf_days) > 0 ? Math.round(Number(g.shelf_days)) : null });
+        const { error } = await sb.rpc('save_formula', { p_shop: shopId, p_out_item: g.out_item_id, p_out_qty: Number(g.out_qty), p_lines: lines, p_shelf_hours: Number(g.shelf_hours) > 0 ? Math.round(Number(g.shelf_hours)) : null });
         if (error) throw error;
         closeModal(); app.showToast('Đã lưu công thức', 'accent');
         await loadBatches(); renderBatchTab();
@@ -4217,7 +4217,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         return el('div', { className: 'line-row' },
           el('div', { className: 'line-main' },
             el('b', { text: (outIv ? outIv.name : 'Vật tư') + ' · mỗi mẻ ' + f.out_qty + ' ' + (outIv ? outIv.unit : '') }),
-            el('small', { text: (f.lines || []).length + ' nguyên liệu' + (f.shelf_days ? ' · HSD ' + f.shelf_days + ' ngày' : '') })),
+            el('small', { text: (f.lines || []).length + ' nguyên liệu' + (f.shelf_hours ? ' · HSD ' + f.shelf_hours + ' giờ' : '') })),
           el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openFormulaViewModal(f, outIv, invMap, e.currentTarget), text: 'Xem' }),
           kebab({ text: 'Sửa công thức', fn: e => openFormulaModal(f, e.currentTarget) }, { text: 'Xóa công thức', danger: true, fn: e => confirmModal('Xóa công thức?', 'Mẻ đã ghi không bị ảnh hưởng.', 'Xóa', async () => {
             const { error } = await sb.rpc('delete_formula', { p_shop: shopId, p_id: f.id });
@@ -4585,9 +4585,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const unit = outIv ? outIv.unit : '';
     const planned = Number(b.planned_qty) || Number(b.out_qty) || 0;
     const inp = el('input', { className: 'input num', type: 'number', step: 'any', min: 0, value: b.status === 'done' ? b.out_qty : '', placeholder: 'Sản lượng thực tế (' + unit + ')' });
+    const baseInp = el('input', { className: 'input', type: 'datetime-local' });
     const body = el('div', null,
       el('div', { style: 'margin-bottom:8px' }, el('b', { text: (outIv ? outIv.name : 'Vật tư') }), el('span', { text: ' · dự kiến ' + planned + ' ' + unit })),
       el('div', { className: 'field' }, el('label', { text: 'Sản lượng thực tế (' + unit + ')' }), inp),
+      el('div', { className: 'field' }, el('label', { text: 'Mốc tính HSD (để trống = lúc bấm lưu)' }), baseInp),
       el('button', { type: 'button', className: 'btn', style: 'width:100%', text: 'Thực tế = Dự kiến (' + planned + ' ' + unit + ')', onClick: () => { inp.value = planned; } }),
       el('div', { style: 'font-size:12.5px;opacity:.7;margin-top:8px', text: 'Thành phẩm chỉ vào kho sau khi bạn lưu sản lượng thực tế. Chưa nấu xong thì bấm Để sau, mẻ nằm ở danh sách nhật ký.' })
     );
@@ -4596,7 +4598,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       if (!(v > 0)) { app.showToast('Nhập sản lượng thực tế lớn hơn 0 hoặc bấm Thực tế = Dự kiến', 'error'); return; }
       ok.disabled = true; ok.textContent = 'Đang lưu…';
       try {
-        const { data, error } = await sb.rpc('finish_batch', { p_batch: b.id, p_actual: v });
+        const { data, error } = await sb.rpc('finish_batch', { p_batch: b.id, p_actual: v, p_base: baseInp.value ? new Date(baseInp.value).toISOString() : null });
         if (error) throw error;
         closeModal(); app.showToast('Đã nhập kho ' + v + ' ' + unit + ' · Giá vốn ' + app.formatMoney(data.unit_cost) + '/' + (unit || 'đv'), 'accent');
         await Promise.all([loadBatches(), loadInvItems()]); renderBatchTab();
@@ -5282,17 +5284,20 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   }
   async function kkRefresh() { try { await loadTabData('ov_kk'); } catch (e) { showErr(e); } renderOvKK(); }
 
-  function openLotExpiryModal(l, opener) {
-    const inp = el('input', { className: 'input', type: 'date', value: l.expiry || '' });
+  function openLotExpiryModal(l, opener, hourly) {
+    const toLocal = iso => { if (!iso) return ''; const d = new Date(new Date(iso).getTime() - new Date(iso).getTimezoneOffset() * 60000); return d.toISOString().slice(0, 16); };
+    const inp = hourly ? el('input', { className: 'input', type: 'datetime-local', value: toLocal(l.expiry_at) }) : el('input', { className: 'input', type: 'date', value: l.expiry || '' });
     const ok = el('button', { type: 'button', className: 'btn btn-primary', text: 'Lưu', onClick: async () => {
       ok.disabled = true;
       try {
-        const { error } = await sb.rpc('set_lot_expiry', { p_lot: l.id, p_expiry: inp.value || null });
+        const { error } = hourly
+          ? (inp.value ? await sb.rpc('set_lot_expiry_at', { p_lot: l.id, p_expiry_at: new Date(inp.value).toISOString() }) : { error: new Error('Chọn ngày giờ hết hạn') })
+          : await sb.rpc('set_lot_expiry', { p_lot: l.id, p_expiry: inp.value || null });
         if (error) throw error;
         closeModal(); app.showToast('Đã lưu HSD', 'accent'); await kkRefresh();
       } catch (e) { showErr(e); ok.disabled = false; }
     } });
-    openModal('HSD lô ' + l.code, el('div', { className: 'field' }, el('label', { text: 'Hạn sử dụng (để trống = không có)' }), inp), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), ok], opener);
+    openModal('HSD lô ' + l.code, el('div', { className: 'field' }, el('label', { text: hourly ? 'Hạn sử dụng (ngày giờ)' : 'Hạn sử dụng (để trống = không có)' }), inp), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), ok], opener);
   }
   function openOpeningLotModal(it, unl, opener) {
     const q = el('input', { className: 'input num', type: 'number', step: 'any', min: 0, value: kkNum(unl) });
@@ -5395,8 +5400,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           app.showToast('Đã bỏ ' + kkNum(l.qty_left) + ' ' + it.unit + ' khỏi kho', 'accent');
           await kkRefresh();
         }, e.currentTarget) }),
-        // bán thành phẩm: HSD tính theo công thức, hàng hóa / nguyên liệu: HSD khai ở phiếu mua
-        it.kind === 'btp' ? null : kebab({ text: 'Sửa HSD', fn: e => openLotExpiryModal(l, e.currentTarget) }));
+        // bán thành phẩm: HSD theo giờ (công thức, mốc lúc nhập thực tế, tự sửa được); hàng hóa / nguyên liệu: theo ngày
+        kebab({ text: 'Sửa HSD', fn: e => openLotExpiryModal(l, e.currentTarget, it.kind === 'btp') }));
     };
     const unlRow = it => {
       const unl = it.qty - K.lots.filter(l => l.inv_item_id === it.id).reduce((a, l) => a + Number(l.qty_left), 0);

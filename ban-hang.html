@@ -5384,20 +5384,22 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
     // 1. Tồn kho hàng bán theo lô
     const lotsOf = id => K.lots.filter(l => l.inv_item_id === id);
+    const qtyTxt = (v, it) => it.unit === 'ml' ? kkNum(Number(v) / 1000) + ' lít' : kkNum(v) + ' ' + it.unit;
     const lotRow = (l, it) => {
       const expAt = l.expiry_at ? new Date(l.expiry_at) : null, ms = expAt ? expAt - new Date() : null;
       const over = ms != null && ms < 0, soon = ms != null && ms >= 0 && ms <= 3 * 86400000;
       const expTxt = expAt ? (l.source === 'batch' ? app.formatVnDateTime(l.expiry_at) : dmy(l.expiry)) : 'chưa khai';
       const used = l.qty_in - l.qty_left - l.qty_expired;
-      return el('div', { className: 'line-row', style: 'padding:10px 6px;flex-wrap:wrap;gap:6px' },
+      const lab = l.source === 'batch' ? 'mẻ ' + l.code : (l.source === 'buy' ? 'mã mua ' + l.code : 'Tồn đầu');
+      return el('div', { className: 'line-row', style: 'padding:8px 6px 8px 14px;flex-wrap:wrap;gap:6px' },
         el('div', { className: 'line-main', style: 'flex:1 1 100%' },
-          el('b', { text: it.name + ' · ' + l.code }),
-          el('small', { className: 'num', text: 'Còn ' + kkNum(l.qty_left) + ' ' + it.unit + ' · Nhập ' + dm(app.toVnYmd(new Date(l.received_at))) + ' (' + kkNum(l.qty_in) + ', đã dùng ' + kkNum(used) + ') · HSD ' + expTxt })),
+          el('b', { text: lab + ' · còn ' + qtyTxt(l.qty_left, it) }),
+          el('small', { className: 'num', text: 'HSD: ' + expTxt + ' · Nhập ' + dm(app.toVnYmd(new Date(l.received_at))) + ' (' + qtyTxt(l.qty_in, it) + ', đã dùng ' + qtyTxt(used, it) + ')' })),
         over ? el('span', { className: 'badge badge-err', text: 'Hết hạn' }) : (soon ? el('span', { className: 'badge badge-warn', text: 'Sắp hết hạn' }) : null),
-        el('button', { type: 'button', className: 'btn btn-sm' + (over ? ' btn-danger' : ''), text: 'Hết HSD', onClick: e => confirmModal('Báo hết HSD lô ' + l.code + '?', 'Còn ' + kkNum(l.qty_left) + ' ' + it.unit + ' ' + it.name + ' sẽ bỏ khỏi kho và ghi là hao hụt.', 'Hết HSD', async () => {
+        el('button', { type: 'button', className: 'btn btn-sm' + (over ? ' btn-danger' : ''), text: 'Hết HSD', onClick: e => confirmModal('Báo hết HSD ' + lab + '?', 'Còn ' + qtyTxt(l.qty_left, it) + ' ' + it.name + ' sẽ bỏ khỏi kho và ghi là hao hụt.', 'Hết HSD', async () => {
           const { error } = await sb.rpc('expire_lot', { p_lot: l.id });
           if (error) throw error;
-          app.showToast('Đã bỏ ' + kkNum(l.qty_left) + ' ' + it.unit + ' khỏi kho', 'accent');
+          app.showToast('Đã bỏ ' + qtyTxt(l.qty_left, it) + ' khỏi kho', 'accent');
           await kkRefresh();
         }, e.currentTarget) }),
         // bán thành phẩm: HSD theo giờ (công thức, mốc lúc nhập thực tế, tự sửa được); hàng hóa / nguyên liệu: theo ngày
@@ -5406,15 +5408,17 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const unlRow = it => {
       const unl = it.qty - K.lots.filter(l => l.inv_item_id === it.id).reduce((a, l) => a + Number(l.qty_left), 0);
       if (!(unl > 1e-9)) return null;
-      return el('div', { className: 'line-row', style: 'padding:10px 6px' },
-        el('div', { className: 'line-main' }, el('b', { text: it.name + ' · Tồn cũ' }), el('small', { className: 'num', text: 'Còn ' + kkNum(unl) + ' ' + it.unit + ' · chưa có lô' + (it.kind === 'btp' ? ' (HSD khai ở Công thức)' : '') })),
+      return el('div', { className: 'line-row', style: 'padding:8px 6px 8px 14px' },
+        el('div', { className: 'line-main' }, el('b', { text: 'Tồn cũ · còn ' + qtyTxt(unl, it) }), el('small', { className: 'num', text: 'chưa có lô' + (it.kind === 'btp' ? ' (HSD khai ở Công thức)' : '') })),
         it.kind === 'btp' ? null : el('button', { type: 'button', className: 'btn btn-sm', text: 'Khai HSD', onClick: e => openOpeningLotModal(it, unl, e.currentTarget) }));
     };
     const group = (title, items, showUnl) => {
       const rows = [];
       for (const it of items) {
-        K.lots.filter(l => l.inv_item_id === it.id && l.qty_left > 0).sort((a, b) => (a.expiry_at || '9999') < (b.expiry_at || '9999') ? -1 : 1).forEach(l => rows.push(lotRow(l, it)));
-        if (showUnl) { const r = unlRow(it); if (r) rows.push(r); }
+        const sub = [];
+        K.lots.filter(l => l.inv_item_id === it.id && l.qty_left > 0).sort((a, b) => (a.received_at || '') < (b.received_at || '') ? -1 : 1).forEach(l => sub.push(lotRow(l, it)));
+        if (showUnl) { const r = unlRow(it); if (r) sub.push(r); }
+        if (sub.length) rows.push(el('div', { style: 'padding:8px 0 2px;border-bottom:1px solid var(--border)' }, el('b', { style: 'padding-left:6px;font-size:15px', text: it.name }), sub));
       }
       return el('div', { className: 'card', style: 'margin-bottom:10px' }, el('b', { style: 'display:block;margin-bottom:4px', text: title }), rows.length ? rows : empty('Không có hàng trong kho.'));
     };
@@ -5436,9 +5440,11 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       t[m] += e.dir === 'in' ? e.amount : -e.amount;
     }
     const endOf = (d, m) => { const ck = K.checks.find(c => c.day === d && c.method === m); return (ck ? ck.opening : 0) + ((dayTot[d] || {})[m] || 0); };
+    const doneDay = d => KK_METHODS.every(([m]) => K.checks.some(c => c.day === d && c.method === m && (c.status === 'ok' || c.status === 'diff')));
+    const pendDays = days.filter(d => !doneDay(d));
     const cashSec = [
-      head('Kiểm quỹ', 'Tiền quỹ cuối mỗi ngày (14 ngày gần nhất)'),
-      el('div', { className: 'card' }, days.map(d => {
+      head('Kiểm quỹ', 'Ngày chưa kiểm (14 ngày gần nhất), kiểm xong sẽ ẩn'),
+      el('div', { className: 'card' }, !pendDays.length ? empty('Đã kiểm xong tất cả các ngày.') : pendDays.map(d => {
         const cks = K.checks.filter(c => c.day === d);
         const anyDiff = cks.some(c => c.status === 'diff'), allOk = cks.length === 2 && cks.every(c => c.status === 'ok');
         return el('div', { className: 'line-row', style: 'padding:10px 6px' },

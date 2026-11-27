@@ -5272,7 +5272,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   async function loadOvKK() {
     const since = app.shiftYmd(app.toVnYmd(new Date()), -13);
     const [lots, cash, chk] = await Promise.all([
-      sb.from('inv_lots').select('*').eq('shop_id', shopId).or('qty_left.gt.0,qty_expired.gt.0').order('received_at', { ascending: false }).limit(800),
+      sb.from('inv_lots').select('*').eq('shop_id', shopId).gt('qty_left', 0).order('received_at', { ascending: false }).limit(800),
       sb.from('cash_entries').select('at,dir,amount,pay_method_id').eq('shop_id', shopId).gte('at', since + 'T00:00:00+07:00').limit(5000),
       sb.from('cash_checks').select('*').eq('shop_id', shopId).gte('day', since),
       loadInvItems(), loadDebts()
@@ -5380,36 +5380,37 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     // 1. Tồn kho hàng bán theo lô
     const lotsOf = id => K.lots.filter(l => l.inv_item_id === id);
     const lotRow = (l, it) => {
-      const used = l.qty_in - l.qty_left - l.qty_expired;
       const exp = l.expiry, days = exp ? Math.round((new Date(exp + 'T00:00:00+07:00') - new Date(today + 'T00:00:00+07:00')) / 86400000) : null;
-      const over = l.qty_left > 0 && days != null && days < 0, soon = l.qty_left > 0 && days != null && days >= 0 && days <= 3;
-      return el('div', { className: 'line-row', style: 'padding:8px 6px 8px 14px;flex-wrap:wrap;gap:6px' },
+      const over = days != null && days < 0, soon = days != null && days >= 0 && days <= 3;
+      const used = l.qty_in - l.qty_left - l.qty_expired;
+      return el('div', { className: 'line-row', style: 'padding:10px 6px;flex-wrap:wrap;gap:6px' },
         el('div', { className: 'line-main', style: 'flex:1 1 100%' },
-          el('b', { className: 'num', text: l.code + ' · còn ' + kkNum(l.qty_left) + ' ' + it.unit }),
-          el('small', { className: 'num', text: 'Nhập ' + dm(app.toVnYmd(new Date(l.received_at))) + ' · HSD ' + (exp ? dmy(exp) : 'chưa khai') + ' · Nhập ' + kkNum(l.qty_in) + ' · Dùng ' + kkNum(used) + ' · Hủy ' + kkNum(l.qty_expired) })),
+          el('b', { text: it.name + ' · ' + l.code }),
+          el('small', { className: 'num', text: 'Còn ' + kkNum(l.qty_left) + ' ' + it.unit + ' · Nhập ' + dm(app.toVnYmd(new Date(l.received_at))) + ' (' + kkNum(l.qty_in) + ', đã dùng ' + kkNum(used) + ') · HSD ' + (exp ? dmy(exp) : 'chưa khai') })),
         over ? el('span', { className: 'badge badge-err', text: 'Hết hạn' }) : (soon ? el('span', { className: 'badge badge-warn', text: 'Sắp hết hạn' }) : null),
-        l.qty_left > 0 ? el('button', { type: 'button', className: 'btn btn-sm' + (over ? ' btn-danger' : ''), text: 'Hết HSD', onClick: e => confirmModal('Báo hết HSD lô ' + l.code + '?', 'Còn ' + kkNum(l.qty_left) + ' ' + it.unit + ' ' + it.name + ' sẽ bỏ khỏi kho và ghi là hao hụt.', 'Hết HSD', async () => {
+        el('button', { type: 'button', className: 'btn btn-sm' + (over ? ' btn-danger' : ''), text: 'Hết HSD', onClick: e => confirmModal('Báo hết HSD lô ' + l.code + '?', 'Còn ' + kkNum(l.qty_left) + ' ' + it.unit + ' ' + it.name + ' sẽ bỏ khỏi kho và ghi là hao hụt.', 'Hết HSD', async () => {
           const { error } = await sb.rpc('expire_lot', { p_lot: l.id });
           if (error) throw error;
           app.showToast('Đã bỏ ' + kkNum(l.qty_left) + ' ' + it.unit + ' khỏi kho', 'accent');
           await kkRefresh();
-        }, e.currentTarget) }) : null,
-        kebab({ text: 'Sửa HSD', fn: e => openLotExpiryModal(l, e.currentTarget) }));
+        }, e.currentTarget) }),
+        // bán thành phẩm: HSD tính theo công thức, hàng hóa / nguyên liệu: HSD khai ở phiếu mua
+        it.kind === 'btp' ? null : kebab({ text: 'Sửa HSD', fn: e => openLotExpiryModal(l, e.currentTarget) }));
     };
-    const itemBlock = (it, showUnl) => {
-      const ls = lotsOf(it.id).filter(l => l.qty_left > 0 || l.qty_expired > 0);
-      const unl = showUnl ? it.qty - K.lots.filter(l => l.inv_item_id === it.id).reduce((a, l) => a + Number(l.qty_left), 0) : 0;
-      if (!ls.length && !(unl > 1e-9)) return null;
-      return el('div', { style: 'padding:6px 0;border-top:1px solid var(--border)' },
-        el('div', { className: 'row-between', style: 'padding:4px 6px' }, el('b', { text: it.name }), el('b', { className: 'num', text: 'Tồn ' + kkNum(it.qty) + ' ' + it.unit })),
-        ls.map(l => lotRow(l, it)),
-        unl > 1e-9 ? el('div', { className: 'line-row', style: 'padding:8px 6px 8px 14px' },
-          el('div', { className: 'line-main' }, el('b', { className: 'num', text: 'Tồn cũ · ' + kkNum(unl) + ' ' + it.unit }), el('small', { text: 'Chưa khai lô / HSD' })),
-          el('button', { type: 'button', className: 'btn btn-sm', text: 'Khai HSD', onClick: e => openOpeningLotModal(it, unl, e.currentTarget) })) : null);
+    const unlRow = it => {
+      const unl = it.qty - K.lots.filter(l => l.inv_item_id === it.id).reduce((a, l) => a + Number(l.qty_left), 0);
+      if (!(unl > 1e-9)) return null;
+      return el('div', { className: 'line-row', style: 'padding:10px 6px' },
+        el('div', { className: 'line-main' }, el('b', { text: it.name + ' · Tồn cũ' }), el('small', { className: 'num', text: 'Còn ' + kkNum(unl) + ' ' + it.unit + ' · chưa có lô' + (it.kind === 'btp' ? ' (HSD khai ở Công thức)' : '') })),
+        it.kind === 'btp' ? null : el('button', { type: 'button', className: 'btn btn-sm', text: 'Khai HSD', onClick: e => openOpeningLotModal(it, unl, e.currentTarget) }));
     };
     const group = (title, items, showUnl) => {
-      const blocks = items.map(it => itemBlock(it, showUnl)).filter(Boolean);
-      return el('div', { className: 'card', style: 'margin-bottom:10px' }, el('b', { style: 'display:block;margin-bottom:4px', text: title }), blocks.length ? blocks : empty('Không có hàng trong kho.'));
+      const rows = [];
+      for (const it of items) {
+        K.lots.filter(l => l.inv_item_id === it.id && l.qty_left > 0).sort((a, b) => (a.expiry || '9999') < (b.expiry || '9999') ? -1 : 1).forEach(l => rows.push(lotRow(l, it)));
+        if (showUnl) { const r = unlRow(it); if (r) rows.push(r); }
+      }
+      return el('div', { className: 'card', style: 'margin-bottom:10px' }, el('b', { style: 'display:block;margin-bottom:4px', text: title }), rows.length ? rows : empty('Không có hàng trong kho.'));
     };
     const byKind = k => ST.invItems.filter(i => i.kind === k && i.active !== false);
     const hsdOther = ST.invItems.filter(i => ['nl', 'bb', 'ccdc', 'khac'].includes(i.kind) && K.lots.some(l => l.inv_item_id === i.id && l.expiry && l.qty_left > 0));

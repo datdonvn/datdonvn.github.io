@@ -1608,6 +1608,13 @@ function renderCheckoutContentInner() {
   const selPlace = places.find(p => p.name === ST.profile.place) || null;
   const days = buildDeliveryDays(shop);
   if (ST.co.dayIdx >= days.length) { ST.co.dayIdx = 0; if (!ST.co.asap && days.length) ST.co.deliverAt = days[0].slots[0].iso; }
+  // Đổi nơi giao (giờ hoạt động khác) hoặc nơi giao vừa ngoài giờ: giữ trạng thái giờ giao luôn hợp lệ
+  if (ST.co.asap && !isOpenNow(shop) && days.length) ST.co.asap = false;
+  if (!ST.co.asap && days.length) {
+    const di = days.findIndex(d => d.slots.some(s => s.iso === ST.co.deliverAt));
+    if (di < 0) { ST.co.dayIdx = 0; ST.co.deliverAt = days[0].slots[0].iso; }
+    else ST.co.dayIdx = di;
+  }
   const cartQty = cartEntries().reduce((t, e) => t + e.qty, 0);
   const minQty = selPlace ? Math.max(0, Number(selPlace.min_qty) || 0) : 0;
   const belowQty = minQty > 0 && cartQty < minQty;

@@ -607,6 +607,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     menu: 'M4 6h16M4 12h16M4 18h10',
     settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.3-.9-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-.9a7 7 0 0 0 2 1.2l.4 2.6h4l.4-2.6a7 7 0 0 0 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z',
     buy: 'M6 7h12l-1 12H7zM9 7a3 3 0 0 1 6 0',
+    ov_stock: 'M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8',
+    ov_log: 'M6 3h12v18H6zM9 8h6M9 12h6M9 16h4',
     inv: 'M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8',
     recipe: 'M6 3h12v18H6zM9 8h6M9 12h6M9 16h4',
     cash: 'M3 7h18v10H3zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM6 10v4M18 10v4',
@@ -640,6 +642,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     { id: 'cash', label: 'Thu chi', minPlan: 'pro' },
     { id: 'batch', label: 'Sản xuất', minPlan: 'pro' },
     { id: 'ov_stock', label: 'Tồn kho', minPlan: 'pro' },
+    { id: 'ov_log', label: 'Nhật ký', minPlan: 'pro' },
     { id: 'cust', label: 'Khách', minPlan: 'standard' },
     { id: 'promo', label: 'Khuyến mãi', minPlan: 'proplus' },
     { id: 'feedback', label: 'Đánh giá', minPlan: 'proplus' }
@@ -694,7 +697,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     invSummary: null,
     invSearch: '',
     invKind: 'all',
-    invCat: 'nvl',
+    invCat: 'nvl', logDate: '', logData: null,
     invLowOnly: false,
     // Định mức (Pro)
     recipeMenuId: '',
@@ -783,7 +786,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
   const wrapOuter = el('div', { className: 'dd-wrap' }, headerHost, navHost, contentHost, stickyHost);
   root.replaceChildren(wrapOuter);
 
-  const TAB_TITLES = { sale: 'Sửa đơn', online: 'XL Đơn', feedback: 'XL Đơn', promo: 'Khuyến mãi', cust: 'Khách', menu: 'Menu', settings: 'Cài đặt', ov_stock: 'Tổng quan' };
+  const TAB_TITLES = { sale: 'Sửa đơn', online: 'XL Đơn', feedback: 'XL Đơn', promo: 'Khuyến mãi', cust: 'Khách', menu: 'Menu', settings: 'Cài đặt', ov_stock: 'Tổng quan', ov_log: 'Tổng quan' };
   function renderShopHeader() {
     const sh = ST.shop || app.shop;
     if (window.DDBrand && DDBrand.applyTheme) DDBrand.applyTheme(sh);
@@ -807,7 +810,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     { id: 'online', label: 'XL Đơn', icon: 'online', tabs: ['online', 'feedback', 'sale'], go: 'online' },
     { id: 'ops', label: 'Hoạt động', icon: 'ops', tabs: ['batch', 'buy', 'cash'], panel: ['batch', 'buy', 'cash'] },
     { id: 'selling', label: 'Bán hàng', icon: 'sale', tabs: ['menu', 'recipe', 'promo', 'cust'], panel: ['menu', 'recipe', 'promo', 'cust'] },
-    { id: 'ov', label: 'Tổng quan', icon: 'ov', tabs: ['ov_stock'], go: 'ov_stock' }
+    { id: 'ov', label: 'Tổng quan', icon: 'ov', tabs: ['ov_stock', 'ov_log'], panel: ['ov_stock', 'ov_log'] }
   ];
   function openPanel(g, opener) {
     const ts = g.panel.map(id => TABS.find(t => t.id === id)).filter(Boolean);
@@ -888,6 +891,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       } else if (id === 'cash' && app.hasPlan('pro')) {
         await loadCashEntries();
         markLoaded('cash');
+      } else if (id === 'ov_log' && app.hasPlan('pro')) {
+        await loadOvLog();
+        markLoaded('ov_log');
       } else if (id === 'ov_stock' && app.hasPlan('pro')) {
         await Promise.all([loadStockBoard(), loadInvItems()]);
         markLoaded('ov_stock');
@@ -920,7 +926,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       cust: renderCustTab,
       promo: renderPromoTab,
       feedback: renderFeedbackTab,
-      ov_stock: renderOvStock
+      ov_stock: renderOvStock,
+      ov_log: renderOvLog
     };
     if (ST.tab === 'sale' && ST.saleView !== 'order') ST.tab = 'online';
     const fn = map[ST.tab];
@@ -5231,6 +5238,86 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     if (!ST.flow) { ovLoading('ov_actual', renderOvActual); return; }
     const F = flowCards(renderOvActual);
     contentHost.replaceChildren(renderMetaBar('ov_actual', async () => { await loadTabData('ov_actual'); renderOvActual(); }), F.planCard, F.actCard, ovChartCard(F.C));
+  }
+
+  /* ===== NHẬT KÝ: xem tổng quan hoạt động trong ngày (chỉ đọc lại dữ liệu các tab khác) ===== */
+  async function loadOvLog() {
+    if (!ST.logDate) ST.logDate = app.toVnYmd(new Date());
+    const day = ST.logDate, from = day + 'T00:00:00+07:00', to = day + 'T23:59:59+07:00';
+    const sh = shopId;
+    const [ord, pur, cash, bat, mv, inv] = await Promise.all([
+      sb.from('orders').select('id,code,total,status,order_items(name,qty,is_gift)').eq('shop_id', sh).neq('status', 'cancelled').gte('ordered_at', from).lte('ordered_at', to).limit(1000),
+      sb.from('purchases').select('id,code,at,place,total,on_credit,purchase_lines(name,qty,unit,cost)').eq('shop_id', sh).gte('at', from).lte('at', to).order('at', { ascending: true }),
+      sb.from('cash_entries').select('dir,amount').eq('shop_id', sh).gte('at', from).lte('at', to).limit(2000),
+      sb.from('batches').select('id,at,out_item_id,out_qty,cost_total,status,note').eq('shop_id', sh).gte('at', from).lte('at', to).order('at', { ascending: true }),
+      sb.from('stock_moves').select('inv_item_id,at,kind,qty').eq('shop_id', sh).gte('at', from).limit(5000),
+      sb.from('inv_items').select('id,name,unit,kind,qty').eq('shop_id', sh)
+    ]);
+    for (const r of [ord, pur, cash, bat, mv, inv]) if (r.error) throw r.error;
+    ST.logData = { ord: ord.data || [], pur: pur.data || [], cash: cash.data || [], bat: bat.data || [], mv: mv.data || [], inv: inv.data || [], to };
+  }
+  function shiftLogDay(n) { ST.logDate = app.shiftYmd(ST.logDate, n); ST.logData = null; loadTabData('ov_log').then(renderOvLog).catch(e => showErr(e)); }
+  function renderOvLog() {
+    stickyHost.replaceChildren();
+    if (!ST.logDate) ST.logDate = app.toVnYmd(new Date());
+    const redraw = async () => { await loadTabData('ov_log'); renderOvLog(); };
+    const dateBar = el('div', { className: 'row-between', style: 'gap:8px;margin-bottom:4px' },
+      el('button', { type: 'button', className: 'btn', 'aria-label': 'Ngày trước', onClick: () => shiftLogDay(-1), text: '‹' }),
+      el('input', { className: 'input', type: 'date', style: 'flex:1;text-align:center', value: ST.logDate, onChange: e => { if (!e.target.value) return; ST.logDate = e.target.value; ST.logData = null; redraw(); } }),
+      el('button', { type: 'button', className: 'btn', 'aria-label': 'Ngày sau', onClick: () => shiftLogDay(1), text: '›' }));
+    if (!ST.logData) { contentHost.replaceChildren(renderMetaBar('ov_log', redraw), dateBar, el('div', { className: 'empty-state', text: 'Đang tải…' })); return; }
+    const D = ST.logData, money = n => app.formatMoney(Math.round(n));
+    const head = (title, sub) => el('div', { style: 'margin:16px 2px 8px' }, el('b', { style: 'font-size:16px', text: title }), sub ? el('small', { className: 'num', style: 'display:block;color:var(--text-sub)', text: sub }) : null);
+    const row = (main, sub, right) => el('div', { className: 'line-row', style: 'padding:10px 6px' }, el('div', { className: 'line-main' }, el('b', { text: main }), sub ? el('small', { className: 'num', text: sub }) : null), right != null ? el('b', { className: 'num', text: right }) : null);
+    const empty = txt => el('div', { className: 'empty-state', text: txt });
+    const hhmm = iso => { const d = new Date(iso); return app.pad2(d.getHours()) + ':' + app.pad2(d.getMinutes()); };
+    const invBy = new Map(D.inv.map(i => [i.id, i]));
+
+    // 1. Bán hàng
+    const sold = new Map(); let revenue = 0;
+    for (const o of D.ord) { revenue += o.total || 0; for (const it of (o.order_items || [])) { if (it.is_gift) continue; sold.set(it.name, (sold.get(it.name) || 0) + it.qty); } }
+    const sale = el('div', { className: 'card' }, D.ord.length ? [
+      row(D.ord.length + ' đơn', null, money(revenue)),
+      ...[...sold.entries()].sort((a, b) => b[1] - a[1]).map(([n, q]) => row(n, null, 'x' + q))
+    ] : empty('Chưa có đơn nào.'));
+
+    // 2. Mua hàng
+    const buyTotal = D.pur.reduce((a, p) => a + p.total, 0);
+    const buy = el('div', { className: 'card' }, D.pur.length ? D.pur.map(p => row(
+      hhmm(p.at) + ' · ' + p.place + (p.on_credit ? ' · Nợ NCC' : ''),
+      (p.purchase_lines || []).map(l => l.name + ' ' + l.qty + ' ' + l.unit).join(', '), money(p.total))) : empty('Không có phiếu mua.'));
+
+    // 3. Dòng tiền
+    let cin = 0, cout = 0; for (const c of D.cash) { if (c.dir === 'in') cin += c.amount; else cout += c.amount; }
+    const flow = el('div', { className: 'kpi-row2', style: 'grid-template-columns:repeat(3,minmax(0,1fr));gap:8px' },
+      el('div', { className: 'kpi-box' }, el('small', { text: 'Thu vào' }), el('b', { className: 'num', style: 'font-size:15px', text: money(cin) })),
+      el('div', { className: 'kpi-box' }, el('small', { text: 'Chi ra' }), el('b', { className: 'num', style: 'font-size:15px', text: money(cout) })),
+      el('div', { className: 'kpi-box' }, el('small', { text: 'Chênh lệch' }), el('b', { className: 'num', style: 'font-size:15px;' + (cin - cout < 0 ? 'color:var(--error)' : ''), text: money(cin - cout) })));
+
+    // 4. Sản xuất
+    const prod = el('div', { className: 'card' }, D.bat.length ? D.bat.map(b => { const it = invBy.get(b.out_item_id); return row(hhmm(b.at) + ' · ' + (it ? it.name : 'Mẻ nấu'), 'Chi phí NVL: ' + money(b.cost_total) + (b.status === 'cooking' ? ' · đang nấu' : ''), b.status === 'cooking' && !(b.out_qty > 0) ? 'Đang nấu' : '+' + b.out_qty + ' ' + (it ? it.unit : '')); }) : empty('Không nấu mẻ nào.'));
+
+    // 5. Nhập xuất kho: tồn cuối ngày = tồn hiện tại trừ biến động các ngày sau
+    const per = new Map();
+    for (const m of D.mv) {
+      const p = per.get(m.inv_item_id) || { in: 0, out: 0, after: 0 };
+      if (m.at > D.to) p.after += Number(m.qty); else if (m.qty > 0) p.in += Number(m.qty); else p.out += -Number(m.qty);
+      per.set(m.inv_item_id, p);
+    }
+    const stockRows = [...per.entries()].filter(([, p]) => p.in || p.out).map(([id, p]) => ({ it: invBy.get(id), p })).filter(x => x.it)
+      .sort((a, b) => String(a.it.name).localeCompare(String(b.it.name), 'vi'));
+    const num = n => String(Math.round(n * 100) / 100);
+    const stock = el('div', { className: 'card' }, stockRows.length ? stockRows.map(({ it, p }) => {
+      const end = Number(it.qty) - p.after;
+      return row(it.name, 'Nhập ' + num(p.in) + ' · Xuất ' + num(p.out) + ' ' + it.unit, 'Tồn ' + num(end));
+    }) : empty('Kho không biến động.'));
+
+    contentHost.replaceChildren(renderMetaBar('ov_log', redraw), dateBar,
+      head('Bán hàng', D.ord.length + ' đơn · ' + money(revenue)), sale,
+      head('Mua hàng', D.pur.length ? D.pur.length + ' phiếu · ' + money(buyTotal) : ''), buy,
+      head('Dòng tiền'), flow,
+      head('Sản xuất'), prod,
+      head('Nhập xuất kho'), stock);
   }
 
   // Tổng quan = Tồn kho: một màn hình dài, theo thứ tự Bán thành phẩm, NVL, Bao bì, CCDC, Khác

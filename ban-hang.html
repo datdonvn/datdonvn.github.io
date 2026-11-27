@@ -3662,7 +3662,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       text: m.name + (ST.allRecipeMenuIds.has(m.id) ? '' : ' (Chưa có định mức)')
     })));
 
-    let newInvId = (ST.invItems.filter(i => i.kind === 'nl').concat(ST.invItems.filter(i => i.kind !== 'nl')).slice().sort((a, b) => ({ nl: 0, bb: 1, btp: 2 }[a.kind] - { nl: 0, bb: 1, btp: 2 }[b.kind]) || String(a.name).localeCompare(String(b.name), 'vi'))[0] || {}).id || '';
+    let newInvId = (ST.invItems.filter(i => i.kind === 'nl').concat(ST.invItems.filter(i => i.kind !== 'nl')).slice().sort((a, b) => (({ nl: 0, bb: 1, hh: 2, btp: 3 }[a.kind] ?? 9) - ({ nl: 0, bb: 1, hh: 2, btp: 3 }[b.kind] ?? 9)) || String(a.name).localeCompare(String(b.name), 'vi'))[0] || {}).id || '';
     let newQty = '';
     const addRow = el('div', { className: 'g2x', style: 'margin-top:12px;align-items:end' },
       el('div', { className: 'field', style: 'margin:0' },

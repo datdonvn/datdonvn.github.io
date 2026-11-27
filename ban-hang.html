@@ -256,6 +256,30 @@ body .dd-wrap { max-width: none; padding: 0 0 40px; }
   place-items: center;
 }
 
+
+/* Tab Định mức */
+.rc-hero h3 { margin: 0; font-size: 19px; line-height: 1.3; overflow-wrap: anywhere; }
+.rc-hero small { color: var(--text-sub); font-size: 13px; }
+.rc-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.rc-title-act { display: flex; gap: 8px; flex-wrap: wrap; }
+.rc-bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--surface-alt); gap: 2px; }
+.rc-bar i { display: block; height: 100%; }
+.rc-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 12.5px; color: var(--text-sub); }
+.rc-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.rc-group { margin-top: 14px; }
+.rc-group-hd { display: flex; align-items: center; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.rc-group-hd b { font-size: 14.5px; }
+.rc-group-hd small { margin-left: auto; color: var(--text-sub); font-size: 13px; }
+.rc-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.rc-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px dashed var(--border); flex-wrap: wrap; }
+.rc-row:last-child { border-bottom: 0; }
+.rc-name { flex: 1 1 100px; min-width: 0; }
+.rc-name b { display: block; font-size: 15px; }
+.rc-name small { color: var(--text-sub); font-size: 13px; }
+.rc-qty { display: flex; align-items: center; gap: 6px; flex: none; }
+.rc-qty .input { width: 84px; text-align: right; padding: 8px 10px; }
+.rc-unit { color: var(--text-sub); font-size: 13px; min-width: 26px; }
+
 /* Dòng đơn hàng / phiếu mua */
 .line-row {
   display: flex;
@@ -3645,41 +3669,92 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     return out;
   }
 
+  const RECIPE_COLORS = { 'Nước cốt': '#1E7A55', 'Siro': '#D99A00', 'Đá': '#2F6FB0', 'Bao bì': '#8A918C' };
+
+  function openRenameMenuModal(m, opener) {
+    let name = m.name;
+    const inp = el('input', { className: 'input', type: 'text', maxlength: 120, value: name, onInput: e => { name = e.target.value; } });
+    const okBtn = el('button', {
+      type: 'button', className: 'btn btn-primary',
+      onClick: async () => {
+        const nn = name.trim();
+        if (!nn) { app.showToast('Tên món không được để trống', 'error'); return; }
+        if (nn === m.name) { closeModal(); return; }
+        okBtn.disabled = true; okBtn.textContent = 'Đang lưu…';
+        try {
+          const res = await sb.from('menu_items').update({ name: nn }).eq('id', m.id).eq('shop_id', shopId).select('id');
+          checkMutated(res);
+          m.name = nn;
+          closeModal();
+          app.showToast('Đã đổi tên món', 'accent');
+          renderRecipeTab();
+        } catch (err) { showErr(err); okBtn.disabled = false; okBtn.textContent = 'Lưu tên'; }
+      },
+      text: 'Lưu tên'
+    });
+    openModal('Sửa tên món', el('div', null,
+      el('div', { className: 'field' }, el('label', { text: 'Tên món' }), inp),
+      el('small', { style: 'color:var(--text-sub)', text: 'Tên mới hiện ở trang đặt đơn của khách. Đơn đã đặt trước đó vẫn giữ tên cũ.' })
+    ), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), okBtn], opener);
+    setTimeout(() => { try { inp.focus(); inp.select(); } catch (e) { /* bỏ qua */ } }, 50);
+  }
+
   function renderRecipeTab() {
     const selMenu = ST.menuItems.find(m => m.id === ST.recipeMenuId) || null;
     const invMap = new Map(ST.invItems.map(i => [i.id, i]));
+    const lineCostOf = r => { const iv = invMap.get(r.inv_item_id); return iv ? Number(r.qty) * Number(iv.avg_cost || 0) : 0; };
     let estCost = 0;
-    for (const r of ST.recipes) {
-      const iv = invMap.get(r.inv_item_id);
-      if (iv) estCost += Number(r.qty) * Number(iv.avg_cost || 0);
-    }
+    const byGroup = new Map(RECIPE_GROUPS.map(g => [g, []]));
+    for (const r of ST.recipes) { estCost += lineCostOf(r); byGroup.get(recipeGroupOf(invMap.get(r.inv_item_id))).push(r); }
+    const profit = selMenu ? selMenu.price - estCost : 0;
+    const margin = selMenu && selMenu.price > 0 ? Math.round(profit / selMenu.price * 100) : null;
 
     const menuSelect = el('select', {
-      className: 'select',
+      className: 'select', 'aria-label': 'Chọn món',
       onChange: async e => { ST.recipeMenuId = e.target.value; await loadRecipesForMenu(ST.recipeMenuId); renderRecipeTab(); }
     }, ST.menuItems.map(m => el('option', {
       value: m.id, selected: m.id === ST.recipeMenuId,
       text: m.name + (ST.allRecipeMenuIds.has(m.id) ? '' : ' (Chưa có định mức)')
     })));
 
+    const heroCard = el('div', { className: 'card rc-hero' },
+      ST.menuItems.length ? el('div', { className: 'field', style: 'margin-bottom:10px' }, el('label', { text: 'Món đang cài định mức' }), menuSelect) : el('div', { className: 'empty-state', text: 'Hãy thêm món ở tab Menu trước.' }),
+      selMenu ? el('div', null,
+        el('div', { className: 'rc-title' },
+          el('div', { style: 'min-width:0' },
+            el('h3', { text: selMenu.name }),
+            el('small', { text: 'Giá bán ' + app.formatMoney(selMenu.price) + ' / ' + (selMenu.unit || 'đơn vị') })),
+          el('div', { className: 'rc-title-act' },
+            el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openRenameMenuModal(selMenu, e.currentTarget), text: '✎ Sửa tên' }),
+            ST.menuItems.length > 1 ? el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openCopyRecipeModal(selMenu, e.currentTarget), text: 'Sao chép' }) : null)),
+        el('div', { className: 'kpi-row3', style: 'margin-top:12px' },
+          el('div', { className: 'kpi-box' }, el('small', { text: 'Giá vốn' }), el('b', { className: 'num', text: app.formatMoney(estCost) })),
+          el('div', { className: 'kpi-box' }, el('small', { text: 'Lãi gộp' }), el('b', { className: 'num', style: 'color:' + (profit < 0 ? 'var(--error)' : 'var(--accent)'), text: app.formatMoney(profit) })),
+          el('div', { className: 'kpi-box' }, el('small', { text: 'Tỉ lệ lãi' }), el('b', { className: 'num', style: 'color:' + (profit < 0 ? 'var(--error)' : 'var(--accent)'), text: margin == null ? '—' : margin + '%' }))),
+        estCost > 0 ? el('div', { style: 'margin-top:12px' },
+          el('div', { className: 'rc-bar', role: 'img', 'aria-label': 'Tỉ lệ chi phí theo nhóm' },
+            RECIPE_GROUPS.map(g => { const s = byGroup.get(g).reduce((a, r) => a + lineCostOf(r), 0); return s > 0 ? el('i', { style: 'width:' + (s / estCost * 100) + '%;background:' + RECIPE_COLORS[g], title: g + ' ' + app.formatMoney(s) }) : null; })),
+          el('div', { className: 'rc-legend' },
+            RECIPE_GROUPS.map(g => { const s = byGroup.get(g).reduce((a, r) => a + lineCostOf(r), 0); return s > 0 ? el('span', null, el('i', { style: 'background:' + RECIPE_COLORS[g] }), g + ' ' + Math.round(s / estCost * 100) + '%') : null; }))) : null
+      ) : null
+    );
+
     let newInvId = (ST.invItems.filter(i => i.kind === 'nl').concat(ST.invItems.filter(i => i.kind !== 'nl')).slice().sort((a, b) => (({ nl: 0, bb: 1, hh: 2, btp: 3 }[a.kind] ?? 9) - ({ nl: 0, bb: 1, hh: 2, btp: 3 }[b.kind] ?? 9)) || String(a.name).localeCompare(String(b.name), 'vi'))[0] || {}).id || '';
     let newQty = '';
-    const addRow = el('div', { className: 'g2x', style: 'margin-top:12px;align-items:end' },
-      el('div', { className: 'field', style: 'margin:0' },
-        el('div', { className: 'row-between', style: 'margin-bottom:4px' },
-          el('label', { style: 'margin:0', text: 'Vật tư' }),
-          el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openInvItemModal(null, e.currentTarget, () => renderRecipeTab()), text: '+ Tạo vật tư mới' })
-        ),
-        el('select', { className: 'select', onChange: e => { newInvId = e.target.value; } },
-          ['nl', 'bb', 'btp', 'hh'].map(k => { const g = ST.invItems.filter(i => i.kind === k).slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'vi')); return g.length ? el('optgroup', { label: INV_KINDS[k] }, g.map(i => el('option', { value: i.id, text: i.name + ' (' + i.unit + ')' }))) : null; })
-        )
-      ),
-      el('div', { className: 'field', style: 'margin:0' },
-        el('label', { text: 'Lượng cho 1 ' + (selMenu ? (selMenu.unit || 'đơn vị') : 'đơn vị') }),
-        el('input', { className: 'input num', type: 'number', step: 'any', min: 0, placeholder: 'Ví dụ: 0.25', onInput: e => { newQty = e.target.value; } })
-      ),
+    const addCard = el('div', { className: 'card' },
+      el('div', { className: 'row-between', style: 'margin-bottom:10px' },
+        el('b', { text: 'Thêm nguyên liệu vào định mức' }),
+        el('button', { type: 'button', className: 'btn btn-sm', onClick: e => openInvItemModal(null, e.currentTarget, () => renderRecipeTab()), text: '+ Tạo vật tư mới' })),
+      el('div', { className: 'g2x', style: 'align-items:end' },
+        el('div', { className: 'field', style: 'margin:0' },
+          el('label', { text: 'Vật tư' }),
+          el('select', { className: 'select', onChange: e => { newInvId = e.target.value; } },
+            ['nl', 'bb', 'btp', 'hh'].map(k => { const g = ST.invItems.filter(i => i.kind === k).slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'vi')); return g.length ? el('optgroup', { label: INV_KINDS[k] }, g.map(i => el('option', { value: i.id, text: i.name + ' (' + i.unit + ')' }))) : null; }))),
+        el('div', { className: 'field', style: 'margin:0' },
+          el('label', { text: 'Lượng cho 1 ' + (selMenu ? (selMenu.unit || 'đơn vị') : 'đơn vị') }),
+          el('input', { className: 'input num', type: 'number', step: 'any', min: 0, inputMode: 'decimal', placeholder: 'Ví dụ: 0.25', onInput: e => { newQty = e.target.value; } }))),
       el('button', {
-        type: 'button', className: 'btn btn-primary',
+        type: 'button', className: 'btn btn-primary btn-block', style: 'margin-top:10px;width:100%',
         onClick: async () => {
           const q = Number(newQty);
           if (!ST.recipeMenuId || !newInvId || !(q > 0)) { app.showToast('Chọn vật tư và nhập lượng > 0', 'error'); return; }
@@ -3695,66 +3770,65 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       })
     );
 
+    const recipeRow = r => {
+      const iv = invMap.get(r.inv_item_id);
+      const noCost = iv && !(Number(iv.avg_cost) > 0);
+      const saveBtn = el('button', { type: 'button', className: 'btn btn-sm btn-primary hidden', text: 'Lưu' });
+      const qInp = el('input', {
+        className: 'input num', type: 'number', step: 'any', inputMode: 'decimal', value: r.qty, 'aria-label': 'Lượng ' + (iv ? iv.name : ''),
+        onInput: e => { saveBtn.classList.toggle('hidden', !(Number(e.target.value) > 0) || Number(e.target.value) === Number(r.qty)); }
+      });
+      saveBtn.onclick = async () => {
+        const q = Number(qInp.value);
+        if (!(q > 0)) return;
+        try {
+          const res = await sb.from('recipes').update({ qty: q }).eq('id', r.id).eq('shop_id', shopId).select('id');
+          checkMutated(res);
+          app.showToast('Đã cập nhật định mức', 'accent');
+          await loadRecipesForMenu(ST.recipeMenuId);
+          renderRecipeTab();
+        } catch (err) { showErr(err); }
+      };
+      return el('div', { className: 'rc-row' },
+        el('div', { className: 'rc-name' },
+          el('b', { text: iv ? iv.name : r.inv_item_id }),
+          el('small', { className: 'num', style: noCost ? 'color:var(--error)' : '', text: noCost ? 'Chưa có giá vốn, hãy nhập phiếu Mua vật tư này' : app.formatMoney(lineCostOf(r)) })),
+        el('div', { className: 'rc-qty' },
+          qInp, el('span', { className: 'rc-unit', text: iv ? iv.unit : '' }), saveBtn,
+          el('button', {
+            type: 'button', className: 'btn btn-sm btn-danger', 'aria-label': 'Xóa ' + (iv ? iv.name : 'nguyên liệu'),
+            onClick: async () => {
+              try {
+                const res = await sb.from('recipes').delete().eq('id', r.id).eq('shop_id', shopId).select('id');
+                checkMutated(res);
+                await Promise.all([loadRecipesForMenu(ST.recipeMenuId), loadAllRecipeFlags()]);
+                renderRecipeTab();
+              } catch (err) { showErr(err); }
+            },
+            text: '×'
+          })));
+    };
+
+    const listCard = selMenu ? el('div', { className: 'card' },
+      el('b', { style: 'display:block;margin-bottom:2px', text: 'Nguyên liệu cho 1 ' + (selMenu.unit || 'đơn vị') }),
+      ST.recipes.length ? RECIPE_GROUPS.map(g => {
+        const list = byGroup.get(g);
+        if (!list.length) return null;
+        const sub = list.reduce((a, r) => a + lineCostOf(r), 0);
+        return el('div', { className: 'rc-group' },
+          el('div', { className: 'rc-group-hd' },
+            el('span', { className: 'rc-dot', style: 'background:' + RECIPE_COLORS[g] }),
+            el('b', { text: g }),
+            el('small', { className: 'num', text: app.formatMoney(sub) + (estCost > 0 ? ' · ' + Math.round(sub / estCost * 100) + '%' : '') })),
+          list.map(recipeRow));
+      }) : el('div', { className: 'empty-state', text: 'Món này chưa có định mức vật tư.' })
+    ) : null;
+
     contentHost.replaceChildren(
       renderMetaBar('recipe', async () => { await loadTabData('recipe'); renderRecipeTab(); }),
-      el('div', { className: 'card' },
-        el('div', { className: 'row-between', style: 'margin-bottom:8px' },
-          el('b', { text: 'Chọn món để cài định mức' }),
-          ST.menuItems.length > 1 && selMenu ? el('button', {
-            type: 'button', className: 'btn btn-sm',
-            onClick: e => openCopyRecipeModal(selMenu, e.currentTarget),
-            text: 'Sao chép từ món khác'
-          }) : null
-        ),
-        ST.menuItems.length ? menuSelect : el('div', { className: 'empty-state', text: 'Hãy thêm món ở tab Menu trước.' })
-      ),
-      selMenu ? el('div', { className: 'card' },
-        el('div', { style: 'font-weight:700;margin-bottom:6px', text: 'Thành phần cho 1 ' + (selMenu.unit || 'đơn vị') + ' ' + selMenu.name }),
-        ST.recipes.length ? recipeGroupedRows(invMap, r => {
-          const iv = invMap.get(r.inv_item_id);
-          const lineCost = iv ? Number(r.qty) * Number(iv.avg_cost || 0) : 0;
-          const qInp = el('input', { className: 'input num', style: 'width:100px', type: 'number', step: 'any', value: r.qty });
-          return el('div', { className: 'line-row' },
-            el('div', { className: 'line-main' },
-              el('b', { text: iv ? iv.name : r.inv_item_id }),
-              el('small', { className: 'num', style: iv && !(Number(iv.avg_cost) > 0) ? 'color:var(--error)' : '', text: iv && !(Number(iv.avg_cost) > 0) ? 'Chưa có giá vốn, hãy nhập phiếu Mua vật tư này' : 'Tạm tính: ' + app.formatMoney(lineCost) + ' (' + (iv ? iv.unit : '') + ')' })
-            ),
-            qInp,
-            el('button', {
-              type: 'button', className: 'btn btn-sm',
-              onClick: async () => {
-                const q = Number(qInp.value);
-                if (!(q > 0)) return;
-                try {
-                  const res = await sb.from('recipes').update({ qty: q }).eq('id', r.id).eq('shop_id', shopId).select('id');
-                  checkMutated(res);
-                  app.showToast('Đã cập nhật định mức', 'accent');
-                  await loadRecipesForMenu(ST.recipeMenuId);
-                  renderRecipeTab();
-                } catch (err) { showErr(err); }
-              },
-              text: 'Lưu'
-            }),
-            el('button', {
-              type: 'button', className: 'btn btn-sm btn-danger',
-              onClick: async () => {
-                try {
-                  const res = await sb.from('recipes').delete().eq('id', r.id).eq('shop_id', shopId).select('id');
-                  checkMutated(res);
-                  await Promise.all([loadRecipesForMenu(ST.recipeMenuId), loadAllRecipeFlags()]);
-                  renderRecipeTab();
-                } catch (err) { showErr(err); }
-              },
-              text: 'Xóa'
-            })
-          );
-        }) : el('div', { className: 'empty-state', text: 'Món này chưa có định mức vật tư.' }),
-        ST.invItems.length ? addRow : el('div', { className: 'alert alert-warn', style: 'margin-top:10px', text: 'Hãy thêm vật tư ở tab Kho hoặc nhập phiếu Mua trước.' }),
-        el('div', { className: 'grid-2', style: 'margin-top:14px;padding-top:12px;border-top:1px solid var(--border)' },
-          el('div', { className: 'kpi-box' }, el('small', { text: 'Giá vốn dự kiến / 1 ' + (selMenu.unit || 'đv') }), el('b', { className: 'num', text: app.formatMoney(estCost) })),
-          el('div', { className: 'kpi-box' }, el('small', { text: 'Lãi gộp dự kiến (giá bán ' + app.formatMoney(selMenu.price) + ')' }), el('b', { className: 'num', style: 'color:var(--accent)', text: app.formatMoney(selMenu.price - estCost) }))
-        )
-      ) : null,
+      heroCard,
+      listCard,
+      (selMenu && ST.invItems.length) ? addCard : (selMenu ? el('div', { className: 'alert alert-warn', text: 'Hãy thêm vật tư ở tab Kho hoặc nhập phiếu Mua trước.' }) : null),
       renderRecipeSummary(invMap)
     );
   }

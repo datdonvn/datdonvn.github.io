@@ -2323,9 +2323,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('input', { id: 'pm-name', className: 'input', maxlength: 100, value: f.base, placeholder: 'vd Sâm mía lau chai (không ghi size)', onInput: e => { f.base = e.target.value; } })
       ),
       el('div', { className: 'field' },
-        el('label', { for: 'pm-disp', text: 'Tên khách thấy (nhập tay, không ghi size)' }),
+        el('label', { for: 'pm-disp', text: 'Tên hiển thị (nhập tay, không ghi size)' }),
         el('input', { id: 'pm-disp', className: 'input', maxlength: 100, value: f.disp, placeholder: 'vd Sâm mía lau', onInput: e => { f.disp = e.target.value; } }),
-        el('small', { style: 'color:var(--text-sub)', text: 'Tên này hiện ở trang đặt đơn và trong đơn. Bỏ trống thì khách thấy tên nội bộ. Đổi tên nội bộ thì tên khách thấy không tự đổi.' })
+        el('small', { style: 'color:var(--text-sub)', text: 'Tên này hiện ở trang đặt đơn và trong đơn. Bỏ trống thì khách thấy tên nội bộ. Đổi tên nội bộ thì tên hiển thị không tự đổi.' })
       ),
       el('div', { className: 'grid-2' },
         el('div', { className: 'field' },
@@ -3701,7 +3701,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     });
     openModal('Sửa tên nội bộ', el('div', null,
       el('div', { className: 'field' }, el('label', { text: 'Tên nội bộ' }), inp),
-      el('small', { style: 'color:var(--text-sub)', text: 'Chỉ đổi tên dùng trong quản lý. Tên khách thấy không đổi, muốn đổi thì sửa ở tab Menu.' })
+      el('small', { style: 'color:var(--text-sub)', text: 'Chỉ đổi tên dùng trong quản lý. Tên hiển thị không đổi, muốn đổi thì sửa ở tab Menu.' })
     ), [el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Hủy' }), okBtn], opener);
     setTimeout(() => { try { inp.focus(); inp.select(); } catch (e) { /* bỏ qua */ } }, 50);
   }

@@ -1269,7 +1269,6 @@ function renderMenuView() {
   }
 
   // Gộp các size của cùng một món (vd "Sâm mía lau 330ml" + "Sâm mía lau 500ml") thành một thẻ
-  const sizeRe = /^(.*?)\s+(\d+(?:[.,]\d+)?\s?(?:ml|l|g|kg))$/i;
   ST.sizePick = ST.sizePick || {};
   const leaf = () => {
     const ns = 'http://www.w3.org/2000/svg';
@@ -1293,17 +1292,17 @@ function renderMenuView() {
     const cards = [];
     const byBase = new Map();
     for (const it of groups.get(cat)) {
-      const m = sizeRe.exec((it.name || '').trim());
-      if (!m) { cards.push({ base: it.name, variants: [it], size: [null] }); continue; }
-      const key = m[1].trim().toLowerCase();
-      let g = byBase.get(key);
-      if (!g) { g = { base: m[1].trim(), variants: [], size: [] }; byBase.set(key, g); cards.push(g); }
-      g.variants.push(it); g.size.push(m[2].replace(/\s+/g, ''));
+      const base = (it.base_name || it.name || '').trim();
+      const lab = (it.option_label || '').trim();
+      if (!it.group_id) { cards.push({ base: lab ? it.name : base, variants: [it], size: [null], gk: it.id }); continue; }
+      let g = byBase.get(it.group_id);
+      if (!g) { g = { base, variants: [], size: [], gk: it.group_id }; byBase.set(it.group_id, g); cards.push(g); }
+      g.variants.push(it); g.size.push(lab || base);
     }
 
     for (const g of cards) {
       const multi = g.variants.length > 1;
-      const gkey = cat + '|' + g.base;
+      const gkey = cat + '|' + g.gk;
       let cur = g.variants.find(v => v.id === ST.sizePick[gkey]);
       if (!cur) cur = g.variants.find(v => !v.sold_out) || g.variants[0];
       const qty = ST.cart[cur.id] || 0;
@@ -1316,7 +1315,7 @@ function renderMenuView() {
         onError: e => { e.target.classList.add('hidden'); }
       }) : null;
 
-      const sizeBar = multi ? el('div', { className: 'size-bar', role: 'group', 'aria-label': 'Chọn dung tích ' + g.base },
+      const sizeBar = multi ? el('div', { className: 'size-bar', role: 'group', 'aria-label': 'Chọn ' + g.base },
         g.variants.map((v, i) => {
           const inCart = ST.cart[v.id] || 0;
           return el('button', {

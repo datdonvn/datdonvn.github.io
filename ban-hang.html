@@ -895,7 +895,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         await loadOnlineOrders(false);
         markLoaded('online');
       } else if (id === 'menu') {
-        await loadMenu();
+        await Promise.all([loadMenu(), app.hasPlan('pro') ? loadAllRecipeFlags() : Promise.resolve()]);
         markLoaded('menu');
       } else if (id === 'settings') {
         await Promise.all([loadShopFull(), loadPayMethods()]);
@@ -2226,11 +2226,13 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           const parts = bk.vars.map(v => (multi && v.size ? v.size + ' ' : '') + app.formatMoney(v.m.price) + (v.m.active ? '' : ' (không bán)'));
           const sub = multi ? parts.join(' · ') : app.formatMoney(bk.vars[0].m.price) + ' / ' + (bk.vars[0].m.unit || 'phần') + (bk.vars[0].m.active ? '' : ' · Không bán');
           const allOff = bk.vars.every(v => !v.m.active);
+          const noRec = bk.vars.filter(v => missingRecipe(v.m));
           return el('div', { className: 'line-row menu-prod' + (allOff ? ' off' : '') },
             img,
             el('div', { className: 'line-main' },
               el('b', { text: bk.base }),
-              el('small', { className: 'num', text: sub })
+              el('small', { className: 'num', text: sub }),
+              noRec.length ? el('small', { style: 'display:block;color:var(--error,#b3261e);font-weight:600', text: '⚠ Chưa có định mức' + (bk.vars.length > 1 ? ': ' + noRec.map(v => v.size || 'món').join(', ') : '') + ' — bán sẽ không trừ kho' }) : null
             ),
             el('button', { type: 'button', className: 'btn btn-sm menu-set', onClick: e => openProductModal(bk, e.currentTarget), text: 'Cài đặt' })
           );
@@ -2239,32 +2241,31 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     }) : [el('div', { className: 'card empty-state' }, el('b', { text: 'Chưa có món nào' }), el('span', { text: 'Bấm "+ Thêm món" hoặc "Nhập CSV" để tạo thực đơn.' }))];
 
     contentHost.replaceChildren(
-      renderMetaBar('menu', async () => { await loadMenu(); renderMenuTab(); }),
+      renderMetaBar('menu', async () => { await Promise.all([loadMenu(), app.hasPlan('pro') ? loadAllRecipeFlags() : Promise.resolve()]); renderMenuTab(); }),
       toolbar,
       ...listNodes
     );
   }
 
   /* ===== MÓN = một sản phẩm gồm nhiều lựa chọn (size). Mỗi lựa chọn vẫn là một dòng menu_items riêng ===== */
-  const SIZE_RE = /^(.*?)\s+(\d+(?:[.,]\d+)?\s?(?:ml|l|g|kg))$/i;
+  const itemBase = m => (m.display_name || '').trim() || (m.name || '').trim();
   function menuBlocks(list) {
     const out = [], by = new Map();
     for (const m of list) {
-      const mt = SIZE_RE.exec((m.name || '').trim());
-      if (!mt) { out.push({ base: (m.name || '').trim(), vars: [{ m, size: '' }] }); continue; }
-      const key = mt[1].trim().toLowerCase();
-      let g = by.get(key);
-      if (!g) { g = { base: mt[1].trim(), vars: [] }; by.set(key, g); out.push(g); }
-      g.vars.push({ m, size: mt[2].replace(/\s+/g, '') });
+      const lab = (m.option_label || '').trim();
+      if (!m.group_id) { out.push({ base: itemBase(m), gid: null, vars: [{ m, size: lab }] }); continue; }
+      let g = by.get(m.group_id);
+      if (!g) { g = { base: itemBase(m), gid: m.group_id, vars: [] }; by.set(m.group_id, g); out.push(g); }
+      g.vars.push({ m, size: lab });
     }
     return out;
   }
+  const missingRecipe = m => app.hasPlan('pro') && ST.allRecipeMenuIds && !ST.allRecipeMenuIds.has(m.id);
 
   function openProductModal(block, opener) {
     const first = block ? block.vars[0].m : null;
     const f = {
-      base: block ? block.base : '',
-      disp: block ? (() => { const dn = (block.vars.find(v => (v.m.display_name || '').trim()) || { m: {} }).m.display_name || ''; const mt = SIZE_RE.exec(dn.trim()); return mt ? mt[1].trim() : dn.trim(); })() : '',
+      disp: block ? block.base : '',
       unit: first ? (first.unit || 'phần') : 'phần',
       category: first ? (first.category || '') : '',
       description: block ? ((block.vars.find(v => v.m.description) || { m: first }).m.description || '') : '',
@@ -2289,8 +2290,15 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       catch (err) { app.showToast(err.message || 'Không dùng được ảnh này', 'error'); }
     });
 
+    const prevHost = el('small', { style: 'display:block;margin-top:6px;color:var(--text-sub)' });
+    function drawPrev() {
+      const d = (f.disp || '').trim();
+      const live = opts.filter(o => !o.removed);
+      prevHost.textContent = d ? 'Khách thấy: ' + live.map(o => d + ((o.size || '').trim() ? ' – ' + o.size.trim() : '')).join('  |  ') : '';
+    }
     const optsHost = el('div');
     const drawOpts = () => {
+      drawPrev();
       const live = opts.filter(o => !o.removed);
       optsHost.replaceChildren(...opts.map((o, i) => o.removed
         ? el('div', { className: 'opt-card removed' },
@@ -2299,8 +2307,8 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         : el('div', { className: 'opt-card' },
             el('div', { className: 'opt-row' },
               el('div', { className: 'field', style: 'margin:0;flex:0 0 38%' },
-                el('label', { text: 'Size / loại' }),
-                el('input', { className: 'input', maxlength: 20, value: o.size, placeholder: live.length > 1 ? 'vd 330ml' : 'bỏ trống nếu chỉ 1 loại', onInput: e => { o.size = e.target.value; } })),
+                el('label', { text: 'Size / loại / mẫu' }),
+                el('input', { className: 'input', maxlength: 30, value: o.size, placeholder: live.length > 1 ? 'vd 330ml, Lớn, 2 thanh' : 'bỏ trống nếu chỉ 1 loại', onInput: e => { o.size = e.target.value; drawPrev(); } })),
               el('div', { className: 'field', style: 'margin:0;flex:1' },
                 el('label', { text: 'Giá bán (đ)' }),
                 el('input', { className: 'input num', type: 'number', min: 0, value: o.price, onInput: e => { o.price = e.target.value; } }))
@@ -2319,13 +2327,9 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
 
     const body = el('div', null,
       el('div', { className: 'field' },
-        el('label', { for: 'pm-name', text: 'Tên nội bộ (dùng ở định mức, kho, báo cáo)' }),
-        el('input', { id: 'pm-name', className: 'input', maxlength: 100, value: f.base, placeholder: 'vd Sâm mía lau chai (không ghi size)', onInput: e => { f.base = e.target.value; } })
-      ),
-      el('div', { className: 'field' },
-        el('label', { for: 'pm-disp', text: 'Tên hiển thị (nhập tay, không ghi size)' }),
-        el('input', { id: 'pm-disp', className: 'input', maxlength: 100, value: f.disp, placeholder: 'vd Sâm mía lau', onInput: e => { f.disp = e.target.value; } }),
-        el('small', { style: 'color:var(--text-sub)', text: 'Tên này hiện ở trang đặt đơn và trong đơn. Bỏ trống thì khách thấy tên nội bộ. Đổi tên nội bộ thì tên hiển thị không tự đổi.' })
+        el('label', { for: 'pm-disp', text: 'Tên hiển thị' }),
+        el('input', { id: 'pm-disp', className: 'input', maxlength: 100, value: f.disp, placeholder: 'vd Sâm mía lau', onInput: e => { f.disp = e.target.value; drawPrev(); } }),
+        el('small', { style: 'color:var(--text-sub)', text: 'Khách thấy đúng như Đại ca gõ. Tên nội bộ (kho, định mức, báo cáo) sửa ở tab Định mức.' })
       ),
       el('div', { className: 'grid-2' },
         el('div', { className: 'field' },
@@ -2340,15 +2344,16 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         )
       ),
       el('div', { className: 'field' },
-        el('label', { text: 'Các lựa chọn (size) và giá' }),
+        el('label', { text: 'Các lựa chọn (size / loại / mẫu) và giá' }),
         optsHost,
+        prevHost,
         el('button', { type: 'button', className: 'btn btn-sm', style: 'margin-top:2px', onClick: () => {
           opts.push({ id: null, size: '', price: '', active: false, wasActive: false, sort: 0, removed: false }); drawOpts();
         }, text: '+ Thêm lựa chọn' }),
         pro ? el('small', { style: 'display:block;margin-top:6px;color:var(--text-sub)', text: 'Lựa chọn mới để "Không bán". Nhập định mức xong mới bật "Đang bán" được.' }) : null
       ),
       el('div', { className: 'field' },
-        el('label', { for: 'pm-desc', text: 'Mô tả (dùng chung cho các size)' }),
+        el('label', { for: 'pm-desc', text: 'Mô tả (dùng chung cho các lựa chọn)' }),
         el('textarea', { id: 'pm-desc', className: 'textarea', value: f.description, onInput: e => { f.description = e.target.value; } })
       ),
       el('div', { className: 'field' },
@@ -2358,7 +2363,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
           el('button', { type: 'button', className: 'btn btn-sm', onClick: () => imgFile.click(), text: 'Chọn ảnh từ máy' }),
           el('button', { type: 'button', className: 'btn btn-sm', onClick: () => { f.image_url = ''; f.blob = null; imgPrev.classList.add('hidden'); }, text: 'Bỏ ảnh' })
         ),
-        el('small', { style: 'color:var(--text-sub)', text: 'Ảnh tự cắt vuông, dùng chung cho các size.' }),
+        el('small', { style: 'color:var(--text-sub)', text: 'Ảnh tự cắt vuông, dùng chung cho các lựa chọn.' }),
         imgFile
       ),
       el('div', { className: 'field' },
@@ -2381,21 +2386,22 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const saveBtn = el('button', {
       type: 'button', className: 'btn btn-primary',
       onClick: async () => {
-        const base = f.base.trim();
+        const base = f.disp.trim();
         const live = opts.filter(o => !o.removed);
-        if (!base || base.length > 100) { app.showToast('Tên món từ 1–100 ký tự', 'error'); return; }
+        if (!base || base.length > 100) { app.showToast('Tên hiển thị từ 1–100 ký tự', 'error'); return; }
         if (!live.length) { app.showToast('Cần ít nhất một lựa chọn', 'error'); return; }
         const seen = new Set();
         for (const o of live) {
           const price = Math.round(Number(o.price));
           if (o.price === '' || Number.isNaN(price) || price < 0) { app.showToast('Giá bán phải là số ≥ 0', 'error'); return; }
           const sz = o.size.trim();
-          if (live.length > 1 && !sz) { app.showToast('Mỗi lựa chọn cần ghi size, vd 330ml', 'error'); return; }
-          if (seen.has(sz.toLowerCase())) { app.showToast('Có hai lựa chọn trùng size ' + sz, 'error'); return; }
+          if (live.length > 1 && !sz) { app.showToast('Mỗi lựa chọn cần ghi size / loại / mẫu, vd 330ml', 'error'); return; }
+          if (seen.has(sz.toLowerCase())) { app.showToast('Có hai lựa chọn trùng nhau: ' + sz, 'error'); return; }
           seen.add(sz.toLowerCase());
         }
         saveBtn.disabled = true; saveBtn.textContent = 'Đang lưu…';
         let err0 = null;
+        let savedIdsRef = [];
         try {
           if (f.blob) {
             const path = shopId + '/mon-' + Date.now() + '.jpg';
@@ -2414,27 +2420,43 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
             checkMutated(res);
           }
           let idx = 0;
+          const gid = live.length > 1 ? ((block && block.gid) || crypto.randomUUID()) : null;
+          const savedIds = savedIdsRef;
           for (const o of live) {
             const sz = o.size.trim();
-            const disp = f.disp.trim();
-            const rec = Object.assign({ name: sz ? base + ' ' + sz : base, display_name: disp ? (sz ? disp + ' ' + sz : disp) : null, price: Math.round(Number(o.price)) }, common);
+            const rec = Object.assign({ display_name: base, option_label: sz || null, group_id: gid, price: Math.round(Number(o.price)) }, common);
             if (sortChanged || !o.id) rec.sort = sortBase + idx;
             if (o.id) {
               if (o.active !== o.wasActive) rec.active = o.active;
               const res = await sb.from('menu_items').update(rec).eq('id', o.id).eq('shop_id', shopId).select('id');
               checkMutated(res);
+              savedIds.push(o.id);
             } else {
+              rec.name = sz ? base + ' ' + sz : base;
               rec.active = pro ? false : o.active;
-              const { error } = await sb.from('menu_items').insert(Object.assign({ shop_id: shopId }, rec));
-              if (error) throw error;
+              const ins = await sb.from('menu_items').insert(Object.assign({ shop_id: shopId }, rec)).select('id');
+              if (ins.error) throw ins.error;
+              if (ins.data && ins.data[0]) savedIds.push(ins.data[0].id);
             }
             idx++;
           }
         } catch (err) { err0 = err; }
         closeModal();
         await loadMenu();
+        if (pro) { try { await loadAllRecipeFlags(); } catch (e) {} }
         renderMenuTab();
         if (err0) { showErr(err0); return; }
+        const noRec = pro ? ST.menuItems.filter(m => savedIdsRef.includes(m.id) && missingRecipe(m)) : [];
+        if (noRec.length) {
+          openModal('⚠ Cần thêm định mức', el('div', null,
+            el('p', { style: 'margin:0 0 8px', text: 'Các lựa chọn sau chưa có định mức. Bán ra kho sẽ không bị trừ:' }),
+            el('ul', { style: 'margin:0;padding-left:18px' }, noRec.map(m => el('li', { text: m.name })))
+          ), [
+            el('button', { type: 'button', className: 'btn', onClick: closeModal, text: 'Để sau' }),
+            el('button', { type: 'button', className: 'btn btn-primary', onClick: () => { ST.recipeMenuId = noRec[0].id; closeModal(); switchTab('recipe'); }, text: 'Đến Định mức' })
+          ], null);
+          return;
+        }
         app.showToast(block ? 'Đã lưu món' : (pro ? 'Đã thêm món. Nhập định mức rồi mở "Đang bán" trong Cài đặt món.' : 'Đã thêm món mới'), 'accent');
       },
       text: 'Lưu món'

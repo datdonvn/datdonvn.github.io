@@ -2318,7 +2318,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
                 el('input', { type: 'checkbox', checked: o.active, onChange: e => { o.active = e.target.checked; } }),
                 'Đang bán'),
               o.id && pro ? el('button', { type: 'button', className: 'btn btn-sm', onClick: () => { ST.recipeMenuId = o.id; closeModal(); switchTab('recipe'); }, text: 'Định mức' }) : null,
-              live.length > 1 ? el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: () => { if (o.id) { o.removed = true; } else { opts.splice(i, 1); } drawOpts(); }, text: 'Xóa' }) : null
+              live.length > 1 && !o.id ? el('button', { type: 'button', className: 'btn btn-sm btn-danger', onClick: () => { opts.splice(i, 1); drawOpts(); }, text: 'Bỏ dòng này' }) : null
             )
           )
       ));
@@ -2369,18 +2369,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
       el('div', { className: 'field' },
         el('label', { for: 'pm-sort', text: 'Thứ tự hiển thị' }),
         el('input', { id: 'pm-sort', className: 'input num', type: 'number', value: f.sort, onInput: e => { f.sort = e.target.value; } })
-      ),
-      block ? el('button', { type: 'button', className: 'btn btn-danger btn-block', style: 'margin-top:6px', onClick: () => {
-        closeModal();
-        confirmModal('Xóa món "' + block.base + '"?', block.vars.length > 1 ? 'Xóa món và cả ' + block.vars.length + ' lựa chọn (size) khỏi thực đơn.' : 'Món sẽ bị xóa khỏi thực đơn.', 'Xóa món', async () => {
-          const ids = block.vars.map(v => v.m.id);
-          const res = await sb.from('menu_items').delete().in('id', ids).eq('shop_id', shopId).select('id');
-          checkMutated(res);
-          app.showToast('Đã xóa món ' + block.base, 'accent');
-          await loadMenu();
-          renderMenuTab();
-        });
-      }, text: 'Xóa cả món' }) : null
+      )
     );
 
     const saveBtn = el('button', {

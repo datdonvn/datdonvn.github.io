@@ -905,6 +905,7 @@ const ST = {
   savedOrders: storageGet('dd_orders_' + SLUG, []), // [{ code, phone, at }]
   tracked: {}, // { code: track_order_result }
   gone: {}, // { code: true } đơn không còn trên hệ thống
+  failed: {}, // { code: true } chưa tải được (mất mạng)
   lookupOrder: null,
   // Trạng thái hộp xác nhận đơn
   co: {
@@ -1332,7 +1333,7 @@ function renderMenuView() {
         : el('div', { className: 'stepper' + (qty === 0 ? ' zero' : ''), role: 'group', 'aria-label': 'Số lượng ' + cur.name },
             el('button', { type: 'button', disabled: qty === 0, 'aria-label': 'Giảm ' + cur.name, onClick: () => setCartQty(cur.id, qty - 1), text: '−' }),
             el('output', { className: 'num', text: String(qty) }),
-            el('button', { type: 'button', className: 'plus', disabled: qty >= 99 || !shop.accepting, 'aria-label': 'Tăng ' + cur.name, onClick: () => setCartQty(cur.id, qty + 1), text: '+' })
+            el('button', { type: 'button', className: 'plus', disabled: qty >= 99 || !shop.accepting, 'aria-label': 'Tăng ' + cur.name, onClick: () => { const lf = Number(cur.left); if (Number.isFinite(lf) && cur.left !== null && qty + 1 > lf) { showToast(lf > 0 ? 'Chỉ còn ' + lf + ' ' + (cur.unit || 'phần') + ' ' + cur.name : 'Món này đã hết hàng', 'error'); return; } setCartQty(cur.id, qty + 1); }, text: '+' })
           );
 
       const nm0 = (g.base || '').toLowerCase();
@@ -1367,6 +1368,7 @@ function setCartQty(itemId, qty) {
   if (n === 0) delete ST.cart[itemId];
   else ST.cart[itemId] = n;
   ST.co.quote = null;
+  ST.co.orderKey = null;
   renderApp();
   if (!ST.adding && cartCount() > 0 && isValidPhone(ST.profile.phone)) {
     scheduleQuote();
@@ -1866,7 +1868,8 @@ async function submitOrder() {
     p_voucher: ST.co.voucherId || null,
     p_place: selPlace ? selPlace.name : null,
     p_deliver_at: ST.co.asap ? null : ST.co.deliverAt,
-    p_counter: !!ST.co.counter
+    p_counter: !!ST.co.counter,
+    p_key: (ST.co.orderKey = ST.co.orderKey || ('dh-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12)))
   };
 
   ST.co.submitting = true;
@@ -1875,6 +1878,7 @@ async function submitOrder() {
 
   try {
     const res = await rpc('create_order', payload);
+    ST.co.orderKey = null;
     ST.co.submitting = false;
     ST.co.open = false;
     ST.cart = {};
@@ -1928,7 +1932,7 @@ function makePayBlock(code, phone, total, startId, canChange, onChanged, already
             busy = true; draw();
             try {
               await rpc('change_order_pay', { p_slug: SLUG, p_code: code, p_phone: phone, p_pay_method: m.id });
-              curId = m.id; picking = false; busy = false;
+              curId = m.id; picking = false; busy = false; reported = false;
               window.__lastPayId = m.id; window.__lastPayCash = isCashId(m.id);
               showToast('Đã đổi sang ' + m.name);
               draw();
@@ -2083,9 +2087,10 @@ async function refreshSavedOrders() {
   await Promise.all(ST.savedOrders.map(async o => {
     try {
       const data = await rpc('track_order', { p_slug: SLUG, p_code: o.code, p_phone: o.phone });
+      delete ST.failed[o.code];
       if (data) { ST.tracked[o.code] = Object.assign({ phone: o.phone }, data); delete ST.gone[o.code]; }
       else { delete ST.tracked[o.code]; ST.gone[o.code] = true; }
-    } catch (e) {}
+    } catch (e) { ST.failed[o.code] = true; }
   }));
   if (ST.tab === 'orders') renderApp();
 }
@@ -2094,7 +2099,7 @@ function renderOrderCard(info, phone) {
   const badgeCls = 'badge ' + ({ cancelled: 'badge-bad', new: 'badge-wait', preparing: 'badge-prep', delivering: 'badge-ship', done: 'badge-done' }[info.status] || '');
   const cancelMin = Number(ST.shop.cancel_minutes) || 0;
   const createdMs = info.created_at ? new Date(info.created_at).getTime() : 0;
-  const canCancel = info.status === 'new' && cancelMin > 0 && (Date.now() - createdMs) < cancelMin * 60000;
+  const canCancel = typeof info.can_cancel === 'boolean' ? info.can_cancel : (info.status === 'new' && cancelMin > 0 && (Date.now() - createdMs) < cancelMin * 60000);
 
   return el('div', { className: 'card' },
     el('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap' },
@@ -2107,6 +2112,9 @@ function renderOrderCard(info, phone) {
         el('span', { text: it.qty + ' × ' + it.name }),
         el('span', { className: 'num', text: formatMoney(it.price * it.qty) })
       ))
+    ) : null,
+    info.delivery_fee > 0 ? el('div', { className: 'row-kv' },
+      el('span', { text: 'Phí giao' }), el('span', { className: 'num', text: formatMoney(info.delivery_fee) })
     ) : null,
     info.discount > 0 ? el('div', { className: 'row-kv disc' },
       el('span', { text: 'Giảm giá' }), el('span', { className: 'num', text: '−' + formatMoney(info.discount) })
@@ -2173,7 +2181,9 @@ function renderOrdersView() {
             delete ST.gone[o.code];
             storageSet('dd_orders_' + SLUG, ST.savedOrders);
             renderApp();
-          }, text: 'Xóa khỏi máy' }) : el('span', { style: 'font-size:13.5px;color:var(--text-sub)', text: 'Đang kiểm tra…' })
+          }, text: 'Xóa khỏi máy' }) : (ST.failed[o.code]
+            ? el('button', { type: 'button', className: 'btn btn-ghost', style: 'padding:6px 12px;font-size:13px', onClick: () => refreshSavedOrders(), text: 'Chưa tải được, thử lại' })
+            : el('span', { style: 'font-size:13.5px;color:var(--text-sub)', text: 'Đang kiểm tra…' }))
         ),
         gone ? el('div', { style: 'font-size:13px;color:var(--text-sub);margin-top:4px', text: 'Quán không còn đơn này trên hệ thống.' }) : null
       ));

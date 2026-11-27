@@ -5476,7 +5476,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
     const qtyTxt = (v, it) => it.unit === 'ml' ? kkNum(Number(v) / 1000) + ' lít' : kkNum(v) + ' ' + it.unit;
     const lotRow = (l, it) => {
       const expAt = l.expiry_at ? new Date(l.expiry_at) : null, ms = expAt ? expAt - new Date() : null;
-      const over = ms != null && ms < 0, soon = ms != null && ms >= 0 && ms <= 3 * 86400000;
+      const over = ms != null && ms < 0;
       const expTxt = expAt ? (l.source === 'batch' ? app.formatVnDateTime(l.expiry_at) : dmy(l.expiry)) : 'chưa khai';
       const used = l.qty_in - l.qty_left - l.qty_expired;
       const lab = l.source === 'batch' ? 'mẻ ' + l.code : (l.source === 'buy' ? 'mã mua ' + l.code : 'Tồn đầu');
@@ -5484,7 +5484,7 @@ input[type=time].input::-webkit-date-and-time-value, input[type=date].input::-we
         el('div', { className: 'line-main', style: 'flex:1 1 100%' },
           el('b', { text: lab + ' · còn ' + qtyTxt(l.qty_left, it) }),
           el('small', { className: 'num', text: 'HSD: ' + expTxt + ' · Nhập ' + dm(app.toVnYmd(new Date(l.received_at))) + ' (' + qtyTxt(l.qty_in, it) + ', đã dùng ' + qtyTxt(used, it) + ')' })),
-        over ? el('span', { className: 'badge badge-err', text: 'Hết hạn' }) : (soon ? el('span', { className: 'badge badge-warn', text: 'Sắp hết hạn' }) : null),
+        over ? el('span', { className: 'badge badge-err', text: 'Hết hạn' }) : null,
         el('button', { type: 'button', className: 'btn btn-sm' + (over ? ' btn-danger' : ''), text: 'Hết HSD', onClick: e => confirmModal('Báo hết HSD ' + lab + '?', 'Còn ' + qtyTxt(l.qty_left, it) + ' ' + it.name + ' sẽ bỏ khỏi kho và ghi là hao hụt.', 'Hết HSD', async () => {
           const { error } = await sb.rpc('expire_lot', { p_lot: l.id });
           if (error) throw error;
